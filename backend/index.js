@@ -335,6 +335,7 @@ const SETUP_SQL = {
       feature_volumes JSON, pecas_link STRING, redirect_urls ARRAY<STRING>,
       pi_link STRING, proposta_link STRING,
       cs_name STRING, cs_email STRING, submitted_by STRING, submitted_by_email STRING,
+      short_token STRING,
       created_at TIMESTAMP
     )`
 }
@@ -541,6 +542,7 @@ app.post('/checklists', async (req, res) => {
       cs_name: f.cs_name || null, cs_email: f.cs_email || null,
       submitted_by: f.submittedBy || null,
       submitted_by_email: f.submittedByEmail || null,
+      short_token: f.short_token || null,
       created_at: now,
     }])
 

@@ -59,6 +59,13 @@ const ClientsCtx = createContext([]);
 const useClients = () => useContext(ClientsCtx);
 
 
+function generateShortToken() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let result = '';
+  for (let i = 0; i < 6; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+  return result;
+}
+
 function addBusinessDays(date, days) {
   let r = new Date(date), a = 0;
   while (a < days) { r.setDate(r.getDate() + 1); if (r.getDay() !== 0 && r.getDay() !== 6) a++; }
@@ -317,45 +324,42 @@ function PacingBar({value, label}) {
 // ══════════════════════════════════════════════════════════════════════════════
 // DASHBOARD (HOME)
 // ══════════════════════════════════════════════════════════════════════════════
-function Dashboard({campaigns, tasks, onNav}) {
+function Dashboard({checklists, tasks, onNav}) {
   const user = useAuth();
   const now = new Date();
-  const active = campaigns.filter(c => now >= new Date(c.start) && now <= new Date(c.end));
-  const totalInvestment = campaigns.reduce((s,c) => s + (c.investment||0), 0);
+
+  // Active campaigns = checklists where today is between start_date and end_date
+  const active = useMemo(() => {
+    return checklists.filter(c => {
+      const s = c.start_date?.value || c.start_date;
+      const e = c.end_date?.value || c.end_date;
+      if (!s || !e) return false;
+      return now >= new Date(s) && now <= new Date(e);
+    });
+  }, [checklists]);
+
+  const totalInvestment = checklists.reduce((s,c) => s + (parseFloat(c.investment)||0), 0);
   const openTasks = tasks.filter(t => getTaskStatus(t) !== "Concluída");
   const overdueTasks = tasks.filter(t => getTaskStatus(t) === "Atrasada");
-  const avgPacing = active.filter(c=>c.pacing_display!=null).reduce((s,c,_,a)=>s+c.pacing_display/a.length,0);
 
-  // Monthly investment chart data
+  // Monthly investment chart data from checklists
   const monthlyData = useMemo(() => {
     const m = {};
-    campaigns.forEach(c => {
-      const mo = MONTHS_PT[new Date(c.start).getMonth()].substring(0,3);
-      m[mo] = (m[mo]||0) + (c.investment||0);
+    checklists.forEach(c => {
+      const sd = c.start_date?.value || c.start_date;
+      if (!sd) return;
+      const mo = MONTHS_PT[new Date(sd).getMonth()].substring(0,3);
+      m[mo] = (m[mo]||0) + (parseFloat(c.investment)||0);
     });
     return Object.entries(m).map(([name,value]) => ({name,value}));
-  }, [campaigns]);
+  }, [checklists]);
 
-  // Pacing distribution
-  const pacingDist = useMemo(() => {
-    let good=0, warn=0, danger=0;
-    campaigns.forEach(c => {
-      if (c.pacing_display==null) return;
-      if (c.pacing_display>=90&&c.pacing_display<=110) good++;
-      else if (c.pacing_display>=75) warn++;
-      else danger++;
-    });
-    return [{name:"Saudável",value:good,color:"var(--green)"},{name:"Atenção",value:warn,color:"var(--yellow-s)"},{name:"Crítico",value:danger,color:"var(--red)"}].filter(d=>d.value>0);
-  }, [campaigns]);
-
-  // Task by CS
+  // Task by CS (all tasks, yearly sum)
   const taskByCS = useMemo(() => {
     const m = {};
-    tasks.forEach(t => { m[t.cs] = (m[t.cs]||0) + 1; });
-    return Object.entries(m).map(([name,tasks]) => ({name:name.split(" ")[0],tasks}));
+    tasks.forEach(t => { if(t.cs) m[t.cs] = (m[t.cs]||0) + 1; });
+    return Object.entries(m).map(([name,count]) => ({name:name.split(" ")[0],tasks:count})).sort((a,b)=>b.tasks-a.tasks);
   }, [tasks]);
-
-  const COLORS_PIE = ["#22C55E","#F59E0B","#EF4444"];
 
   return (
     <div className="page-enter">
@@ -366,12 +370,11 @@ function Dashboard({campaigns, tasks, onNav}) {
       </div>
 
       {/* Stat cards */}
-      <div className="g4" style={{marginBottom:24}}>
+      <div className="g3" style={{marginBottom:24}}>
         {[
-          {label:"Campanhas Ativas",value:active.length,icon:"zap",color:"var(--green)",sub:`de ${campaigns.length} total`},
+          {label:"Campanhas Ativas",value:active.length,icon:"zap",color:"var(--green)",sub:`de ${checklists.length} total`},
           {label:"Investimento Total",value:fmtCompact(totalInvestment),icon:"dollar",color:"var(--teal)",sub:fmtCurrency(totalInvestment)},
           {label:"Tasks Abertas",value:openTasks.length,icon:"inbox",color:"var(--yellow-s)",sub:overdueTasks.length>0?`${overdueTasks.length} atrasada${overdueTasks.length>1?"s":""}`:"Tudo no prazo"},
-          {label:"Pacing Médio",value:`${Math.round(avgPacing)}%`,icon:"target",color:avgPacing>=90?"var(--green)":"var(--yellow-s)",sub:avgPacing>=90?"Saudável":"Requer atenção"},
         ].map(s => (
           <div key={s.label} className="card" style={{padding:"18px 20px",position:"relative",overflow:"hidden"}}>
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
@@ -387,12 +390,12 @@ function Dashboard({campaigns, tasks, onNav}) {
       </div>
 
       {/* Charts row */}
-      <div className="g3" style={{marginBottom:24}}>
+      <div className="g2" style={{marginBottom:24}}>
         {/* Investment by month */}
         <div className="card" style={{padding:"18px 20px"}}>
           <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:16,fontFamily:"var(--fd)"}}>Investimento por Mês</div>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={monthlyData} barSize={20}>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={monthlyData} barSize={24}>
               <XAxis dataKey="name" tick={{fontSize:11,fill:"var(--t3)"}} axisLine={false} tickLine={false} />
               <Tooltip formatter={v => fmtCurrency(v)} contentStyle={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:8,fontSize:12}} />
               <Bar dataKey="value" fill="var(--teal)" radius={[4,4,0,0]} />
@@ -400,36 +403,14 @@ function Dashboard({campaigns, tasks, onNav}) {
           </ResponsiveContainer>
         </div>
 
-        {/* Pacing distribution */}
-        <div className="card" style={{padding:"18px 20px"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:16,fontFamily:"var(--fd)"}}>Distribuição de Pacing</div>
-          <div style={{display:"flex",alignItems:"center",gap:16}}>
-            <ResponsiveContainer width={120} height={120}>
-              <PieChart>
-                <Pie data={pacingDist} cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={3} dataKey="value">
-                  {pacingDist.map((d,i) => <Cell key={i} fill={COLORS_PIE[i]} />)}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {pacingDist.map(d => (
-                <div key={d.name} style={{display:"flex",alignItems:"center",gap:8}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:d.color}} />
-                  <span style={{fontSize:12,color:"var(--t2)"}}>{d.name}</span>
-                  <span style={{fontSize:12,fontWeight:700,color:"var(--t1)"}}>{d.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
         {/* Tasks by CS */}
         <div className="card" style={{padding:"18px 20px"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:16,fontFamily:"var(--fd)"}}>Tasks por CS</div>
-          <ResponsiveContainer width="100%" height={160}>
-            <BarChart data={taskByCS} layout="vertical" barSize={14}>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:16,fontFamily:"var(--fd)"}}>Tasks por CS (ano)</div>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={taskByCS} layout="vertical" barSize={16}>
               <XAxis type="number" tick={{fontSize:11,fill:"var(--t3)"}} axisLine={false} tickLine={false} />
               <YAxis type="category" dataKey="name" tick={{fontSize:11,fill:"var(--t2)"}} axisLine={false} tickLine={false} width={70} />
+              <Tooltip contentStyle={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:8,fontSize:12}} />
               <Bar dataKey="tasks" fill="var(--teal-l)" radius={[0,4,4,0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -438,13 +419,13 @@ function Dashboard({campaigns, tasks, onNav}) {
 
       {/* Quick access */}
       <div className="g2">
-        {/* Overdue tasks */}
+        {/* Tasks needing attention */}
         <div className="card" style={{padding:"18px 20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
             <span style={{fontSize:13,fontWeight:700,color:"var(--t1)",fontFamily:"var(--fd)"}}>Tasks que Precisam de Atenção</span>
             <button className="btn bs" style={{fontSize:11,padding:"4px 10px"}} onClick={() => onNav("tasks")}>Ver todas</button>
           </div>
-          {[...overdueTasks, ...openTasks.filter(t => getTaskStatus(t) !== "Atrasada")].slice(0,3).map(t => {
+          {[...overdueTasks, ...openTasks.filter(t => getTaskStatus(t) !== "Atrasada")].slice(0,4).map(t => {
             const st = getTaskStatus(t);
             return (
               <div key={t.id} style={{padding:"10px 0",borderBottom:"1px solid var(--bdr-card)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
@@ -459,26 +440,34 @@ function Dashboard({campaigns, tasks, onNav}) {
               </div>
             );
           })}
+          {openTasks.length===0&&<div style={{padding:16,textAlign:"center",color:"var(--t3)",fontSize:13}}>Nenhuma task pendente</div>}
         </div>
 
-        {/* Active campaigns */}
+        {/* Active campaigns from checklists */}
         <div className="card" style={{padding:"18px 20px"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
             <span style={{fontSize:13,fontWeight:700,color:"var(--t1)",fontFamily:"var(--fd)"}}>Campanhas Ativas</span>
-            <button className="btn bs" style={{fontSize:11,padding:"4px 10px"}} onClick={() => onNav("monitor")}>Ver todas</button>
+            <button className="btn bs" style={{fontSize:11,padding:"4px 10px"}} onClick={() => onNav("checklist-center")}>Ver todas</button>
           </div>
-          {active.slice(0,4).map(c => (
-            <div key={c.id} style={{padding:"10px 0",borderBottom:"1px solid var(--bdr-card)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div>
-                <div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.client}</div>
-                <div style={{fontSize:11,color:"var(--t3)"}}>{c.campaign}</div>
+          {active.length===0&&<div style={{padding:16,textAlign:"center",color:"var(--t3)",fontSize:13}}>Nenhuma campanha ativa no momento</div>}
+          {active.slice(0,5).map(c => {
+            const reportUrl = c.short_token ? `https://report.hypr.mobi/report/${c.short_token}?ak=hypr2026` : null;
+            return (
+              <div key={c.id} style={{padding:"10px 0",borderBottom:"1px solid var(--bdr-card)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div>
+                  <div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{c.client}</div>
+                  <div style={{fontSize:11,color:"var(--t3)"}}>{c.campaign_name}</div>
+                </div>
+                {reportUrl?(
+                  <a href={reportUrl} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:11,padding:"4px 10px",textDecoration:"none",gap:4}}>
+                    <I n="activity" s={12}/>Report
+                  </a>
+                ):(
+                  <span style={{fontSize:11,color:"var(--t3)"}}>—</span>
+                )}
               </div>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <span style={{fontSize:11,fontWeight:700,color:c.pacing_display>=90?"var(--green)":"var(--red)"}}>{c.pacing_display}%</span>
-                <div className="pbar" style={{width:50}}><div className={`pfill ${c.pacing_display>=90&&c.pacing_display<=110?"good":c.pacing_display>=75?"warn":"danger"}`} style={{width:`${Math.min(c.pacing_display,120)/120*100}%`}} /></div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -972,7 +961,8 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const hasBonus=f.has_bonus==="Sim",hasVideo=f.formats.includes("Video"),hasDisplay=f.formats.includes("Display");
   const handleReset=()=>{sF(INIT);sSub(false)};
   const handleSubmit=async()=>{
-    const payload={...f,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email};
+    const short_token = generateShortToken();
+    const payload={...f,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email,short_token};
     if(onChecklistSubmit)onChecklistSubmit(payload);
     sSub(true);
     toast("Checklist enviado com sucesso!");
@@ -1345,6 +1335,19 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
               ):(
                 /* ── VIEW MODE ── */
                 <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                  {/* Short Token - Report Hub */}
+                  {selected.short_token&&(
+                    <div style={{padding:"16px 20px",background:"linear-gradient(135deg, var(--teal-dim), rgba(51,151,185,0.05))",borderRadius:14,border:"2px solid var(--teal)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:16}}>
+                      <div>
+                        <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,letterSpacing:".06em",marginBottom:4}}>Short Token — Report Hub</div>
+                        <div style={{fontSize:28,fontWeight:800,fontFamily:"var(--fd)",color:"var(--teal)",letterSpacing:"0.15em"}}>{selected.short_token}</div>
+                      </div>
+                      <a href={`https://report.hypr.mobi/report/${selected.short_token}?ak=hypr2026`} target="_blank" rel="noreferrer" className="btn bp" style={{textDecoration:"none",fontSize:12,padding:"8px 16px"}}>
+                        <I n="activity" s={14}/>Abrir Report
+                      </a>
+                    </div>
+                  )}
+
                   {/* Section 1: Informações Gerais */}
                   <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>1. Informações Gerais</div>
                   <div className="g2" style={{gap:10}}>
@@ -1504,7 +1507,6 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
 // ══════════════════════════════════════════════════════════════════════════════
 const NAV=[
   {key:"home",icon:"home",label:"Dashboard"},
-  {key:"monitor",icon:"bar-chart",label:"Campaign Monitor"},
   {key:"tasks",icon:"check-square",label:"Task Center"},
   {key:"checklist",icon:"clipboard",label:"Checklist"},
   {key:"checklist-center",icon:"inbox",label:"Checklist Center"},
@@ -1740,8 +1742,7 @@ export default function App() {
           </header>
 
           <div className="pg">
-            {page==="home"&&<Dashboard campaigns={MOCK_CAMPAIGNS} tasks={tasks} onNav={navigate} />}
-            {page==="monitor"&&<CampaignMonitor campaigns={MOCK_CAMPAIGNS} />}
+            {page==="home"&&<Dashboard checklists={submittedChecklists} tasks={tasks} onNav={navigate} />}
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
             {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} />}
