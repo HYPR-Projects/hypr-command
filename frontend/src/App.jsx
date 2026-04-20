@@ -1388,12 +1388,22 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
   };
 
   // Detail row helper
-  const D=({l,v,wide})=>v?(
-    <div style={{padding:12,background:"var(--bg3)",borderRadius:"var(--r)",gridColumn:wide?"1/-1":"auto"}}>
-      <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{l}</div>
-      <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,whiteSpace:"pre-wrap"}}>{v}</div>
-    </div>
-  ):null;
+  const D=({l,v,wide})=>{
+    if(!v||v==="—") return null;
+    const isUrl=typeof v==="string"&&(v.startsWith("http://")||v.startsWith("https://"));
+    return(
+      <div style={{padding:12,background:"var(--bg3)",borderRadius:"var(--r)",gridColumn:wide?"1/-1":"auto"}}>
+        <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{l}</div>
+        {isUrl?(
+          <a href={v} target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--teal)",fontWeight:600,wordBreak:"break-all",display:"flex",alignItems:"center",gap:6}}>
+            <I n="external" s={12}/>{v}
+          </a>
+        ):(
+          <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,whiteSpace:"pre-wrap"}}>{v}</div>
+        )}
+      </div>
+    );
+  };
 
   // Tags helper
   const Tags=({items,color})=>(items||[]).length>0?(
