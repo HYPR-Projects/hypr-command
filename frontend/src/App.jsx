@@ -63,6 +63,7 @@ const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho"
 // ─── CLIENT DATABASE (fetched from Cloud Function → Google Sheets) ──────────
 // URL of the Cloud Function that reads the Sheet
 const CLIENTS_API_URL = "https://southamerica-east1-site-hypr.cloudfunctions.net/hypr-command-clients";
+const STUDIES_API_URL = "https://southamerica-east1-site-hypr.cloudfunctions.net/hypr-command-studies";
 const BACKEND_URL = "https://hypr-command-backend-453955675457.southamerica-east1.run.app";
 
 // Fallback empty — will be populated by API
@@ -71,6 +72,8 @@ let CLIENT_DB_FALLBACK = [];
 // Context for sharing client data across components
 const ClientsCtx = createContext([]);
 const useClients = () => useContext(ClientsCtx);
+const StudiesCtx = createContext([]);
+const useStudies = () => useContext(StudiesCtx);
 
 
 function generateShortToken() {
@@ -1018,7 +1021,8 @@ function DocLinkModal({task,onClose,onSave}) {
 function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
-  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:""};
+  const availableStudies = useStudies();
+  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:""};
   const [f,sF]=useState(()=>{
     if(!initialData) return INIT;
     const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
@@ -1155,6 +1159,46 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
       <Sec title="4. Audiências, Features e Praças">
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
           <CF l="Audiências vendidas"><textarea className="ft" rows={3} value={f.audiences} onChange={e=>set("audiences",e.target.value)}/></CF>
+
+          {/* Estudos disponíveis */}
+          <CF l="Estudos disponíveis">
+            {availableStudies.length===0?(
+              <div style={{fontSize:12,color:"var(--t3)",padding:"8px 0"}}>Carregando estudos...</div>
+            ):(
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {availableStudies.map(s=>{
+                    const isSel=(f.selected_studies||[]).some(x=>x.name===s.name);
+                    return(
+                      <span key={s.name} className={`chip${isSel?" sel":""}`} style={{fontSize:11,padding:"4px 12px"}}
+                        onClick={()=>sF(p=>{const arr=p.selected_studies||[];return{...p,selected_studies:isSel?arr.filter(x=>x.name!==s.name):[...arr,s]}})}>
+                        {s.name}
+                        {s.status==="Feito"&&<span style={{marginLeft:4,color:"var(--green)",fontSize:10}}>✓</span>}
+                      </span>
+                    );
+                  })}
+                </div>
+                {(f.selected_studies||[]).length>0&&(
+                  <div style={{padding:12,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
+                    <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:8}}>Estudos Selecionados ({(f.selected_studies||[]).length})</div>
+                    {(f.selected_studies||[]).map(s=>(
+                      <div key={s.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bdr)"}}>
+                        <div>
+                          <span style={{fontSize:12,fontWeight:600,color:"var(--t1)"}}>{s.name}</span>
+                          <span style={{fontSize:11,color:"var(--t3)",marginLeft:8}}>CS: {s.cs}</span>
+                          {s.delivery&&<span style={{fontSize:11,color:"var(--t3)",marginLeft:8}}>Entrega: {s.delivery}</span>}
+                        </div>
+                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                          <span className={`badge ${s.status==="Feito"?"b-grn":"b-ylw"}`} style={{fontSize:10}}>{s.status||"Pendente"}</span>
+                          {s.link&&<a href={s.link} target="_blank" rel="noreferrer" style={{fontSize:11,color:"var(--teal)"}}><I n="external" s={12}/></a>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </CF>
 
           {/* Features selection */}
           <CF l="Features">
@@ -1517,6 +1561,26 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>4. Audiências, Features e Praças</div>
                   {selected.audiences&&<D l="Audiências Vendidas" v={selected.audiences} wide/>}
                   
+                  {/* Estudos selecionados */}
+                  {(selected.selected_studies||[]).length>0&&(
+                    <div style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
+                      <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:8}}>Estudos Vinculados ({(selected.selected_studies||[]).length})</div>
+                      {(selected.selected_studies||[]).map(s=>(
+                        <div key={s.name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:"1px solid var(--bdr)"}}>
+                          <div>
+                            <span style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{s.name}</span>
+                            <span style={{fontSize:11,color:"var(--t3)",marginLeft:8}}>CS: {s.cs}</span>
+                            {s.delivery&&<span style={{fontSize:11,color:"var(--t3)",marginLeft:8}}>Entrega: {s.delivery}</span>}
+                          </div>
+                          <div style={{display:"flex",gap:6,alignItems:"center"}}>
+                            <span className={`badge ${s.status==="Feito"?"b-grn":"b-ylw"}`} style={{fontSize:10}}>{s.status||"Pendente"}</span>
+                            {s.link&&<a href={s.link} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:10,padding:"2px 8px",textDecoration:"none"}}><I n="external" s={11}/>Ver</a>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
                   {(selected.cl_features||[]).length>0&&(
                     <div>
                       <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Features Selecionadas</div>
@@ -1688,6 +1752,7 @@ export default function App() {
   const [tasks,setTasks]=useState([]);
   const [submittedChecklists,setSubmittedChecklists]=useState([]);
   const [duplicateData,setDuplicateData]=useState(null);
+  const [studies,setStudies]=useState([]);
   const [notifs,setNotifs]=useState(INITIAL_NOTIFS);
   const [showNotifs,setShowNotifs]=useState(false);
   const notifRef=useRef();
@@ -1734,6 +1799,12 @@ export default function App() {
         if(Array.isArray(rows)){setSubmittedChecklists(rows)}
       })
       .catch(err=>console.error("Error fetching checklists:",err));
+
+    // Fetch studies from Cloud Function
+    fetch(STUDIES_API_URL)
+      .then(r=>r.json())
+      .then(d=>{if(d.ok&&d.studies)setStudies(d.studies)})
+      .catch(err=>console.error("Error fetching studies:",err));
   },[user]);
 
   const unread=notifs.filter(n=>!n.read).length;
@@ -1747,6 +1818,7 @@ export default function App() {
   return(
     <AuthCtx.Provider value={user}>
     <ClientsCtx.Provider value={clients}>
+    <StudiesCtx.Provider value={studies}>
     <ThemeCtx.Provider value={{theme,setTheme}}>
     <ToastProvider>
       <style>{CSS}</style>
@@ -1859,6 +1931,7 @@ export default function App() {
       </div>
     </ToastProvider>
     </ThemeCtx.Provider>
+    </StudiesCtx.Provider>
     </ClientsCtx.Provider>
     </AuthCtx.Provider>
   );
