@@ -1500,9 +1500,18 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
                   )}
                 </div>
 
-                <button className="btn bp" style={{alignSelf:"center"}} onClick={()=>setValidationError(null)}>
-                  <I n="file-text" s={14}/>Voltar e Corrigir
-                </button>
+                <div style={{display:"flex",gap:10,justifyContent:"center"}}>
+                  <button className="btn bs" onClick={()=>setValidationError(null)}>
+                    <I n="file-text" s={14}/>Voltar e Corrigir Manualmente
+                  </button>
+                  <button className="btn bp" onClick={()=>{
+                    set("investment",String(Math.round(validationError.totalCalc*100)/100));
+                    setValidationError(null);
+                    toast(`Investimento ajustado para R$ ${validationError.totalCalc.toLocaleString("pt-BR",{minimumFractionDigits:2})}`);
+                  }}>
+                    <I n="zap" s={14}/>Corrigir Automaticamente
+                  </button>
+                </div>
               </div>
             </div>
           </div>
