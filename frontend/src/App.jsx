@@ -1162,18 +1162,17 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
 
           {/* Estudos disponíveis */}
           <CF l="Estudos disponíveis">
-            {availableStudies.length===0?(
-              <div style={{fontSize:12,color:"var(--t3)",padding:"8px 0"}}>Carregando estudos...</div>
+            {availableStudies.filter(s=>s.status==="Feito").length===0?(
+              <div style={{fontSize:12,color:"var(--t3)",padding:"8px 0"}}>Nenhum estudo disponível no momento.</div>
             ):(
               <div style={{display:"flex",flexDirection:"column",gap:8}}>
                 <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                  {availableStudies.map(s=>{
+                  {availableStudies.filter(s=>s.status==="Feito").map(s=>{
                     const isSel=(f.selected_studies||[]).some(x=>x.name===s.name);
                     return(
                       <span key={s.name} className={`chip${isSel?" sel":""}`} style={{fontSize:11,padding:"4px 12px"}}
                         onClick={()=>sF(p=>{const arr=p.selected_studies||[];return{...p,selected_studies:isSel?arr.filter(x=>x.name!==s.name):[...arr,s]}})}>
                         {s.name}
-                        {s.status==="Feito"&&<span style={{marginLeft:4,color:"var(--green)",fontSize:10}}>✓</span>}
                       </span>
                     );
                   })}
@@ -1188,10 +1187,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
                           <span style={{fontSize:11,color:"var(--t3)",marginLeft:8}}>CS: {s.cs}</span>
                           {s.delivery&&<span style={{fontSize:11,color:"var(--t3)",marginLeft:8}}>Entrega: {s.delivery}</span>}
                         </div>
-                        <div style={{display:"flex",gap:6,alignItems:"center"}}>
-                          <span className={`badge ${s.status==="Feito"?"b-grn":"b-ylw"}`} style={{fontSize:10}}>{s.status||"Pendente"}</span>
-                          {s.link&&<a href={s.link} target="_blank" rel="noreferrer" style={{fontSize:11,color:"var(--teal)"}}><I n="external" s={12}/></a>}
-                        </div>
+                        {s.link&&<a href={s.link} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:10,padding:"2px 8px",textDecoration:"none"}}><I n="external" s={11}/>Ver</a>}
                       </div>
                     ))}
                   </div>
