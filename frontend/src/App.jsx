@@ -1119,8 +1119,38 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
           <CF l="Formatos" req><div style={{display:"flex",gap:8}}>{["Display","Video"].map(x=><span key={x} className={`chip${f.formats.includes(x)?" sel":""}`} onClick={()=>tog("formats",x)}>{x}</span>)}</div></CF>
           <div className="g2" style={{gap:14}}>
-            {hasDisplay&&<CF l="CPM Negociado"><input className="fi" placeholder="R$ por mil" value={f.cpm} onChange={e=>set("cpm",e.target.value)}/></CF>}
-            {hasVideo&&<CF l="CPCV Negociado"><input className="fi" placeholder="R$ por view" value={f.cpcv} onChange={e=>set("cpcv",e.target.value)}/></CF>}
+            {hasDisplay&&<CF l="CPM Negociado">
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {["14.40","36.00"].map(v=>(
+                    <span key={v} className={`chip${f.cpm===v?" sel":""}`} style={{fontSize:12,padding:"6px 14px"}} onClick={()=>set("cpm",v)}>R$ {v}</span>
+                  ))}
+                  <span className={`chip${f.cpm&&!["14.40","36.00"].includes(f.cpm)?" sel":""}`} style={{fontSize:12,padding:"6px 14px"}} onClick={()=>set("cpm","custom")}>Outro</span>
+                </div>
+                {f.cpm&&!["14.40","36.00"].includes(f.cpm)&&(
+                  <div>
+                    <input className="fi" placeholder="Ex: 18.50" value={f.cpm==="custom"?"":f.cpm} onChange={e=>set("cpm",e.target.value)}/>
+                    <div className="disc" style={{marginTop:6}}><I n="alert-circle" s={12} c="var(--teal)"/>Use ponto (.) como separador decimal. Ex: 14.40</div>
+                  </div>
+                )}
+              </div>
+            </CF>}
+            {hasVideo&&<CF l="CPCV Negociado">
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {["0.90","0.36","0.18"].map(v=>(
+                    <span key={v} className={`chip${f.cpcv===v?" sel":""}`} style={{fontSize:12,padding:"6px 14px"}} onClick={()=>set("cpcv",v)}>R$ {v}</span>
+                  ))}
+                  <span className={`chip${f.cpcv&&!["0.90","0.36","0.18"].includes(f.cpcv)?" sel":""}`} style={{fontSize:12,padding:"6px 14px"}} onClick={()=>set("cpcv","custom")}>Outro</span>
+                </div>
+                {f.cpcv&&!["0.90","0.36","0.18"].includes(f.cpcv)&&(
+                  <div>
+                    <input className="fi" placeholder="Ex: 0.45" value={f.cpcv==="custom"?"":f.cpcv} onChange={e=>set("cpcv",e.target.value)}/>
+                    <div className="disc" style={{marginTop:6}}><I n="alert-circle" s={12} c="var(--teal)"/>Use ponto (.) como separador decimal. Ex: 0.36</div>
+                  </div>
+                )}
+              </div>
+            </CF>}
           </div>
         </div>
       </Sec>
