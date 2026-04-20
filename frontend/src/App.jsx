@@ -44,6 +44,20 @@ const INVENTORY_PARTNERS = ["Globoplay","TwitchTV","DisneyPlus","Activision","Bl
 const INDUSTRIES = ["Alimentação & Bebidas","Automotivo","Beleza & Cuidados Pessoais","Construção & Decoração","Educação","Eletrônicos & Tecnologia","Farmácia & Saúde","Financeiro & Seguros","Games & Entretenimento","Higiene & Limpeza","Luxo & Premium","Moda & Vestuário","Pets","Serviços","Supermercado & Varejo","Telecomunicações","Turismo & Viagens","Outro"];
 const CAMPAIGN_TYPES = ["Brand Awareness","Consideração","Performance","Retargeting","Trade Marketing","Lançamento de Produto","Sazonal","Always On"];
 const BRAZIL_STATES = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
+const BRAZIL_REGIONS = {
+  "Sudeste":["ES","MG","RJ","SP"],
+  "Sul":["PR","RS","SC"],
+  "Norte":["AC","AM","AP","PA","RO","RR","TO"],
+  "Nordeste":["AL","BA","CE","MA","PB","PE","PI","RN","SE"],
+  "Centro-Oeste":["DF","GO","MS","MT"],
+};
+const BRAZIL_CAPITALS = [
+  "Rio Branco (AC)","Maceió (AL)","Macapá (AP)","Manaus (AM)","Salvador (BA)","Fortaleza (CE)",
+  "Brasília (DF)","Vitória (ES)","Goiânia (GO)","São Luís (MA)","Cuiabá (MT)","Campo Grande (MS)",
+  "Belo Horizonte (MG)","Belém (PA)","João Pessoa (PB)","Curitiba (PR)","Recife (PE)","Teresina (PI)",
+  "Rio de Janeiro (RJ)","Natal (RN)","Porto Alegre (RS)","Porto Velho (RO)","Boa Vista (RR)",
+  "Florianópolis (SC)","São Paulo (SP)","Aracaju (SE)","Palmas (TO)",
+];
 const MONTHS_PT = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 
 // ─── CLIENT DATABASE (fetched from Cloud Function → Google Sheets) ──────────
@@ -1214,15 +1228,33 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           <CF l="Praças" req>
             <RG row opts={["Brasil","Estado","Cidade","Outro"]} val={f.praças_type} onChange={v=>set("praças_type",v)}/>
             {f.praças_type==="Estado"&&<div style={{marginTop:10}}>
+              <div style={{display:"flex",gap:6,marginBottom:8,flexWrap:"wrap"}}>
+                {Object.entries(BRAZIL_REGIONS).map(([region,states])=>(
+                  <button key={region} className="btn bs" style={{fontSize:10,padding:"3px 10px"}} onClick={()=>sF(p=>{const current=p.praças_states||[];const allSelected=states.every(s=>current.includes(s));return{...p,praças_states:allSelected?current.filter(s=>!states.includes(s)):[...new Set([...current,...states])]}})}>
+                    {region}
+                  </button>
+                ))}
+                <button className="btn bs" style={{fontSize:10,padding:"3px 10px"}} onClick={()=>sF(p=>({...p,praças_states:[...BRAZIL_STATES]}))}>Todos</button>
+                <button className="btn bg" style={{fontSize:10,padding:"3px 10px"}} onClick={()=>sF(p=>({...p,praças_states:[]}))}>Limpar</button>
+              </div>
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{BRAZIL_STATES.map(s=><span key={s} className={`chip${(f.praças_states||[]).includes(s)?" sel":""}`} style={{fontSize:11,padding:"3px 10px"}} onClick={()=>sF(p=>({...p,praças_states:(p.praças_states||[]).includes(s)?(p.praças_states||[]).filter(x=>x!==s):[...(p.praças_states||[]),s]}))}>{s}</span>)}</div>
               {(f.praças_states||[]).length>0&&<div style={{fontSize:11,color:"var(--teal)",marginTop:6}}>{(f.praças_states||[]).length} estado{(f.praças_states||[]).length>1?"s":""} selecionado{(f.praças_states||[]).length>1?"s":""}</div>}
             </div>}
             {f.praças_type==="Cidade"&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:10}}>
+              <button className="btn bs" style={{fontSize:11,alignSelf:"flex-start"}} onClick={()=>sF(p=>({...p,praças_cities:[...new Set([...(p.praças_cities||[]),...BRAZIL_CAPITALS])]}))}>
+                <I n="zap" s={12}/>Todas as Capitais
+              </button>
               <div className="g2" style={{gap:10}}>
                 <select className="fs" value={f.praças_city_state||""} onChange={e=>set("praças_city_state",e.target.value)}><option value="">Estado...</option>{BRAZIL_STATES.map(s=><option key={s}>{s}</option>)}</select>
                 <div style={{display:"flex",gap:6}}><input className="fi" placeholder="Nome da cidade" value={f.praças_city_input||""} onChange={e=>set("praças_city_input",e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&f.praças_city_input&&f.praças_city_state){e.preventDefault();const city=`${f.praças_city_input} (${f.praças_city_state})`;sF(p=>({...p,praças_cities:[...(p.praças_cities||[]),city],praças_city_input:""}))}}}/><button className="btn bs" style={{fontSize:11,whiteSpace:"nowrap"}} onClick={()=>{if(f.praças_city_input&&f.praças_city_state){const city=`${f.praças_city_input} (${f.praças_city_state})`;sF(p=>({...p,praças_cities:[...(p.praças_cities||[]),city],praças_city_input:""}))}}}><I n="plus" s={12}/>Adicionar</button></div>
               </div>
-              {(f.praças_cities||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{(f.praças_cities||[]).map((c,i)=><span key={i} className="chip sel" style={{fontSize:11,padding:"3px 10px",display:"flex",gap:4,alignItems:"center"}}>{c}<span style={{cursor:"pointer",fontWeight:700}} onClick={()=>sF(p=>({...p,praças_cities:(p.praças_cities||[]).filter((_,j)=>j!==i)}))}>×</span></span>)}</div>}
+              {(f.praças_cities||[]).length>0&&<div>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                  <span style={{fontSize:11,color:"var(--teal)"}}>{(f.praças_cities||[]).length} cidade{(f.praças_cities||[]).length>1?"s":""}</span>
+                  <button className="btn bg" style={{fontSize:10,padding:"2px 8px"}} onClick={()=>sF(p=>({...p,praças_cities:[]}))}>Limpar</button>
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{(f.praças_cities||[]).map((c,i)=><span key={i} className="chip sel" style={{fontSize:11,padding:"3px 10px",display:"flex",gap:4,alignItems:"center"}}>{c}<span style={{cursor:"pointer",fontWeight:700}} onClick={()=>sF(p=>({...p,praças_cities:(p.praças_cities||[]).filter((_,j)=>j!==i)}))}>×</span></span>)}</div>
+              </div>}
             </div>}
             {f.praças_type==="Outro"&&<input className="fi" style={{marginTop:10}} placeholder="Descreva..." value={f.praças_other} onChange={e=>set("praças_other",e.target.value)}/>}
           </CF>
