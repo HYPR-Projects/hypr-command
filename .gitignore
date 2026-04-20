@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+service-account.json
+.DS_Store
+*.log
+hypr-command-api/
+hypr-command-backend/
+hypr-command-deploy-v11/
+versoes antigas front/

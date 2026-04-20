@@ -1,0 +1,10 @@
+{
+  "name": "hypr-command-api",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {
+    "googleapis": "^140.0.0",
+    "@google-cloud/functions-framework": "^3.4.0"
+  }
+}
