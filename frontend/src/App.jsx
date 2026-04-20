@@ -1042,10 +1042,77 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     return Math.round((filled + extra) / 14 * 100);
   }, [f]);
 
-  const showO2O=f.products.includes("O2O"),showOOH=f.products.includes("OOH"),showRMND=f.products.includes("RMND");
+  const showO2O=f.products.includes("O2O"),showOOH=f.products.includes("OOH"),showRMND=f.products.includes("RMND"),showRMNF=f.products.includes("RMNF");
   const hasBonus=f.has_bonus==="Sim",hasVideo=f.formats.includes("Video"),hasDisplay=f.formats.includes("Display");
-  const handleReset=()=>{sF(INIT);sSub(false)};
+  const [validationError,setValidationError]=useState(null);
+
+  // Investment validation
+  const validateInvestment = () => {
+    const investment = parseFloat(f.investment) || 0;
+    if (investment === 0) return null; // no investment to validate
+    
+    const cpm = parseFloat(f.cpm) || 0;
+    const cpcv = parseFloat(f.cpcv) || 0;
+    const products = f.products || [];
+    
+    let totalDisplay = 0;
+    let totalVideo = 0;
+    const details = [];
+
+    // Sum display (CPM) across all products
+    if (hasDisplay && cpm > 0) {
+      products.forEach(prod => {
+        const imp = parseFloat(f[`${prod}_imp`]) || 0;
+        if (imp > 0) {
+          const val = (cpm * imp) / 1000;
+          totalDisplay += val;
+          details.push({ product: prod, type: "Display", formula: `CPM R$${cpm} × ${imp.toLocaleString("pt-BR")} imp / 1.000`, value: val });
+        }
+      });
+    }
+
+    // Sum video (CPCV) across all products
+    if (hasVideo && cpcv > 0) {
+      products.forEach(prod => {
+        const views = parseFloat(f[`${prod}_views`]) || 0;
+        if (views > 0) {
+          const val = cpcv * views;
+          totalVideo += val;
+          details.push({ product: prod, type: "Video", formula: `CPCV R$${cpcv} × ${views.toLocaleString("pt-BR")} views`, value: val });
+        }
+      });
+    }
+
+    const totalCalc = totalDisplay + totalVideo;
+    
+    // If no volumetry was filled, skip validation
+    if (totalCalc === 0) return null;
+    
+    const diff = Math.abs(totalCalc - investment);
+    const tolerance = investment * 0.01; // 1% tolerance
+    
+    if (diff > tolerance) {
+      return {
+        investment,
+        totalCalc,
+        diff: totalCalc - investment,
+        details,
+        totalDisplay,
+        totalVideo,
+      };
+    }
+    return null;
+  };
+
+  const handleReset=()=>{sF(INIT);sSub(false);setValidationError(null)};
   const handleSubmit=async()=>{
+    // Validate investment
+    const error = validateInvestment();
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+
     const short_token = generateShortToken();
     const payload={...f,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email,short_token};
     if(onChecklistSubmit)onChecklistSubmit(payload);
@@ -1375,6 +1442,77 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           <button className="btn bp" onClick={handleSubmit}><I n="send" s={14}/>Enviar Checklist</button>
         </div>
       </div>
+
+      {/* Validation Error Modal */}
+      {validationError&&(
+        <div className="mo" onClick={e=>e.target===e.currentTarget&&setValidationError(null)}>
+          <div className="ml" style={{maxWidth:600}}>
+            <div className="mh" style={{background:"rgba(239,68,68,0.08)",borderBottom:"2px solid var(--red)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:"rgba(239,68,68,0.15)",display:"flex",alignItems:"center",justifyContent:"center"}}><I n="alert-triangle" s={20} c="var(--red)"/></div>
+                <div>
+                  <div className="mt" style={{color:"var(--red)"}}>Investimento não bate com volumetria</div>
+                  <div style={{fontSize:12,color:"var(--t3)",marginTop:2}}>Ajuste os valores antes de enviar</div>
+                </div>
+              </div>
+              <button className="btn bg" onClick={()=>setValidationError(null)}><I n="x" s={18}/></button>
+            </div>
+            <div className="mb">
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                {/* Summary */}
+                <div className="g2" style={{gap:12}}>
+                  <div style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",textAlign:"center"}}>
+                    <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Investimento Informado</div>
+                    <div style={{fontSize:20,fontWeight:800,fontFamily:"var(--fd)",color:"var(--t1)"}}>R$ {validationError.investment.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                  </div>
+                  <div style={{padding:14,background:validationError.diff>0?"rgba(239,68,68,0.06)":"rgba(239,68,68,0.06)",borderRadius:"var(--r)",textAlign:"center",border:"1px solid var(--red)"}}>
+                    <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Investimento Calculado</div>
+                    <div style={{fontSize:20,fontWeight:800,fontFamily:"var(--fd)",color:"var(--red)"}}>R$ {validationError.totalCalc.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                  </div>
+                </div>
+
+                {/* Difference */}
+                <div style={{padding:12,background:"rgba(239,68,68,0.06)",borderRadius:"var(--r)",border:"1px solid rgba(239,68,68,0.2)",textAlign:"center"}}>
+                  <span style={{fontSize:13,fontWeight:700,color:"var(--red)"}}>
+                    Diferença: R$ {Math.abs(validationError.diff).toLocaleString("pt-BR",{minimumFractionDigits:2})}
+                    {validationError.diff>0?" (volumetria acima do investimento)":" (volumetria abaixo do investimento)"}
+                  </span>
+                </div>
+
+                {/* Detail breakdown */}
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"var(--t1)",marginBottom:8}}>Detalhamento do cálculo:</div>
+                  {validationError.details.map((d,i)=>(
+                    <div key={i} style={{padding:"8px 12px",background:"var(--bg3)",borderRadius:"var(--r)",marginBottom:6,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <span style={{fontSize:12,fontWeight:600,color:"var(--t1)"}}>{d.product} — {d.type}</span>
+                        <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{d.formula}</div>
+                      </div>
+                      <span style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>R$ {d.value.toLocaleString("pt-BR",{minimumFractionDigits:2})}</span>
+                    </div>
+                  ))}
+                  {validationError.totalDisplay>0&&validationError.totalVideo>0&&(
+                    <div style={{display:"flex",gap:12,marginTop:8}}>
+                      <div style={{flex:1,padding:8,background:"var(--bg3)",borderRadius:"var(--r)",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"var(--t3)"}}>Total Display</div>
+                        <div style={{fontSize:12,fontWeight:700}}>R$ {validationError.totalDisplay.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                      </div>
+                      <div style={{flex:1,padding:8,background:"var(--bg3)",borderRadius:"var(--r)",textAlign:"center"}}>
+                        <div style={{fontSize:10,color:"var(--t3)"}}>Total Video</div>
+                        <div style={{fontSize:12,fontWeight:700}}>R$ {validationError.totalVideo.toLocaleString("pt-BR",{minimumFractionDigits:2})}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <button className="btn bp" style={{alignSelf:"center"}} onClick={()=>setValidationError(null)}>
+                  <I n="file-text" s={14}/>Voltar e Corrigir
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
