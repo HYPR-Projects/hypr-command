@@ -1500,17 +1500,40 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
                   )}
                 </div>
 
-                <div style={{display:"flex",gap:10,justifyContent:"center"}}>
-                  <button className="btn bs" onClick={()=>setValidationError(null)}>
-                    <I n="file-text" s={14}/>Voltar e Corrigir Manualmente
-                  </button>
-                  <button className="btn bp" onClick={()=>{
-                    set("investment",String(Math.round(validationError.totalCalc*100)/100));
-                    setValidationError(null);
-                    toast(`Investimento ajustado para R$ ${validationError.totalCalc.toLocaleString("pt-BR",{minimumFractionDigits:2})}`);
-                  }}>
-                    <I n="zap" s={14}/>Corrigir Automaticamente
-                  </button>
+                <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+                  <div style={{fontSize:12,fontWeight:700,color:"var(--t1)",textAlign:"center"}}>Como deseja corrigir?</div>
+                  <div style={{display:"flex",gap:8,justifyContent:"center",flexWrap:"wrap"}}>
+                    <button className="btn bs" onClick={()=>setValidationError(null)}>
+                      <I n="file-text" s={14}/>Corrigir Manualmente
+                    </button>
+                    <button className="btn bp" onClick={()=>{
+                      set("investment",String(Math.round(validationError.totalCalc*100)/100));
+                      setValidationError(null);
+                      toast(`Investimento ajustado para R$ ${validationError.totalCalc.toLocaleString("pt-BR",{minimumFractionDigits:2})}`);
+                    }}>
+                      <I n="dollar" s={14}/>Ajustar Investimento
+                    </button>
+                    <button className="btn bp" style={{background:"var(--green)"}} onClick={()=>{
+                      const inv=parseFloat(f.investment)||0;
+                      const calc=validationError.totalCalc;
+                      if(calc===0){setValidationError(null);return;}
+                      const ratio=inv/calc;
+                      const updates={};
+                      const cpm=parseFloat(f.cpm)||0;
+                      const cpcv=parseFloat(f.cpcv)||0;
+                      (f.products||[]).forEach(prod=>{
+                        const imp=parseFloat(f[`${prod}_imp`])||0;
+                        const views=parseFloat(f[`${prod}_views`])||0;
+                        if(imp>0&&cpm>0) updates[`${prod}_imp`]=String(Math.round(imp*ratio));
+                        if(views>0&&cpcv>0) updates[`${prod}_views`]=String(Math.round(views*ratio));
+                      });
+                      sF(p=>({...p,...updates}));
+                      setValidationError(null);
+                      toast("Volumetria ajustada proporcionalmente");
+                    }}>
+                      <I n="trending-up" s={14}/>Ajustar Volumetria
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
