@@ -327,39 +327,90 @@ function PacingBar({value, label}) {
 function Dashboard({checklists, tasks, onNav}) {
   const user = useAuth();
   const now = new Date();
+  const [dateFilter,setDateFilter]=useState("all");
+  const [customFrom,setCustomFrom]=useState("");
+  const [customTo,setCustomTo]=useState("");
+
+  // Date filter presets
+  const getDateRange = useCallback(() => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const end = new Date(); end.setHours(23,59,59,999);
+    switch(dateFilter) {
+      case "today": return [today, end];
+      case "yesterday": { const y=new Date(today); y.setDate(y.getDate()-1); return [y, new Date(today.getTime()-1)]; }
+      case "7d": { const d=new Date(today); d.setDate(d.getDate()-7); return [d, end]; }
+      case "30d": { const d=new Date(today); d.setDate(d.getDate()-30); return [d, end]; }
+      case "last_month": { const d=new Date(today.getFullYear(),today.getMonth()-1,1); const e=new Date(today.getFullYear(),today.getMonth(),0,23,59,59); return [d,e]; }
+      case "prev_quarter": { const q=Math.floor(today.getMonth()/3); const d=new Date(today.getFullYear(),q*3-3,1); const e=new Date(today.getFullYear(),q*3,0,23,59,59); return [d,e]; }
+      case "custom": { return [customFrom?new Date(customFrom):new Date("2020-01-01"), customTo?new Date(customTo+"T23:59:59"):end]; }
+      default: return [null, null];
+    }
+  }, [dateFilter, customFrom, customTo]);
+
+  // Filtered checklists by date range
+  const filteredChecklists = useMemo(() => {
+    const [from, to] = getDateRange();
+    if (!from) return checklists;
+    return checklists.filter(c => {
+      const sd = c.start_date?.value || c.start_date;
+      if (!sd) return false;
+      const d = new Date(sd);
+      return d >= from && d <= to;
+    });
+  }, [checklists, getDateRange]);
+
+  const filteredTasks = useMemo(() => {
+    const [from, to] = getDateRange();
+    if (!from) return tasks;
+    return tasks.filter(t => {
+      const d = new Date(t.createdAt || t.created_at?.value || t.created_at);
+      return d >= from && d <= to;
+    });
+  }, [tasks, getDateRange]);
 
   // Active campaigns = checklists where today is between start_date and end_date
   const active = useMemo(() => {
-    return checklists.filter(c => {
+    return filteredChecklists.filter(c => {
       const s = c.start_date?.value || c.start_date;
       const e = c.end_date?.value || c.end_date;
       if (!s || !e) return false;
       return now >= new Date(s) && now <= new Date(e);
     });
-  }, [checklists]);
+  }, [filteredChecklists]);
 
-  const totalInvestment = checklists.reduce((s,c) => s + (parseFloat(c.investment)||0), 0);
-  const openTasks = tasks.filter(t => getTaskStatus(t) !== "Concluída");
-  const overdueTasks = tasks.filter(t => getTaskStatus(t) === "Atrasada");
+  const totalInvestment = filteredChecklists.reduce((s,c) => s + (parseFloat(c.investment)||0), 0);
+  const openTasks = filteredTasks.filter(t => getTaskStatus(t) !== "Concluída");
+  const overdueTasks = filteredTasks.filter(t => getTaskStatus(t) === "Atrasada");
 
   // Monthly investment chart data from checklists
   const monthlyData = useMemo(() => {
     const m = {};
-    checklists.forEach(c => {
+    filteredChecklists.forEach(c => {
       const sd = c.start_date?.value || c.start_date;
       if (!sd) return;
       const mo = MONTHS_PT[new Date(sd).getMonth()].substring(0,3);
       m[mo] = (m[mo]||0) + (parseFloat(c.investment)||0);
     });
     return Object.entries(m).map(([name,value]) => ({name,value}));
-  }, [checklists]);
+  }, [filteredChecklists]);
 
-  // Task by CS (all tasks, yearly sum)
+  // Task by CS (filtered period)
   const taskByCS = useMemo(() => {
     const m = {};
-    tasks.forEach(t => { if(t.cs) m[t.cs] = (m[t.cs]||0) + 1; });
+    filteredTasks.forEach(t => { if(t.cs) m[t.cs] = (m[t.cs]||0) + 1; });
     return Object.entries(m).map(([name,count]) => ({name:name.split(" ")[0],tasks:count})).sort((a,b)=>b.tasks-a.tasks);
-  }, [tasks]);
+  }, [filteredTasks]);
+
+  const FILTER_OPTS=[
+    {key:"all",label:"Tudo"},
+    {key:"today",label:"Hoje"},
+    {key:"yesterday",label:"Ontem"},
+    {key:"7d",label:"Últimos 7 dias"},
+    {key:"30d",label:"Últimos 30 dias"},
+    {key:"last_month",label:"Mês anterior"},
+    {key:"prev_quarter",label:"Trimestre anterior"},
+    {key:"custom",label:"Personalizado"},
+  ];
 
   return (
     <div className="page-enter">
@@ -369,10 +420,26 @@ function Dashboard({checklists, tasks, onNav}) {
         <p style={{color:"var(--t2)",fontSize:13}}>Aqui está o resumo do HYPR Command — {new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})}</p>
       </div>
 
+      {/* Date filter */}
+      <div className="card" style={{padding:"12px 16px",marginBottom:20,display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+        <I n="calendar" s={14} c="var(--t3)"/>
+        <span style={{fontSize:12,color:"var(--t3)",fontWeight:600}}>Período:</span>
+        {FILTER_OPTS.map(o=>(
+          <button key={o.key} className={`btn ${dateFilter===o.key?"bp":"bs"}`} style={{fontSize:11,padding:"4px 12px"}} onClick={()=>setDateFilter(o.key)}>{o.label}</button>
+        ))}
+        {dateFilter==="custom"&&(
+          <div style={{display:"flex",gap:6,alignItems:"center",marginLeft:4}}>
+            <input type="date" className="fi" style={{padding:"4px 8px",fontSize:11,width:130}} value={customFrom} onChange={e=>setCustomFrom(e.target.value)}/>
+            <span style={{fontSize:11,color:"var(--t3)"}}>→</span>
+            <input type="date" className="fi" style={{padding:"4px 8px",fontSize:11,width:130}} value={customTo} onChange={e=>setCustomTo(e.target.value)}/>
+          </div>
+        )}
+      </div>
+
       {/* Stat cards */}
       <div className="g3" style={{marginBottom:24}}>
         {[
-          {label:"Campanhas Ativas",value:active.length,icon:"zap",color:"var(--green)",sub:`de ${checklists.length} total`},
+          {label:"Campanhas Ativas",value:active.length,icon:"zap",color:"var(--green)",sub:`de ${filteredChecklists.length} no período`},
           {label:"Investimento Total",value:fmtCompact(totalInvestment),icon:"dollar",color:"var(--teal)",sub:fmtCurrency(totalInvestment)},
           {label:"Tasks Abertas",value:openTasks.length,icon:"inbox",color:"var(--yellow-s)",sub:overdueTasks.length>0?`${overdueTasks.length} atrasada${overdueTasks.length>1?"s":""}`:"Tudo no prazo"},
         ].map(s => (
@@ -937,7 +1004,7 @@ function DocLinkModal({task,onClose,onSave}) {
 function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
-  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",praças_type:"",praças_state:"",praças_city:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:""};
+  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:""};
   const [f,sF]=useState(()=>{
     if(!initialData) return INIT;
     const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
@@ -1146,8 +1213,17 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
 
           <CF l="Praças" req>
             <RG row opts={["Brasil","Estado","Cidade","Outro"]} val={f.praças_type} onChange={v=>set("praças_type",v)}/>
-            {f.praças_type==="Estado"&&<select className="fs" style={{marginTop:10}} value={f.praças_state} onChange={e=>set("praças_state",e.target.value)}><option value="">Selecione...</option>{BRAZIL_STATES.map(s=><option key={s}>{s}</option>)}</select>}
-            {f.praças_type==="Cidade"&&<div className="g2" style={{gap:10,marginTop:10}}><select className="fs" value={f.praças_state} onChange={e=>set("praças_state",e.target.value)}><option value="">Estado...</option>{BRAZIL_STATES.map(s=><option key={s}>{s}</option>)}</select><input className="fi" placeholder="Cidade" value={f.praças_city} onChange={e=>set("praças_city",e.target.value)}/></div>}
+            {f.praças_type==="Estado"&&<div style={{marginTop:10}}>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{BRAZIL_STATES.map(s=><span key={s} className={`chip${(f.praças_states||[]).includes(s)?" sel":""}`} style={{fontSize:11,padding:"3px 10px"}} onClick={()=>sF(p=>({...p,praças_states:(p.praças_states||[]).includes(s)?(p.praças_states||[]).filter(x=>x!==s):[...(p.praças_states||[]),s]}))}>{s}</span>)}</div>
+              {(f.praças_states||[]).length>0&&<div style={{fontSize:11,color:"var(--teal)",marginTop:6}}>{(f.praças_states||[]).length} estado{(f.praças_states||[]).length>1?"s":""} selecionado{(f.praças_states||[]).length>1?"s":""}</div>}
+            </div>}
+            {f.praças_type==="Cidade"&&<div style={{marginTop:10,display:"flex",flexDirection:"column",gap:10}}>
+              <div className="g2" style={{gap:10}}>
+                <select className="fs" value={f.praças_city_state||""} onChange={e=>set("praças_city_state",e.target.value)}><option value="">Estado...</option>{BRAZIL_STATES.map(s=><option key={s}>{s}</option>)}</select>
+                <div style={{display:"flex",gap:6}}><input className="fi" placeholder="Nome da cidade" value={f.praças_city_input||""} onChange={e=>set("praças_city_input",e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&f.praças_city_input&&f.praças_city_state){e.preventDefault();const city=`${f.praças_city_input} (${f.praças_city_state})`;sF(p=>({...p,praças_cities:[...(p.praças_cities||[]),city],praças_city_input:""}))}}}/><button className="btn bs" style={{fontSize:11,whiteSpace:"nowrap"}} onClick={()=>{if(f.praças_city_input&&f.praças_city_state){const city=`${f.praças_city_input} (${f.praças_city_state})`;sF(p=>({...p,praças_cities:[...(p.praças_cities||[]),city],praças_city_input:""}))}}}><I n="plus" s={12}/>Adicionar</button></div>
+              </div>
+              {(f.praças_cities||[]).length>0&&<div style={{display:"flex",flexWrap:"wrap",gap:6}}>{(f.praças_cities||[]).map((c,i)=><span key={i} className="chip sel" style={{fontSize:11,padding:"3px 10px",display:"flex",gap:4,alignItems:"center"}}>{c}<span style={{cursor:"pointer",fontWeight:700}} onClick={()=>sF(p=>({...p,praças_cities:(p.praças_cities||[]).filter((_,j)=>j!==i)}))}>×</span></span>)}</div>}
+            </div>}
             {f.praças_type==="Outro"&&<input className="fi" style={{marginTop:10}} placeholder="Descreva..." value={f.praças_other} onChange={e=>set("praças_other",e.target.value)}/>}
           </CF>
           <CF l="Reunião pré-campanha com CS?" req><RG row opts={["Sim","Não"]} val={f.had_cs_meeting} onChange={v=>set("had_cs_meeting",v)}/></CF>
@@ -1455,7 +1531,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
 
                   {/* Praças */}
                   <div className="g2" style={{gap:10}}>
-                    <D l="Praças" v={selected.praças_type==="Brasil"?"Brasil":selected.praças_type==="Estado"?`Estado: ${selected.praças_state||"—"}`:selected.praças_type==="Cidade"?`${selected.praças_state||""} — ${selected.praças_city||""}`:selected.praças_other||selected.praças_type||"—"}/>
+                    <D l="Praças" v={selected.praças_type==="Brasil"?"Brasil":selected.praças_type==="Estado"?(selected.praças_states||[]).length>0?`Estados: ${(selected.praças_states||[]).join(", ")}`:`Estado: ${selected.praças_state||"—"}`:selected.praças_type==="Cidade"?(selected.praças_cities||[]).length>0?(selected.praças_cities||[]).join(", "):`${selected.praças_state||""} — ${selected.praças_city||""}`:selected.praças_other||selected.praças_type||"—"}/>
                     <D l="Reunião pré-campanha com CS" v={selected.had_cs_meeting==="Sim"||selected.had_cs_meeting===true?"Sim":"Não"}/>
                   </div>
 
