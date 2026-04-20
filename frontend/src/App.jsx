@@ -945,11 +945,16 @@ function DocLinkModal({task,onClose,onSave}) {
 // ══════════════════════════════════════════════════════════════════════════════
 // CAMPAIGN CHECKLIST
 // ══════════════════════════════════════════════════════════════════════════════
-function CampaignChecklist({onChecklistSubmit}) {
+function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
   const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",praças_type:"",praças_state:"",praças_city:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:""};
-  const [f,sF]=useState(INIT);
+  const [f,sF]=useState(()=>{
+    if(!initialData) return INIT;
+    const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
+    if(!d.extra_urls||d.extra_urls.length===0) d.extra_urls=[""];
+    return d;
+  });
   const [submitted,sSub]=useState(false);
   const toast=useToast();
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
@@ -1224,7 +1229,7 @@ function FeatSearch({value,onChange}) {
 // ══════════════════════════════════════════════════════════════════════════════
 // CHECKLIST CENTER (view/edit submitted checklists)
 // ══════════════════════════════════════════════════════════════════════════════
-function ChecklistCenter({checklists,setChecklists}) {
+function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
   const [selected,setSelected]=useState(null);
   const [editing,setEditing]=useState(false);
   const [editData,setEditData]=useState(null);
@@ -1305,6 +1310,7 @@ function ChecklistCenter({checklists,setChecklists}) {
                 <div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>{selected.client} — {selected.campaign_name}</div>
               </div>
               <div style={{display:"flex",gap:6}}>
+                {!editing&&<button className="btn bp" style={{fontSize:12}} onClick={()=>{setSelected(null);if(onDuplicate)onDuplicate(selected)}}><I n="rotate" s={14}/>Duplicar</button>}
                 {!editing&&<button className="btn bs" style={{fontSize:12}} onClick={()=>handleEdit(selected)}><I n="file-text" s={14}/>Editar</button>}
                 <button className="btn bg" onClick={()=>{setSelected(null);setEditing(false)}}><I n="x" s={18}/></button>
               </div>
@@ -1571,6 +1577,7 @@ export default function App() {
   const [mobileOpen,setMobileOpen]=useState(false);
   const [tasks,setTasks]=useState([]);
   const [submittedChecklists,setSubmittedChecklists]=useState([]);
+  const [duplicateData,setDuplicateData]=useState(null);
   const [notifs,setNotifs]=useState(INITIAL_NOTIFS);
   const [showNotifs,setShowNotifs]=useState(false);
   const notifRef=useRef();
@@ -1736,8 +1743,8 @@ export default function App() {
             {page==="home"&&<Dashboard campaigns={MOCK_CAMPAIGNS} tasks={tasks} onNav={navigate} />}
             {page==="monitor"&&<CampaignMonitor campaigns={MOCK_CAMPAIGNS} />}
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} />}
-            {page==="checklist"&&<CampaignChecklist onChecklistSubmit={(data)=>setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev])} />}
-            {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} />}
+            {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
+            {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} />}
           </div>
         </div>
       </div>
