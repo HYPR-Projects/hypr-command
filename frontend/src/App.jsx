@@ -122,12 +122,7 @@ const INITIAL_TASKS = [
 ];
 
 // ─── NOTIFICATIONS MOCK ──────────────────────────────────────────────────────
-const INITIAL_NOTIFS = [
-  { id:1, type:"task", msg:"Task #4 de Electrolux vence hoje", time:"Agora", read:false },
-  { id:2, type:"task", msg:"Task #5 de Coca-Cola está atrasada (3 dias)", time:"1h atrás", read:false },
-  { id:3, type:"campaign", msg:"Pacing Display de Toyota RAV4 está em 66%", time:"2h atrás", read:false },
-  { id:4, type:"task", msg:"Samsung — Estudo de Mercado concluído", time:"Ontem", read:true },
-];
+const INITIAL_NOTIFS = [];
 
 // ─── CONTEXTS ────────────────────────────────────────────────────────────────
 const ThemeCtx = createContext();
@@ -1876,7 +1871,7 @@ function LoginScreen() {
         client_id: GOOGLE_CLIENT_ID,
         callback: (response) => {
           // Decode JWT token
-          const payload = JSON.parse(atob(response.credential.split(".")[1]));
+          const payload = JSON.parse(decodeURIComponent(escape(atob(response.credential.split(".")[1].replace(/-/g,"+").replace(/_/g,"/")))));
           if (!payload.email?.endsWith("@hypr.mobi")) {
             setError("Acesso restrito a contas @hypr.mobi");
             return;
@@ -1980,6 +1975,31 @@ export default function App() {
       .then(d=>{if(d.ok&&d.studies)setStudies(d.studies)})
       .catch(err=>console.error("Error fetching studies:",err));
   },[user]);
+
+  // Generate notifications from real tasks
+  useEffect(()=>{
+    if(tasks.length===0) return;
+    const n=[];
+    const now=new Date();
+    tasks.forEach(t=>{
+      if(t.status==="completed") {
+        n.push({id:`done-${t.id}`,type:"task",msg:`${t.client} — ${t.type} concluída`,time:"Concluída",read:true});
+        return;
+      }
+      const dl=t.deadline?.value||t.deadline;
+      if(!dl) return;
+      const deadline=new Date(dl);
+      const diffDays=Math.ceil((deadline-now)/(1000*60*60*24));
+      if(diffDays<0){
+        n.push({id:`late-${t.id}`,type:"task",msg:`${t.client} — ${t.type} atrasada (${Math.abs(diffDays)} dia${Math.abs(diffDays)>1?"s":""})`,time:"Atrasada",read:false});
+      } else if(diffDays===0){
+        n.push({id:`today-${t.id}`,type:"task",msg:`${t.client} — ${t.type} vence hoje`,time:"Hoje",read:false});
+      } else if(diffDays<=2){
+        n.push({id:`soon-${t.id}`,type:"task",msg:`${t.client} — ${t.type} vence em ${diffDays} dia${diffDays>1?"s":""}`,time:`${diffDays}d`,read:false});
+      }
+    });
+    if(n.length>0) setNotifs(n);
+  },[tasks]);
 
   const unread=notifs.filter(n=>!n.read).length;
   const markAllRead=()=>setNotifs(ns=>ns.map(n=>({...n,read:true})));
