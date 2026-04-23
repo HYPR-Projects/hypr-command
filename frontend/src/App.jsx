@@ -1893,24 +1893,25 @@ const isAdmin = (email) => ADMINS.includes(email);
 // ══════════════════════════════════════════════════════════════════════════════
 // PROPOSAL BUILDER
 // ══════════════════════════════════════════════════════════════════════════════
-const PROPOSAL_PRODUCTS = ['O2O','OOH','P-DOOH','RMN Digital','RMN Físico','CTV','TV Sync','Downloaded Apps'];
+const PROPOSAL_PRODUCTS = ['O2O','OOH','RMNF','RMND'];
 const PROPOSAL_FORMATS = ['Display','Video'];
 const PROPOSAL_PAYMENTS = ['CPM','CPCV','CPV','CPC'];
 const PROPOSAL_PRACAS = ['Nacional','Regional','Capital','Interior'];
-const PROPOSAL_FEATURES = ['Survey','Downloaded Apps','Brand Lift','P-DOOH','Weather','Topics','Click to Calendar',
-  'Tap To Chat','Tap To Hotspot','Attention Ad','Footfall','CTV','TV Sync','Design Studio','Carbon Neutral',
-  'HYPR Pass','Tap To Scratch','Tap to Go','Tap To Carousel','Tap To Max','Purchase Context','Seat','Brand Query'];
+const PROPOSAL_FEATURES = ['P-DOOH','Weather','Topics','Click to Calendar','Downloaded Apps',
+  'Tap To Chat','Tap To Hotspot','Attention Ad','Footfall','CTV','TV Sync',
+  'Tap To Scratch','Tap to Go','Tap To Carousel','Tap To Max','Purchase Context',
+  'HYPR Pass','Survey','Brand Query','Design Studio','Carbon Neutral'];
+// Features that do NOT get volumetry fields (just a checkbox)
+const FEATURES_NO_VOL = ['Survey','Brand Query','Design Studio','Carbon Neutral'];
+// Features with only "Plays" field
+const FEATURES_PLAYS = ['P-DOOH'];
 
 // CPM/CPCV reference table (Tabela 2026)
 const CPM_TABLE = {
   'O2O': { Display: 24, Video: 0.22 },
   'OOH': { Display: 24, Video: 0.22 },
-  'P-DOOH': { Display: 45, Video: 0 },
-  'RMN Digital': { Display: 30, Video: 0.28 },
-  'RMN Físico': { Display: 35, Video: 0 },
-  'CTV': { Display: 0, Video: 0.35 },
-  'TV Sync': { Display: 28, Video: 0.25 },
-  'Downloaded Apps': { Display: 24, Video: 0.22 },
+  'RMNF': { Display: 35, Video: 0 },
+  'RMND': { Display: 30, Video: 0.28 },
 };
 
 function ProposalBuilder() {
@@ -1944,6 +1945,7 @@ function ProposalBuilder() {
   }]);
 
   // Bonifications
+  const [hasBonus, setHasBonus] = useState(false);
   const [bonusRows, setBonusRows] = useState([{
     id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display',
     tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0,
@@ -1988,14 +1990,14 @@ function ProposalBuilder() {
       return { impressoes, cpmBruto, cpmLiquido, valorBruto, valorLiquido };
     });
 
-    const bonusCalcs = bonusRows.map((b, i) => {
+    const bonusCalcs = hasBonus ? bonusRows.map((b, i) => {
       const linked = rows[b.linkedIdx] || rows[0] || { impressoes: 0 };
       const cpmTab = parseFloat(b.cpmTabela) || 0;
       const desc = (parseFloat(b.desconto) || 0) / 100;
       const cpmBruto = cpmTab * (1 - desc);
       const valorBruto = (linked.impressoes / 1000) * cpmBruto;
       return { impressoes: linked.impressoes, cpmBruto, valorBruto };
-    });
+    }) : [];
 
     const totalDisplay = rows.reduce((s, r, i) => s + (contractRows[i].formato === 'Display' ? r.impressoes : 0), 0);
     const totalVideo = rows.reduce((s, r, i) => s + (contractRows[i].formato === 'Video' ? r.impressoes : 0), 0);
@@ -2004,7 +2006,7 @@ function ProposalBuilder() {
     const totalBonus = bonusCalcs.reduce((s, r) => s + r.valorBruto, 0);
 
     return { rows, bonusCalcs, totalDisplay, totalVideo, totalBruto, totalLiquido, totalBonus };
-  }, [contractRows, bonusRows]);
+  }, [contractRows, bonusRows, hasBonus]);
 
   // ── Load proposals ──
   useEffect(() => { loadProposals(); }, []);
@@ -2244,65 +2246,76 @@ function ProposalBuilder() {
         });
       });
 
-      // Bonifications section
+      // Bonifications section (only if enabled)
       const bonusStart = 13 + contractRows.length + 1;
-      wsP.mergeCells(`B${bonusStart}:P${bonusStart}`);
-      wsP.getCell(`B${bonusStart}`).value = 'Bonificações';
-      wsP.getCell(`B${bonusStart}`).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } };
+      if (hasBonus) {
+        wsP.mergeCells(`B${bonusStart}:P${bonusStart}`);
+        wsP.getCell(`B${bonusStart}`).value = 'Bonificações';
+        wsP.getCell(`B${bonusStart}`).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } };
 
-      // Bonus headers
-      pHeaders.forEach((h, i) => {
-        const c = wsP.getCell(bonusStart + 1, i + 2);
-        c.value = h;
-        c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3397B9' } };
-        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      });
-
-      // Bonus data
-      bonusRows.forEach((br, idx) => {
-        const r = bonusStart + 2 + idx;
-        const bc = calcs.bonusCalcs[idx];
-        const linkedContract = contractRows[br.linkedIdx] || contractRows[0];
-
-        const vals = [
-          br.produto, br.segmentacao, br.formato, '—', '—', '—', '—',
-          br.tipoPagamento, bc.impressoes, parseFloat(br.cpmTabela) || 0,
-          (parseFloat(br.desconto) || 0) / 100, bc.cpmBruto, bc.cpmBruto * 0.8,
-          bc.valorBruto, bc.valorBruto * 0.8,
-        ];
-
-        vals.forEach((v, ci) => {
-          const cell = wsP.getCell(r, ci + 2);
-          cell.value = v;
-          cell.font = { size: 10 };
-          if (ci === 8) cell.numFmt = '#,##0';
-          if (ci === 10) cell.numFmt = '0.00%';
-          if (ci >= 9 && ci !== 10) cell.numFmt = 'R$ #,##0.00';
+        // Bonus headers
+        pHeaders.forEach((h, i) => {
+          const c = wsP.getCell(bonusStart + 1, i + 2);
+          c.value = h;
+          c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3397B9' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
         });
-      });
+
+        // Bonus data
+        bonusRows.forEach((br, idx) => {
+          const r = bonusStart + 2 + idx;
+          const bc = calcs.bonusCalcs[idx];
+
+          const vals = [
+            br.produto, br.segmentacao, br.formato, '—', '—', '—', '—',
+            br.tipoPagamento, bc.impressoes, parseFloat(br.cpmTabela) || 0,
+            (parseFloat(br.desconto) || 0) / 100, bc.cpmBruto, bc.cpmBruto * 0.8,
+            bc.valorBruto, bc.valorBruto * 0.8,
+          ];
+
+          vals.forEach((v, ci) => {
+            const cell = wsP.getCell(r, ci + 2);
+            cell.value = v;
+            cell.font = { size: 10 };
+            if (ci === 8) cell.numFmt = '#,##0';
+            if (ci === 10) cell.numFmt = '0.00%';
+            if (ci >= 9 && ci !== 10) cell.numFmt = 'R$ #,##0.00';
+          });
+        });
+      }
 
       // Features section
-      const featStart = bonusStart + 2 + bonusRows.length + 1;
+      const featStart = bonusStart + 2 + (hasBonus ? bonusRows.length : 0) + 1;
       if (selectedFeatures.length > 0) {
         wsP.mergeCells(`B${featStart}:P${featStart}`);
         wsP.getCell(`B${featStart}`).value = 'Features';
         wsP.getCell(`B${featStart}`).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } };
 
-        ['Feature', 'Segmentação/Escopo', 'Formato', 'Período', 'Detalhes'].forEach((h, i) => {
+        ['Feature', 'Segmentação/Escopo', 'Formato', 'Período', 'Impressões Visíveis', 'Views 100%', 'Plays'].forEach((h, i) => {
           const c = wsP.getCell(featStart + 1, i + 2);
           c.value = h;
           c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
           c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle' };
         });
 
         selectedFeatures.forEach((f, idx) => {
           const r = featStart + 2 + idx;
+          const fd = featureDetails[f] || {};
           wsP.getCell(r, 2).value = f;
-          wsP.getCell(r, 3).value = featureDetails[f]?.scope || '—';
-          wsP.getCell(r, 4).value = featureDetails[f]?.formato || f;
+          wsP.getCell(r, 3).value = fd.scope || '—';
+          wsP.getCell(r, 4).value = f;
           wsP.getCell(r, 5).value = periodStart && periodEnd ? `${periodStart} a ${periodEnd}` : 'TBD';
-          wsP.getCell(r, 6).value = featureDetails[f]?.details || '—';
+          if (FEATURES_PLAYS.includes(f)) {
+            wsP.getCell(r, 8).value = parseFloat(fd.plays) || 0;
+            wsP.getCell(r, 8).numFmt = '#,##0';
+          } else if (!FEATURES_NO_VOL.includes(f)) {
+            wsP.getCell(r, 6).value = parseFloat(fd.impressoes) || 0;
+            wsP.getCell(r, 6).numFmt = '#,##0';
+            wsP.getCell(r, 7).value = parseFloat(fd.views) || 0;
+            wsP.getCell(r, 7).numFmt = '#,##0';
+          }
         });
       }
 
@@ -2446,35 +2459,39 @@ function ProposalBuilder() {
         margin: { left: 14 },
       });
 
-      // Bonifications table
-      const bonusY = doc.lastAutoTable.finalY + 8;
-      doc.setFontSize(11);
-      doc.setTextColor(...teal);
-      doc.text('Bonificações', 14, bonusY);
+      // Bonifications table (only if enabled)
+      let lastTableY = doc.lastAutoTable.finalY;
+      if (hasBonus) {
+        const bonusY = lastTableY + 8;
+        doc.setFontSize(11);
+        doc.setTextColor(...teal);
+        doc.text('Bonificações', 14, bonusY);
 
-      const bonusData = bonusRows.map((br, idx) => {
-        const bc = calcs.bonusCalcs[idx];
-        return [
-          br.produto, br.segmentacao, br.formato, br.tipoPagamento,
-          '—', '—', '—',
-          new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes)),
-          fmtCurrency(parseFloat(br.cpmTabela)), `${br.desconto}%`,
-          fmtCurrency(bc.cpmBruto), fmtCurrency(bc.valorBruto), fmtCurrency(bc.valorBruto * 0.8),
-        ];
-      });
+        const bonusData = bonusRows.map((br, idx) => {
+          const bc = calcs.bonusCalcs[idx];
+          return [
+            br.produto, br.segmentacao, br.formato, br.tipoPagamento,
+            '—', '—', '—',
+            new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes)),
+            fmtCurrency(parseFloat(br.cpmTabela)), `${br.desconto}%`,
+            fmtCurrency(bc.cpmBruto), fmtCurrency(bc.valorBruto), fmtCurrency(bc.valorBruto * 0.8),
+          ];
+        });
 
-      doc.autoTable({
-        startY: bonusY + 3,
-        head: [['Produto', 'Segmentação', 'Formato', 'Pag.', 'Usuários', 'Cobertura', 'Freq.', 'Impressões', 'CPM Tab.', 'Desc.', 'CPM Neg.', 'Val. Bruto', 'Val. Líquido']],
-        body: bonusData,
-        theme: 'grid',
-        headStyles: { fillColor: teal, fontSize: 7, halign: 'center' },
-        bodyStyles: { fontSize: 7 },
-        margin: { left: 14 },
-      });
+        doc.autoTable({
+          startY: bonusY + 3,
+          head: [['Produto', 'Segmentação', 'Formato', 'Pag.', 'Usuários', 'Cobertura', 'Freq.', 'Impressões', 'CPM Tab.', 'Desc.', 'CPM Neg.', 'Val. Bruto', 'Val. Líquido']],
+          body: bonusData,
+          theme: 'grid',
+          headStyles: { fillColor: teal, fontSize: 7, halign: 'center' },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14 },
+        });
+        lastTableY = doc.lastAutoTable.finalY;
+      }
 
       // Footer
-      const fY = doc.lastAutoTable.finalY + 8;
+      const fY = lastTableY + 8;
       doc.setFontSize(7);
       doc.setTextColor(...grey);
       doc.text('* Modelo de compra de Display por CPM — Impressões auditadas.', 14, fY);
@@ -2504,6 +2521,7 @@ function ProposalBuilder() {
     setProjectDescription(''); setPeriodStart(''); setPeriodEnd('');
     setScopeRows([{ id: 1, produto: 'O2O', cluster: '', behaviorOff: '', behaviorOn: '', volumetria: '' }]);
     setContractRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4, tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25 }]);
+    setHasBonus(false);
     setBonusRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0 }]);
     setSelectedFeatures([]); setFeatureDetails({}); setClientSearch(''); setEditId(null);
   }
@@ -2870,66 +2888,87 @@ function ProposalBuilder() {
       {/* ═══ 4. Bonificações ═══ */}
       <div className="card" style={{ padding: 24, ...sectionStyle }}>
         {sectionTitle('4. Bonificações', 'Impressões bonificadas vinculadas aos produtos contratados')}
-        {bonusRows.map((row, idx) => {
-          const bc = calcs.bonusCalcs[idx];
-          return (
-            <div key={row.id} style={{ marginBottom: 14, padding: 16, background: 'var(--bg3)', borderRadius: 14, border: '1px solid rgba(51,151,185,0.2)' }}>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
-                <div style={{ flex: '0 0 130px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Produto</label>
-                  <select className="fs" value={row.produto} onChange={e => updateBonusRow(row.id, 'produto', e.target.value)}>
-                    {PROPOSAL_PRODUCTS.map(p => <option key={p}>{p}</option>)}
-                  </select>
-                </div>
-                <div style={{ flex: 1, minWidth: 180 }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Segmentação</label>
-                  <input className="fi" value={row.segmentacao} onChange={e => updateBonusRow(row.id, 'segmentacao', e.target.value)} />
-                </div>
-                <div style={{ flex: '0 0 110px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Formato</label>
-                  <select className="fs" value={row.formato} onChange={e => updateBonusRow(row.id, 'formato', e.target.value)}>
-                    {PROPOSAL_FORMATS.map(p => <option key={p}>{p}</option>)}
-                  </select>
-                </div>
-                <div style={{ flex: '0 0 160px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Vinculado ao Produto #</label>
-                  <select className="fs" value={row.linkedIdx} onChange={e => updateBonusRow(row.id, 'linkedIdx', parseInt(e.target.value))}>
-                    {contractRows.map((cr, i) => <option key={i} value={i}>#{i + 1} — {cr.produto} {cr.formato}</option>)}
-                  </select>
-                </div>
-                <button className="btn bg" style={{ marginTop: 18, padding: '6px 8px', flexShrink: 0 }} onClick={() => removeBonusRow(row.id)} title="Remover">
-                  <I n="x" s={14} c="var(--red)" />
-                </button>
-              </div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ flex: '0 0 110px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
-                  <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateBonusRow(row.id, 'cpmTabela', e.target.value)} />
-                </div>
-                <div style={{ flex: '0 0 90px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
-                  <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateBonusRow(row.id, 'desconto', e.target.value)} />
-                </div>
-              </div>
-              {/* Calculated bonus values */}
-              <div style={{ display: 'flex', gap: 16, marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--bdr)', flexWrap: 'wrap' }}>
-                {[
-                  ['Impressões Bonificadas', new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes))],
-                  ['CPM Neg. Bruto', fmtCurrency(bc.cpmBruto)],
-                  ['Valor Total', fmtCurrency(bc.valorBruto)],
-                ].map(([label, val]) => (
-                  <div key={label}>
-                    <div style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 600 }}>{label}</div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal)', fontFamily: 'var(--fd)' }}>{val}</div>
-                  </div>
-                ))}
-              </div>
+        {/* Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: hasBonus ? 20 : 0 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
+            <div onClick={() => setHasBonus(!hasBonus)} style={{
+              width: 44, height: 24, borderRadius: 12, background: hasBonus ? 'var(--teal)' : 'var(--bg3)',
+              border: `1px solid ${hasBonus ? 'var(--teal)' : 'var(--bdr)'}`, position: 'relative', cursor: 'pointer', transition: 'all 0.2s',
+            }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2,
+                left: hasBonus ? 22 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
             </div>
-          );
-        })}
-        <button className="btn bg" onClick={addBonusRow} style={{ marginTop: 8 }}>
-          <I n="plus" s={14} /> Adicionar Bonificação
-        </button>
+            Esta proposta inclui bonificações
+          </label>
+        </div>
+        {hasBonus && (
+          <>
+            {bonusRows.map((row, idx) => {
+              const bc = calcs.bonusCalcs[idx];
+              return (
+                <div key={row.id} style={{ marginBottom: 14, padding: 16, background: 'var(--bg3)', borderRadius: 14, border: '1px solid rgba(51,151,185,0.2)' }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                    <div style={{ flex: '0 0 130px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Produto</label>
+                      <select className="fs" value={row.produto} onChange={e => updateBonusRow(row.id, 'produto', e.target.value)}>
+                        {PROPOSAL_PRODUCTS.map(p => <option key={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Segmentação</label>
+                      <input className="fi" value={row.segmentacao} onChange={e => updateBonusRow(row.id, 'segmentacao', e.target.value)} />
+                    </div>
+                    <div style={{ flex: '0 0 110px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Formato</label>
+                      <select className="fs" value={row.formato} onChange={e => updateBonusRow(row.id, 'formato', e.target.value)}>
+                        {PROPOSAL_FORMATS.map(p => <option key={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: '0 0 160px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Vinculado ao Produto #</label>
+                      <select className="fs" value={row.linkedIdx} onChange={e => updateBonusRow(row.id, 'linkedIdx', parseInt(e.target.value))}>
+                        {contractRows.map((cr, i) => <option key={i} value={i}>#{i + 1} — {cr.produto} {cr.formato}</option>)}
+                      </select>
+                    </div>
+                    <button className="btn bg" style={{ marginTop: 18, padding: '6px 8px', flexShrink: 0 }} onClick={() => removeBonusRow(row.id)} title="Remover">
+                      <I n="x" s={14} c="var(--red)" />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ flex: '0 0 110px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
+                      <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateBonusRow(row.id, 'cpmTabela', e.target.value)} />
+                    </div>
+                    <div style={{ flex: '0 0 90px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
+                      <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateBonusRow(row.id, 'desconto', e.target.value)} />
+                    </div>
+                  </div>
+                  {/* Calculated bonus values */}
+                  {bc && (
+                    <div style={{ display: 'flex', gap: 16, marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--bdr)', flexWrap: 'wrap' }}>
+                      {[
+                        ['Impressões Bonificadas', new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes))],
+                        ['CPM Neg. Bruto', fmtCurrency(bc.cpmBruto)],
+                        ['Valor Total', fmtCurrency(bc.valorBruto)],
+                      ].map(([label, val]) => (
+                        <div key={label}>
+                          <div style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 600 }}>{label}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal)', fontFamily: 'var(--fd)' }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <button className="btn bg" onClick={addBonusRow} style={{ marginTop: 8 }}>
+              <I n="plus" s={14} /> Adicionar Bonificação
+            </button>
+          </>
+        )}
       </div>
 
       {/* ═══ 5. Features ═══ */}
@@ -2944,20 +2983,45 @@ function ProposalBuilder() {
             </button>
           ))}
         </div>
-        {/* Feature details */}
+        {/* Feature details with conditional volumetry */}
         {selectedFeatures.length > 0 && (
           <div style={{ marginTop: 16 }}>
-            {selectedFeatures.map(f => (
-              <div key={f} style={{ display: 'flex', gap: 10, marginBottom: 10, padding: 12, background: 'var(--bg3)', borderRadius: 10, alignItems: 'center' }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--teal)', minWidth: 120 }}>{f}</span>
-                <input className="fi" style={{ flex: 1 }} placeholder="Escopo / Segmentação"
-                  value={featureDetails[f]?.scope || ''}
-                  onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], scope: e.target.value } }))} />
-                <input className="fi" style={{ flex: 1 }} placeholder="Detalhes adicionais"
-                  value={featureDetails[f]?.details || ''}
-                  onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], details: e.target.value } }))} />
-              </div>
-            ))}
+            {selectedFeatures.map(f => {
+              const isNoVol = FEATURES_NO_VOL.includes(f);
+              const isPlays = FEATURES_PLAYS.includes(f);
+              return (
+                <div key={f} style={{ display: 'flex', gap: 10, marginBottom: 10, padding: 14, background: 'var(--bg3)', borderRadius: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--teal)', minWidth: 140 }}>{f}</span>
+                  <input className="fi" style={{ flex: 1, minWidth: 180 }} placeholder="Escopo / Segmentação"
+                    value={featureDetails[f]?.scope || ''}
+                    onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], scope: e.target.value } }))} />
+                  {isPlays && (
+                    <div style={{ flex: '0 0 140px' }}>
+                      <input className="fi" type="number" placeholder="Plays"
+                        value={featureDetails[f]?.plays || ''}
+                        onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], plays: e.target.value } }))} />
+                      <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Plays</div>
+                    </div>
+                  )}
+                  {!isNoVol && !isPlays && (
+                    <>
+                      <div style={{ flex: '0 0 150px' }}>
+                        <input className="fi" type="number" placeholder="Impressões Visíveis"
+                          value={featureDetails[f]?.impressoes || ''}
+                          onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], impressoes: e.target.value } }))} />
+                        <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Impressões Visíveis</div>
+                      </div>
+                      <div style={{ flex: '0 0 140px' }}>
+                        <input className="fi" type="number" placeholder="Views 100%"
+                          value={featureDetails[f]?.views || ''}
+                          onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], views: e.target.value } }))} />
+                        <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Views 100%</div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
