@@ -1900,8 +1900,9 @@ const PROPOSAL_PRACAS = ['Nacional','Regional','Capital','Interior'];
 const PROPOSAL_FEATURES = ['P-DOOH','Weather','Topics','Click to Calendar','Downloaded Apps',
   'Tap To Chat','Tap To Hotspot','Attention Ad','Footfall','CTV','TV Sync',
   'Tap To Scratch','Tap to Go','Tap To Carousel','Tap To Max','Purchase Context',
-  'Tap To Map','Spotify & Activision','Disney & Globoplay & Roku & Prime & Twitch',
-  'Explorers','HYPR Pass','Survey','Brand Query','Design Studio','Carbon Neutral'];
+  'Tap To Map','Explorers','HYPR Pass','Survey','Brand Query','Design Studio','Carbon Neutral'];
+// Inventory partners (separate section)
+const INVENTORY_PARTNERS_PROPOSAL = ['Spotify','Activision','Disney+','Globoplay','Roku','Prime Video','Twitch TV'];
 // Features that do NOT get volumetry fields (just a checkbox)
 const FEATURES_NO_VOL = ['Survey','Brand Query','Design Studio','Carbon Neutral','Explorers','HYPR Pass'];
 // Features with only "Plays" field
@@ -1949,8 +1950,8 @@ const FEATURE_INFO = {
   'Tap to Go':         { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
   'Tap To Carousel':   { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
   'Tap To Max':        { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
-  'Spotify & Activision': { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: 'Deals acima de R$100k. Bonif. até 15%.' },
-  'Disney & Globoplay & Roku & Prime & Twitch': { preco: 'CPCV 0.36', bet: true, recomendacao: 'Deals acima de R$150k. Bonif. até 5%.' },
+  'Spotify & Activision': undefined,
+  'Disney & Globoplay & Roku & Prime & Twitch': undefined,
   'HYPR Pass':         { preco: 'N/A', bet: true, recomendacao: '' },
   'Tap To Chat':       { preco: 'CPM 14.40', bet: true, recomendacao: '' },
   'Tap To Hotspot':    { preco: 'CPM 14.40', bet: true, recomendacao: '' },
@@ -1985,20 +1986,22 @@ function ProposalBuilder() {
   // Contracted products
   const [contractRows, setContractRows] = useState([{
     id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display',
-    usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4,
-    tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25,
+    investimento: '', usuariosEstimados: '',
+    tipoPagamento: 'CPM', cpmTabela: 24,
   }]);
 
   // Bonifications
   const [hasBonus, setHasBonus] = useState(false);
   const [bonusRows, setBonusRows] = useState([{
     id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display',
-    tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0,
+    tipoPagamento: 'CPM', cpmTabela: 24, linkedIdx: 0,
   }]);
 
   // Features
   const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [featureDetails, setFeatureDetails] = useState({});
+  // Inventory partners
+  const [selectedPartners, setSelectedPartners] = useState([]);
 
   // Client search
   const [clientSearch, setClientSearch] = useState('');
@@ -2017,29 +2020,41 @@ function ProposalBuilder() {
     setShowClientDD(false);
   }
 
-  // ── Calculations ──
+  // ── Calculations (investment-based) ──
+  const DESCONTO_FIXO = 0.25;
   const calcs = useMemo(() => {
     const rows = contractRows.map(r => {
+      const investimento = parseFloat(r.investimento) || 0;
       const users = parseFloat(r.usuariosEstimados) || 0;
-      const cob = (parseFloat(r.cobertura) || 0) / 100;
-      const freq = parseFloat(r.frequenciaMaxima) || 0;
       const cpmTab = parseFloat(r.cpmTabela) || 0;
-      const desc = (parseFloat(r.desconto) || 0) / 100;
 
-      const impressoes = users * cob * freq;
-      const cpmBruto = cpmTab * (1 - desc);
+      // Fixed discount 25%
+      const cpmBruto = cpmTab * (1 - DESCONTO_FIXO);
       const cpmLiquido = cpmBruto * 0.8;
-      const valorBruto = (impressoes / 1000) * cpmBruto;
-      const valorLiquido = valorBruto * 0.8;
 
-      return { impressoes, cpmBruto, cpmLiquido, valorBruto, valorLiquido };
+      // Calculate impressions FROM investment: valorBruto = (impressoes/1000) * cpmBruto
+      // So: impressoes = (investimento / cpmBruto) * 1000
+      const impressoes = cpmBruto > 0 ? (investimento / cpmBruto) * 1000 : 0;
+
+      // Calculate coverage and frequency from users and impressions
+      // impressoes = users * cobertura * frequencia
+      // Default frequency = 4, calculate coverage
+      const freqDefault = 4;
+      const cobertura = users > 0 ? impressoes / (users * freqDefault) : 0;
+      // If coverage > 1, adjust frequency instead
+      const freq = cobertura > 1 ? (users > 0 ? impressoes / users : 0) : freqDefault;
+      const cobFinal = cobertura > 1 ? 1 : cobertura;
+
+      const valorBruto = investimento;
+      const valorLiquido = investimento * 0.8;
+
+      return { impressoes, cpmBruto, cpmLiquido, valorBruto, valorLiquido, cobertura: cobFinal, frequencia: cobertura > 1 ? freq : freqDefault };
     });
 
     const bonusCalcs = hasBonus ? bonusRows.map((b, i) => {
       const linked = rows[b.linkedIdx] || rows[0] || { impressoes: 0 };
       const cpmTab = parseFloat(b.cpmTabela) || 0;
-      const desc = (parseFloat(b.desconto) || 0) / 100;
-      const cpmBruto = cpmTab * (1 - desc);
+      const cpmBruto = cpmTab * (1 - DESCONTO_FIXO);
       const valorBruto = (linked.impressoes / 1000) * cpmBruto;
       return { impressoes: linked.impressoes, cpmBruto, valorBruto };
     }) : [];
@@ -2075,7 +2090,7 @@ function ProposalBuilder() {
         client, agency, proposalTitle: proposalTitle || `Pacote HYPR — ${client}`, praca,
         projectDescription, periodStart, periodEnd,
         scopeProducts: scopeRows, contractedProducts: contractRows, bonifications: bonusRows,
-        features: selectedFeatures, featureDetails,
+        features: selectedFeatures, featureDetails, inventoryPartners: selectedPartners,
         totalVolumetriaDisplay: calcs.totalDisplay,
         totalVolumetriaVideo: calcs.totalVideo,
         totalValorBruto: calcs.totalBruto,
@@ -2565,10 +2580,10 @@ function ProposalBuilder() {
     setClient(''); setAgency(''); setProposalTitle(''); setPraca('Nacional');
     setProjectDescription(''); setPeriodStart(''); setPeriodEnd('');
     setScopeRows([{ id: 1, produto: 'O2O', cluster: '', behaviorOff: '', behaviorOn: '', volumetria: '' }]);
-    setContractRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4, tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25 }]);
+    setContractRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', investimento: '', usuariosEstimados: '', tipoPagamento: 'CPM', cpmTabela: 24 }]);
     setHasBonus(false);
-    setBonusRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0 }]);
-    setSelectedFeatures([]); setFeatureDetails({}); setClientSearch(''); setEditId(null);
+    setBonusRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, linkedIdx: 0 }]);
+    setSelectedFeatures([]); setFeatureDetails({}); setSelectedPartners([]); setClientSearch(''); setEditId(null);
   }
 
   // ── SCOPE ROW HANDLERS ──
@@ -2578,7 +2593,7 @@ function ProposalBuilder() {
 
   // ── CONTRACT ROW HANDLERS ──
   function addContractRow() {
-    setContractRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4, tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25 }]);
+    setContractRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', investimento: '', usuariosEstimados: '', tipoPagamento: 'CPM', cpmTabela: 24 }]);
   }
   function removeContractRow(id) { if (contractRows.length > 1) setContractRows(prev => prev.filter(r => r.id !== id)); }
   function updateContractRow(id, field, value) {
@@ -2600,7 +2615,7 @@ function ProposalBuilder() {
 
   // ── BONUS ROW HANDLERS ──
   function addBonusRow() {
-    setBonusRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0 }]);
+    setBonusRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, linkedIdx: 0 }]);
   }
   function removeBonusRow(id) { if (bonusRows.length > 1) setBonusRows(prev => prev.filter(r => r.id !== id)); }
   function updateBonusRow(id, field, value) { setBonusRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r)); }
@@ -2885,7 +2900,7 @@ function ProposalBuilder() {
                     {PROPOSAL_FORMATS.map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
-                <div style={{ flex: '0 0 110px' }}>
+                <div style={{ flex: '0 0 100px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Tipo Pag.</label>
                   <select className="fs" value={row.tipoPagamento} onChange={e => updateContractRow(row.id, 'tipoPagamento', e.target.value)}>
                     {PROPOSAL_PAYMENTS.map(p => <option key={p}>{p}</option>)}
@@ -2896,25 +2911,21 @@ function ProposalBuilder() {
                 </button>
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ flex: '0 0 140px' }}>
+                <div style={{ flex: '0 0 160px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Investimento (R$) *</label>
+                  <input className="fi" type="number" value={row.investimento} onChange={e => updateContractRow(row.id, 'investimento', e.target.value)} placeholder="Ex: 250000" style={{ borderColor: 'var(--teal)', fontWeight: 600 }} />
+                </div>
+                <div style={{ flex: '0 0 150px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Usuários Estimados</label>
-                  <input className="fi" type="number" value={row.usuariosEstimados} onChange={e => updateContractRow(row.id, 'usuariosEstimados', e.target.value)} placeholder="0" />
-                </div>
-                <div style={{ flex: '0 0 100px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Cobertura (%)</label>
-                  <input className="fi" type="number" step="0.1" value={row.cobertura} onChange={e => updateContractRow(row.id, 'cobertura', e.target.value)} />
-                </div>
-                <div style={{ flex: '0 0 90px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Freq. Máx.</label>
-                  <input className="fi" type="number" value={row.frequenciaMaxima} onChange={e => updateContractRow(row.id, 'frequenciaMaxima', e.target.value)} />
+                  <input className="fi" type="number" value={row.usuariosEstimados} onChange={e => updateContractRow(row.id, 'usuariosEstimados', e.target.value)} placeholder="Ex: 5000000" />
                 </div>
                 <div style={{ flex: '0 0 110px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
                   <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateContractRow(row.id, 'cpmTabela', e.target.value)} />
                 </div>
-                <div style={{ flex: '0 0 90px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
-                  <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateContractRow(row.id, 'desconto', e.target.value)} />
+                <div style={{ flex: '0 0 100px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Desconto</label>
+                  <div className="fi" style={{ background: 'var(--bg2)', cursor: 'default', fontWeight: 700, color: 'var(--teal)' }}>25%</div>
                 </div>
               </div>
               {/* Calculated values */}
@@ -2923,6 +2934,8 @@ function ProposalBuilder() {
                   ['Impressões', new Intl.NumberFormat('pt-BR').format(Math.round(c.impressoes))],
                   ['CPM Neg. Bruto', fmtCurrency(c.cpmBruto)],
                   ['CPM Neg. Líquido', fmtCurrency(c.cpmLiquido)],
+                  ['Cobertura', `${(c.cobertura * 100).toFixed(1)}%`],
+                  ['Frequência', c.frequencia.toFixed(1)],
                   ['Valor Bruto', fmtCurrency(c.valorBruto)],
                   ['Valor Líquido', fmtCurrency(c.valorLiquido)],
                 ].map(([label, val]) => (
@@ -3094,6 +3107,31 @@ function ProposalBuilder() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* ═══ 6. Inventory Partners ═══ */}
+      <div className="card" style={{ padding: 24, ...sectionStyle }}>
+        {sectionTitle('6. Inventory Partners', 'Parceiros de inventário premium — bonificações em impressões/views')}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {INVENTORY_PARTNERS_PROPOSAL.map(p => (
+            <button key={p} className={`chip${selectedPartners.includes(p) ? ' sel' : ''}`}
+              onClick={() => setSelectedPartners(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}>
+              {selectedPartners.includes(p) && <I n="check" s={12} />}
+              {p}
+            </button>
+          ))}
+        </div>
+        {selectedPartners.length > 0 && (
+          <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--bg3)', borderRadius: 10, fontSize: 11, color: 'var(--t2)', lineHeight: 1.6 }}>
+            <strong style={{ color: 'var(--teal)' }}>Regras de bonificação:</strong><br/>
+            {selectedPartners.some(p => ['Spotify','Activision'].includes(p)) && (
+              <span>• <strong>Spotify / Activision:</strong> Bonif. até 15% do investido. CPM R$14,40 ou CPCV R$0,36. Deals acima de R$100k.<br/></span>
+            )}
+            {selectedPartners.some(p => ['Disney+','Globoplay','Roku','Prime Video','Twitch TV'].includes(p)) && (
+              <span>• <strong>Disney+ / Globoplay / Roku / Prime Video / Twitch TV:</strong> Bonif. até 5% do investido em Completed Views. CPCV R$0,36. Deals acima de R$150k.</span>
+            )}
           </div>
         )}
       </div>
