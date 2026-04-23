@@ -1876,6 +1876,1246 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// PERMISSIONS
+// ══════════════════════════════════════════════════════════════════════════════
+const ADMINS = [
+  'matheus.machado@hypr.mobi','cesar.moura@hypr.mobi','adrian.ferguson@hypr.mobi',
+  'mateus.lambranho@hypr.mobi','gian.nardo@hypr.mobi',
+];
+const SALES_TEAM = [
+  'danilo.pereira@hypr.mobi','eduarda.bolzan@hypr.mobi','camila.tenorio@hypr.mobi',
+  'egle.stein@hypr.mobi','alexandra.perez@hypr.mobi','karol.siqueira@hypr.mobi',
+  'pablo.souza@hypr.mobi','larissa.reis@hypr.mobi','marcelo.nogueira@hypr.mobi',
+];
+const hasProposalAccess = (email) => ADMINS.includes(email) || SALES_TEAM.includes(email);
+const isAdmin = (email) => ADMINS.includes(email);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// PROPOSAL BUILDER
+// ══════════════════════════════════════════════════════════════════════════════
+const PROPOSAL_PRODUCTS = ['O2O','OOH','RMNF','RMND'];
+const PROPOSAL_FORMATS = ['Display','Video'];
+const PROPOSAL_PAYMENTS = ['CPM','CPCV','CPV','CPC'];
+const PROPOSAL_PRACAS = ['Nacional','Regional','Capital','Interior'];
+const PROPOSAL_FEATURES = ['P-DOOH','Weather','Topics','Click to Calendar','Downloaded Apps',
+  'Tap To Chat','Tap To Hotspot','Attention Ad','Footfall','CTV','TV Sync',
+  'Tap To Scratch','Tap to Go','Tap To Carousel','Tap To Max','Purchase Context',
+  'Tap To Map','Spotify & Activision','Disney & Globoplay & Roku & Prime & Twitch',
+  'Explorers','HYPR Pass','Survey','Brand Query','Design Studio','Carbon Neutral'];
+// Features that do NOT get volumetry fields (just a checkbox)
+const FEATURES_NO_VOL = ['Survey','Brand Query','Design Studio','Carbon Neutral','Explorers','HYPR Pass'];
+// Features with only "Plays" field
+const FEATURES_PLAYS = ['P-DOOH'];
+
+// ── Pricing Table 2026 ──────────────────────────────────────────────────────
+// Formato → { modeloCompra, bruto, liquido, descontoMax, finalBruto, finalLiquido }
+const PRICE_TABLE = {
+  'Display':         { modelo: 'CPM',  bruto: 24.00, liquido: 19.20, descontoMax: 0.25, finalBruto: 18.00, finalLiquido: 14.40 },
+  'Display BET':     { modelo: 'CPM',  bruto: 60.00, liquido: 48.00, descontoMax: 0.25, finalBruto: 45.00, finalLiquido: 36.00 },
+  'Vídeo BET':       { modelo: 'CPCV', bruto: 1.50,  liquido: 1.20,  descontoMax: 0.25, finalBruto: 1.125, finalLiquido: 0.90 },
+  'Video O2O | CTV': { modelo: 'CPCV', bruto: 0.60,  liquido: 0.48,  descontoMax: 0.25, finalBruto: 0.45,  finalLiquido: 0.36 },
+  'Video O2O':       { modelo: 'CPCV', bruto: 0.30,  liquido: 0.24,  descontoMax: 0.25, finalBruto: 0.225, finalLiquido: 0.18 },
+  'Video Standard':  { modelo: 'CPCV', bruto: 0.10,  liquido: 0.08,  descontoMax: 0.25, finalBruto: 0.075, finalLiquido: 0.06 },
+  'P-DOOH':          { modelo: 'CPP',  bruto: 4.17,  liquido: 3.33,  descontoMax: 0.25, finalBruto: 3.125, finalLiquido: 2.50 },
+};
+
+// CPM/CPCV reference table for product auto-fill (Tabela 2026)
+const CPM_TABLE = {
+  'O2O':  { Display: 24, Video: 0.30 },
+  'OOH':  { Display: 24, Video: 0.30 },
+  'RMNF': { Display: 24, Video: 0.30 },
+  'RMND': { Display: 24, Video: 0.30 },
+};
+
+// Payment type auto-mapping by format
+const FORMAT_PAYMENT = { 'Display': 'CPM', 'Video': 'CPCV' };
+
+// Feature pricing & recommendations (Tabela 2026)
+const FEATURE_INFO = {
+  'Survey':            { preco: 'N/A',  bet: true,  recomendacao: 'Deal acima de R$100k. 1 pergunta a cada R$100k.' },
+  'P-DOOH':            { preco: 'CPP R$2.50 líq.', bet: true, recomendacao: 'Deals acima de R$150k. 10% bonificação do valor total.' },
+  'Click to Calendar': { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: 'Deal acima de R$50k.' },
+  'Design Studio':     { preco: 'N/A',  bet: true,  recomendacao: 'Deal acima de R$60k. 1 linha criativa em todos os formatos.' },
+  'Carbon Neutral':    { preco: 'N/A',  bet: true,  recomendacao: 'Deals acima de R$150k.' },
+  'Topics':            { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: 'Sem mínimo. Use para elevar ticket médio.' },
+  'Weather':           { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: 'Sem mínimo. Use para elevar ticket médio.' },
+  'Brand Query':       { preco: 'N/A',  bet: true,  recomendacao: 'Deals acima de R$150k.' },
+  'Explorers':         { preco: 'N/A',  bet: true,  recomendacao: 'Sem mínimo. Use para elevar ticket médio.' },
+  'Downloaded Apps':   { preco: 'CPM 14.40 / CPCV 0.36', bet: false, recomendacao: 'Deals acima de R$100k. Até 50% da entrega como bonificação.' },
+  'Attention Ad':      { preco: '1 criativo, máx 5 formatos (Display)', bet: true, recomendacao: 'Deals acima de R$100k.' },
+  'Tap To Map':        { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k. Até 50% como reach media.' },
+  'Purchase Context':  { preco: 'CPM 14.40', bet: false, recomendacao: 'Aplicar como bonificação apenas.' },
+  'Tap To Scratch':    { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
+  'Tap to Go':         { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
+  'Tap To Carousel':   { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
+  'Tap To Max':        { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
+  'Spotify & Activision': { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: 'Deals acima de R$100k. Bonif. até 15%.' },
+  'Disney & Globoplay & Roku & Prime & Twitch': { preco: 'CPCV 0.36', bet: true, recomendacao: 'Deals acima de R$150k. Bonif. até 5%.' },
+  'HYPR Pass':         { preco: 'N/A', bet: true, recomendacao: '' },
+  'Tap To Chat':       { preco: 'CPM 14.40', bet: true, recomendacao: '' },
+  'Tap To Hotspot':    { preco: 'CPM 14.40', bet: true, recomendacao: '' },
+  'Footfall':          { preco: 'N/A', bet: true, recomendacao: '' },
+  'CTV':               { preco: 'CPCV 0.60', bet: true, recomendacao: '' },
+  'TV Sync':           { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: '' },
+};
+
+function ProposalBuilder() {
+  const user = useAuth();
+  const clients = useClients();
+  const toast = useToast();
+
+  const [view, setView] = useState('list');
+  const [proposals, setProposals] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editId, setEditId] = useState(null);
+
+  // ── Form state ──
+  const [client, setClient] = useState('');
+  const [agency, setAgency] = useState('');
+  const [proposalTitle, setProposalTitle] = useState('');
+  const [praca, setPraca] = useState('Nacional');
+  const [projectDescription, setProjectDescription] = useState('');
+  const [periodStart, setPeriodStart] = useState('');
+  const [periodEnd, setPeriodEnd] = useState('');
+
+  // Scope products
+  const [scopeRows, setScopeRows] = useState([{ id: 1, produto: 'O2O', cluster: '', behaviorOff: '', behaviorOn: '', volumetria: '' }]);
+
+  // Contracted products
+  const [contractRows, setContractRows] = useState([{
+    id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display',
+    usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4,
+    tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25,
+  }]);
+
+  // Bonifications
+  const [hasBonus, setHasBonus] = useState(false);
+  const [bonusRows, setBonusRows] = useState([{
+    id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display',
+    tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0,
+  }]);
+
+  // Features
+  const [selectedFeatures, setSelectedFeatures] = useState([]);
+  const [featureDetails, setFeatureDetails] = useState({});
+
+  // Client search
+  const [clientSearch, setClientSearch] = useState('');
+  const [showClientDD, setShowClientDD] = useState(false);
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return [];
+    const q = clientSearch.toLowerCase();
+    return clients.filter(c => c.client?.toLowerCase().includes(q) || c.agency?.toLowerCase().includes(q)).slice(0, 10);
+  }, [clientSearch, clients]);
+
+  // ── Auto-fill agency from client ──
+  function selectClient(c) {
+    setClient(c.client);
+    setAgency(c.agency);
+    setClientSearch(c.client);
+    setShowClientDD(false);
+  }
+
+  // ── Calculations ──
+  const calcs = useMemo(() => {
+    const rows = contractRows.map(r => {
+      const users = parseFloat(r.usuariosEstimados) || 0;
+      const cob = (parseFloat(r.cobertura) || 0) / 100;
+      const freq = parseFloat(r.frequenciaMaxima) || 0;
+      const cpmTab = parseFloat(r.cpmTabela) || 0;
+      const desc = (parseFloat(r.desconto) || 0) / 100;
+
+      const impressoes = users * cob * freq;
+      const cpmBruto = cpmTab * (1 - desc);
+      const cpmLiquido = cpmBruto * 0.8;
+      const valorBruto = (impressoes / 1000) * cpmBruto;
+      const valorLiquido = valorBruto * 0.8;
+
+      return { impressoes, cpmBruto, cpmLiquido, valorBruto, valorLiquido };
+    });
+
+    const bonusCalcs = hasBonus ? bonusRows.map((b, i) => {
+      const linked = rows[b.linkedIdx] || rows[0] || { impressoes: 0 };
+      const cpmTab = parseFloat(b.cpmTabela) || 0;
+      const desc = (parseFloat(b.desconto) || 0) / 100;
+      const cpmBruto = cpmTab * (1 - desc);
+      const valorBruto = (linked.impressoes / 1000) * cpmBruto;
+      return { impressoes: linked.impressoes, cpmBruto, valorBruto };
+    }) : [];
+
+    const totalDisplay = rows.reduce((s, r, i) => s + (contractRows[i].formato === 'Display' ? r.impressoes : 0), 0);
+    const totalVideo = rows.reduce((s, r, i) => s + (contractRows[i].formato === 'Video' ? r.impressoes : 0), 0);
+    const totalBruto = rows.reduce((s, r) => s + r.valorBruto, 0);
+    const totalLiquido = rows.reduce((s, r) => s + r.valorLiquido, 0);
+    const totalBonus = bonusCalcs.reduce((s, r) => s + r.valorBruto, 0);
+
+    return { rows, bonusCalcs, totalDisplay, totalVideo, totalBruto, totalLiquido, totalBonus };
+  }, [contractRows, bonusRows, hasBonus]);
+
+  // ── Load proposals ──
+  useEffect(() => { loadProposals(); }, []);
+
+  async function loadProposals() {
+    setLoading(true);
+    try {
+      const r = await fetch(`${BACKEND_URL}/proposals`);
+      const d = await r.json();
+      if (Array.isArray(d)) setProposals(d);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
+  }
+
+  // ── Save proposal ──
+  async function saveProposal(status = 'draft') {
+    if (!client) { toast('Selecione um cliente', 'error'); return; }
+    setSaving(true);
+    try {
+      const body = {
+        client, agency, proposalTitle: proposalTitle || `Pacote HYPR — ${client}`, praca,
+        projectDescription, periodStart, periodEnd,
+        scopeProducts: scopeRows, contractedProducts: contractRows, bonifications: bonusRows,
+        features: selectedFeatures, featureDetails,
+        totalVolumetriaDisplay: calcs.totalDisplay,
+        totalVolumetriaVideo: calcs.totalVideo,
+        totalValorBruto: calcs.totalBruto,
+        totalValorLiquido: calcs.totalLiquido,
+        totalBonificacao: calcs.totalBonus,
+        status, createdBy: user.name, createdByEmail: user.email,
+      };
+      const r = await fetch(`${BACKEND_URL}/proposals`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await r.json();
+      if (res.ok) { toast('Proposta salva com sucesso!'); loadProposals(); setView('list'); resetForm(); }
+      else toast('Erro ao salvar proposta', 'error');
+    } catch (e) { console.error(e); toast('Erro ao salvar', 'error'); }
+    finally { setSaving(false); }
+  }
+
+  // ── Delete proposal ──
+  async function deleteProposal(id) {
+    if (!confirm('Tem certeza que deseja excluir esta proposta?')) return;
+    try {
+      await fetch(`${BACKEND_URL}/proposals/${id}`, { method: 'DELETE' });
+      toast('Proposta excluída');
+      loadProposals();
+    } catch (e) { toast('Erro ao excluir', 'error'); }
+  }
+
+  // ── Generate Excel ──
+  async function generateExcel() {
+    if (!client) { toast('Preencha pelo menos o cliente', 'error'); return; }
+    toast('Gerando Excel...');
+
+    // Dynamically import ExcelJS from CDN
+    if (!window.ExcelJS) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    try {
+      const wb = new window.ExcelJS.Workbook();
+
+      // ── Sheet 1: Escopo Projeto ──
+      const wsE = wb.addWorksheet('Escopo Projeto');
+
+      // HYPR branding row
+      wsE.mergeCells('B1:F1');
+      wsE.getCell('B1').value = 'HYPR';
+      wsE.getCell('B1').font = { bold: true, size: 20, color: { argb: 'FF3397B9' } };
+
+      wsE.mergeCells('B2:F2');
+      wsE.getCell('B2').value = 'ESCOPO DO PROJETO';
+      wsE.getCell('B2').font = { bold: true, size: 16, color: { argb: 'FF1C262F' } };
+
+      wsE.mergeCells('B3:F3');
+      wsE.getCell('B3').value = proposalTitle || `Pacote HYPR — ${client}`;
+      wsE.getCell('B3').font = { size: 13, color: { argb: 'FF4A6070' } };
+
+      wsE.mergeCells('B4:F4');
+      wsE.getCell('B4').value = `Descrição do Projeto: ${projectDescription || '—'}`;
+      wsE.getCell('B4').font = { size: 11, color: { argb: 'FF4A6070' } };
+      wsE.getCell('B4').alignment = { wrapText: true };
+
+      wsE.getCell('B5').value = ''; // spacer
+
+      wsE.mergeCells('B6:F6');
+      wsE.getCell('B6').value = `Praça: ${praca}`;
+      wsE.getCell('B6').font = { bold: true, size: 11 };
+
+      wsE.getCell('B7').value = ''; // spacer
+
+      // Table headers
+      const headerStyle = { font: { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } }, alignment: { horizontal: 'center', vertical: 'middle', wrapText: true }, border: { bottom: { style: 'thin', color: { argb: 'FF3397B9' } } } };
+      ['Produto', 'Cluster', 'Comportamento OFF', 'Comportamento ON', 'Volumetria Estimada da Audiência'].forEach((h, i) => {
+        const cell = wsE.getCell(8, i + 2);
+        cell.value = h;
+        Object.assign(cell, headerStyle);
+      });
+
+      // Data rows
+      const dataFill1 = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4F6F8' } };
+      const dataFill2 = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
+      scopeRows.forEach((sp, idx) => {
+        const row = 9 + idx;
+        const fill = idx % 2 === 0 ? dataFill1 : dataFill2;
+        [sp.produto, sp.cluster, sp.behaviorOff, sp.behaviorOn].forEach((v, ci) => {
+          const c = wsE.getCell(row, ci + 2);
+          c.value = v || '';
+          c.fill = fill;
+          c.font = { size: 10 };
+          c.alignment = { wrapText: true, vertical: 'middle' };
+        });
+        const volCell = wsE.getCell(row, 6);
+        volCell.value = parseFloat(sp.volumetria) || 0;
+        volCell.numFmt = '#,##0';
+        volCell.fill = fill;
+        volCell.font = { size: 10, bold: true };
+        volCell.alignment = { horizontal: 'right' };
+      });
+
+      // Total
+      const totalR = 9 + scopeRows.length;
+      wsE.getCell(totalR, 2).value = 'TOTAL';
+      wsE.getCell(totalR, 2).font = { bold: true, size: 11 };
+      wsE.getCell(totalR, 6).value = scopeRows.reduce((s, r) => s + (parseFloat(r.volumetria) || 0), 0);
+      wsE.getCell(totalR, 6).numFmt = '#,##0';
+      wsE.getCell(totalR, 6).font = { bold: true, size: 11 };
+
+      // Column widths
+      wsE.getColumn(2).width = 18;
+      wsE.getColumn(3).width = 22;
+      wsE.getColumn(4).width = 38;
+      wsE.getColumn(5).width = 38;
+      wsE.getColumn(6).width = 24;
+
+      // ── Sheet 2: Proposta Comercial ──
+      const wsP = wb.addWorksheet('Proposta Comercial');
+
+      // Header
+      wsP.mergeCells('B1:P1');
+      wsP.getCell('B1').value = 'HYPR';
+      wsP.getCell('B1').font = { bold: true, size: 20, color: { argb: 'FF3397B9' } };
+
+      wsP.mergeCells('E2:K2');
+      wsP.getCell('E2').value = 'PROPOSTA COMERCIAL';
+      wsP.getCell('E2').font = { bold: true, size: 16, color: { argb: 'FF1C262F' } };
+      wsP.getCell('E2').alignment = { horizontal: 'center' };
+
+      wsP.mergeCells('G3:I3');
+      wsP.getCell('G3').value = proposalTitle || `Pacote HYPR — ${client}`;
+      wsP.getCell('G3').font = { size: 12, color: { argb: 'FF4A6070' } };
+      wsP.getCell('G3').alignment = { horizontal: 'center' };
+
+      // Client info
+      wsP.getCell('B5').value = `Cliente: ${client}`;
+      wsP.getCell('B5').font = { bold: true, size: 11 };
+      wsP.getCell('E5').value = `Agência: ${agency}`;
+      wsP.getCell('E5').font = { bold: true, size: 11 };
+      wsP.getCell('H5').value = `Período: ${periodStart || 'TBD'} a ${periodEnd || 'TBD'}`;
+      wsP.getCell('H5').font = { size: 11 };
+
+      // Summary box (top-right)
+      const sumFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
+      const sumFont = { color: { argb: 'FFFFFFFF' }, size: 10 };
+      const sumValFont = { color: { argb: 'FF3397B9' }, size: 11, bold: true };
+
+      [
+        ['Volumetria Total Display', fmtCompact(calcs.totalDisplay)],
+        ['Volumetria Total Video', fmtCompact(calcs.totalVideo)],
+        ['Valor Total Bruto', fmtCurrency(calcs.totalBruto)],
+        ['Valor Total Líquido', fmtCurrency(calcs.totalLiquido)],
+        ['Bonificação Total', fmtCurrency(calcs.totalBonus)],
+      ].forEach(([label, val], i) => {
+        const r = 6 + i;
+        wsP.mergeCells(`L${r}:N${r}`);
+        wsP.getCell(`L${r}`).value = label;
+        wsP.getCell(`L${r}`).font = sumFont;
+        wsP.getCell(`L${r}`).fill = sumFill;
+        wsP.getCell(`O${r}`).value = val;
+        wsP.getCell(`O${r}`).font = sumValFont;
+        wsP.getCell(`O${r}`).fill = sumFill;
+        wsP.getCell(`O${r}`).alignment = { horizontal: 'right' };
+      });
+
+      // Product table headers
+      const pHeaders = ['Produto', 'Segmentação', 'Formato', 'Período', 'Usuários/Telas\nEstimados',
+        'Cobertura*', 'Freq. Máxima', 'Tipo de\npagamento', 'Impressões\nContratadas',
+        'CPM/CPCV\nTabela', 'Desconto', 'CPM/CPCV\nNeg. Bruto', 'CPM/CPCV\nNeg. Líquido',
+        'Valor Total\nBruto', 'Valor Total\nLíquido'];
+
+      pHeaders.forEach((h, i) => {
+        const c = wsP.getCell(12, i + 2);
+        c.value = h;
+        c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+
+      // Product data rows
+      contractRows.forEach((cr, idx) => {
+        const r = 13 + idx;
+        const c = calcs.rows[idx];
+        const fill = idx % 2 === 0 ? dataFill1 : dataFill2;
+
+        const vals = [
+          cr.produto, cr.segmentacao, cr.formato,
+          periodStart && periodEnd ? `${periodStart} a ${periodEnd}` : 'TBD',
+          parseFloat(cr.usuariosEstimados) || 0,
+          (parseFloat(cr.cobertura) || 0) / 100,
+          cr.frequenciaMaxima,
+          cr.tipoPagamento,
+          c.impressoes,
+          parseFloat(cr.cpmTabela) || 0,
+          (parseFloat(cr.desconto) || 0) / 100,
+          c.cpmBruto,
+          c.cpmLiquido,
+          c.valorBruto,
+          c.valorLiquido,
+        ];
+
+        vals.forEach((v, ci) => {
+          const cell = wsP.getCell(r, ci + 2);
+          cell.value = v;
+          cell.fill = fill;
+          cell.font = { size: 10 };
+          cell.alignment = { horizontal: ci >= 4 ? 'right' : 'left', vertical: 'middle' };
+          // Number formats
+          if (ci === 4 || ci === 8) cell.numFmt = '#,##0';
+          if (ci === 5 || ci === 10) cell.numFmt = '0.00%';
+          if (ci >= 9 && ci !== 10 || ci >= 11) cell.numFmt = 'R$ #,##0.00';
+        });
+      });
+
+      // Bonifications section (only if enabled)
+      const bonusStart = 13 + contractRows.length + 1;
+      if (hasBonus) {
+        wsP.mergeCells(`B${bonusStart}:P${bonusStart}`);
+        wsP.getCell(`B${bonusStart}`).value = 'Bonificações';
+        wsP.getCell(`B${bonusStart}`).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } };
+
+        // Bonus headers
+        pHeaders.forEach((h, i) => {
+          const c = wsP.getCell(bonusStart + 1, i + 2);
+          c.value = h;
+          c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3397B9' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        });
+
+        // Bonus data
+        bonusRows.forEach((br, idx) => {
+          const r = bonusStart + 2 + idx;
+          const bc = calcs.bonusCalcs[idx];
+
+          const vals = [
+            br.produto, br.segmentacao, br.formato, '—', '—', '—', '—',
+            br.tipoPagamento, bc.impressoes, parseFloat(br.cpmTabela) || 0,
+            (parseFloat(br.desconto) || 0) / 100, bc.cpmBruto, bc.cpmBruto * 0.8,
+            bc.valorBruto, bc.valorBruto * 0.8,
+          ];
+
+          vals.forEach((v, ci) => {
+            const cell = wsP.getCell(r, ci + 2);
+            cell.value = v;
+            cell.font = { size: 10 };
+            if (ci === 8) cell.numFmt = '#,##0';
+            if (ci === 10) cell.numFmt = '0.00%';
+            if (ci >= 9 && ci !== 10) cell.numFmt = 'R$ #,##0.00';
+          });
+        });
+      }
+
+      // Features section
+      const featStart = bonusStart + 2 + (hasBonus ? bonusRows.length : 0) + 1;
+      if (selectedFeatures.length > 0) {
+        wsP.mergeCells(`B${featStart}:P${featStart}`);
+        wsP.getCell(`B${featStart}`).value = 'Features';
+        wsP.getCell(`B${featStart}`).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } };
+
+        ['Feature', 'Segmentação/Escopo', 'Formato', 'Período', 'Impressões Visíveis', 'Views 100%', 'Plays'].forEach((h, i) => {
+          const c = wsP.getCell(featStart + 1, i + 2);
+          c.value = h;
+          c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+
+        selectedFeatures.forEach((f, idx) => {
+          const r = featStart + 2 + idx;
+          const fd = featureDetails[f] || {};
+          wsP.getCell(r, 2).value = f;
+          wsP.getCell(r, 3).value = fd.scope || '—';
+          wsP.getCell(r, 4).value = f;
+          wsP.getCell(r, 5).value = periodStart && periodEnd ? `${periodStart} a ${periodEnd}` : 'TBD';
+          if (FEATURES_PLAYS.includes(f)) {
+            wsP.getCell(r, 8).value = parseFloat(fd.plays) || 0;
+            wsP.getCell(r, 8).numFmt = '#,##0';
+          } else if (!FEATURES_NO_VOL.includes(f)) {
+            wsP.getCell(r, 6).value = parseFloat(fd.impressoes) || 0;
+            wsP.getCell(r, 6).numFmt = '#,##0';
+            wsP.getCell(r, 7).value = parseFloat(fd.views) || 0;
+            wsP.getCell(r, 7).numFmt = '#,##0';
+          }
+        });
+      }
+
+      // Footer notes
+      const footerRow = featStart + (selectedFeatures.length > 0 ? selectedFeatures.length + 3 : 1);
+      wsP.getCell(`B${footerRow}`).value = `Praça: ${praca}`;
+      wsP.getCell(`B${footerRow}`).font = { bold: true, size: 10 };
+      wsP.getCell(`B${footerRow + 1}`).value = '* Modelo de compra de Display por CPM - Impressões auditadas por parceiros terceiros que garantem que os anúncios sejam vistos por completo por pelo menos 1 segundo. A HYPR cobra apenas por impressões visíveis.';
+      wsP.getCell(`B${footerRow + 1}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
+      wsP.getCell(`B${footerRow + 1}`).alignment = { wrapText: true };
+      wsP.getCell(`B${footerRow + 2}`).value = '* Modelo de compra de Vídeo por CPCV - custo por completed view que leva em consideração apenas as visualizações de video completas (100% vistas e auditadas por terceiros).';
+      wsP.getCell(`B${footerRow + 2}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
+      wsP.getCell(`B${footerRow + 2}`).alignment = { wrapText: true };
+      wsP.getCell(`B${footerRow + 3}`).value = 'TABELA 2026';
+      wsP.getCell(`B${footerRow + 3}`).font = { bold: true, size: 10 };
+      wsP.getCell(`B${footerRow + 4}`).value = 'Prazo de Pagamento: 15 dfm (15 dias fora o mês de veiculação)';
+      wsP.getCell(`B${footerRow + 4}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
+      wsP.getCell(`B${footerRow + 5}`).value = 'Entrega de material: 2 dias úteis antes do início da campanha';
+      wsP.getCell(`B${footerRow + 5}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
+
+      // Column widths
+      [2,18],[3,24],[4,12],[5,14],[6,18],[7,12],[8,14],[9,14],[10,18],[11,14],[12,12],[13,16],[14,16],[15,16],[16,16]
+      .forEach(([c,w]) => { wsP.getColumn(c).width = w; });
+
+      // Generate and download
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Proposta_HYPR_${agency ? agency.replace(/\s/g, '_') + '_' : ''}${client.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Excel gerado com sucesso!');
+    } catch (e) {
+      console.error('Error generating Excel:', e);
+      toast('Erro ao gerar Excel', 'error');
+    }
+  }
+
+  // ── Generate PDF ──
+  async function generatePDF() {
+    if (!client) { toast('Preencha pelo menos o cliente', 'error'); return; }
+    toast('Gerando PDF...');
+
+    // Load jsPDF
+    if (!window.jspdf) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    // Load autoTable
+    if (!window.jspdf?.jsPDF?.prototype?.autoTable) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    try {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+      // Colors
+      const navy = [28, 38, 47];
+      const teal = [51, 151, 185];
+      const grey = [141, 160, 174];
+
+      // Header
+      doc.setFillColor(...navy);
+      doc.rect(0, 0, 297, 32, 'F');
+      doc.setFontSize(22);
+      doc.setTextColor(...teal);
+      doc.text('HYPR', 14, 18);
+      doc.setFontSize(11);
+      doc.setTextColor(255, 255, 255);
+      doc.text('PROPOSTA COMERCIAL', 50, 14);
+      doc.setFontSize(9);
+      doc.text(proposalTitle || `Pacote HYPR — ${client}`, 50, 22);
+      doc.setFontSize(8);
+      doc.text(`${new Date().toLocaleDateString('pt-BR')}`, 270, 14);
+
+      // Client info
+      doc.setFontSize(10);
+      doc.setTextColor(...navy);
+      doc.text(`Cliente: ${client}`, 14, 40);
+      doc.text(`Agência: ${agency || '—'}`, 100, 40);
+      doc.text(`Período: ${periodStart || 'TBD'} a ${periodEnd || 'TBD'}`, 190, 40);
+      doc.text(`Praça: ${praca}`, 14, 47);
+
+      // Summary boxes
+      const boxY = 54;
+      const boxes = [
+        ['Vol. Display', fmtCompact(calcs.totalDisplay)],
+        ['Vol. Video', fmtCompact(calcs.totalVideo)],
+        ['Valor Bruto', fmtCurrency(calcs.totalBruto)],
+        ['Valor Líquido', fmtCurrency(calcs.totalLiquido)],
+        ['Bonificação', fmtCurrency(calcs.totalBonus)],
+      ];
+      boxes.forEach(([label, val], i) => {
+        const x = 14 + i * 55;
+        doc.setFillColor(244, 246, 248);
+        doc.roundedRect(x, boxY, 50, 18, 2, 2, 'F');
+        doc.setFontSize(7);
+        doc.setTextColor(...grey);
+        doc.text(label, x + 4, boxY + 6);
+        doc.setFontSize(10);
+        doc.setTextColor(...navy);
+        doc.text(val, x + 4, boxY + 14);
+      });
+
+      // Products table
+      const tableData = contractRows.map((cr, idx) => {
+        const c = calcs.rows[idx];
+        return [
+          cr.produto, cr.segmentacao, cr.formato, cr.tipoPagamento,
+          new Intl.NumberFormat('pt-BR').format(parseFloat(cr.usuariosEstimados) || 0),
+          `${cr.cobertura}%`, cr.frequenciaMaxima,
+          new Intl.NumberFormat('pt-BR').format(Math.round(c.impressoes)),
+          fmtCurrency(parseFloat(cr.cpmTabela)), `${cr.desconto}%`,
+          fmtCurrency(c.cpmBruto), fmtCurrency(c.valorBruto), fmtCurrency(c.valorLiquido),
+        ];
+      });
+
+      doc.autoTable({
+        startY: boxY + 24,
+        head: [['Produto', 'Segmentação', 'Formato', 'Pag.', 'Usuários Est.', 'Cobertura', 'Freq.', 'Impressões', 'CPM Tab.', 'Desc.', 'CPM Neg.', 'Val. Bruto', 'Val. Líquido']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: navy, fontSize: 7, halign: 'center' },
+        bodyStyles: { fontSize: 7 },
+        alternateRowStyles: { fillColor: [244, 246, 248] },
+        columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' }, 10: { halign: 'right' }, 11: { halign: 'right' }, 12: { halign: 'right' } },
+        margin: { left: 14 },
+      });
+
+      // Bonifications table (only if enabled)
+      let lastTableY = doc.lastAutoTable.finalY;
+      if (hasBonus) {
+        const bonusY = lastTableY + 8;
+        doc.setFontSize(11);
+        doc.setTextColor(...teal);
+        doc.text('Bonificações', 14, bonusY);
+
+        const bonusData = bonusRows.map((br, idx) => {
+          const bc = calcs.bonusCalcs[idx];
+          return [
+            br.produto, br.segmentacao, br.formato, br.tipoPagamento,
+            '—', '—', '—',
+            new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes)),
+            fmtCurrency(parseFloat(br.cpmTabela)), `${br.desconto}%`,
+            fmtCurrency(bc.cpmBruto), fmtCurrency(bc.valorBruto), fmtCurrency(bc.valorBruto * 0.8),
+          ];
+        });
+
+        doc.autoTable({
+          startY: bonusY + 3,
+          head: [['Produto', 'Segmentação', 'Formato', 'Pag.', 'Usuários', 'Cobertura', 'Freq.', 'Impressões', 'CPM Tab.', 'Desc.', 'CPM Neg.', 'Val. Bruto', 'Val. Líquido']],
+          body: bonusData,
+          theme: 'grid',
+          headStyles: { fillColor: teal, fontSize: 7, halign: 'center' },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14 },
+        });
+        lastTableY = doc.lastAutoTable.finalY;
+      }
+
+      // Footer
+      const fY = lastTableY + 8;
+      doc.setFontSize(7);
+      doc.setTextColor(...grey);
+      doc.text('* Modelo de compra de Display por CPM — Impressões auditadas.', 14, fY);
+      doc.text('* Modelo de compra de Vídeo por CPCV — custo por completed view (100% vistas).', 14, fY + 4);
+      doc.text('TABELA 2026 | Prazo de Pagamento: 15 dfm | Entrega de material: 2 dias úteis antes do início', 14, fY + 10);
+
+      // HYPR footer bar
+      doc.setFillColor(...navy);
+      doc.rect(0, 200, 297, 10, 'F');
+      doc.setFontSize(7);
+      doc.setTextColor(...teal);
+      doc.text('HYPR Command — Proposta gerada automaticamente', 14, 206);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Gerado por: ${user.name} | ${new Date().toLocaleDateString('pt-BR')}`, 200, 206);
+
+      // Save
+      doc.save(`Proposta_HYPR_${agency ? agency.replace(/\s/g, '_') + '_' : ''}${client.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast('PDF gerado com sucesso!');
+    } catch (e) {
+      console.error('Error generating PDF:', e);
+      toast('Erro ao gerar PDF', 'error');
+    }
+  }
+
+  function resetForm() {
+    setClient(''); setAgency(''); setProposalTitle(''); setPraca('Nacional');
+    setProjectDescription(''); setPeriodStart(''); setPeriodEnd('');
+    setScopeRows([{ id: 1, produto: 'O2O', cluster: '', behaviorOff: '', behaviorOn: '', volumetria: '' }]);
+    setContractRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4, tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25 }]);
+    setHasBonus(false);
+    setBonusRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0 }]);
+    setSelectedFeatures([]); setFeatureDetails({}); setClientSearch(''); setEditId(null);
+  }
+
+  // ── SCOPE ROW HANDLERS ──
+  function addScopeRow() { setScopeRows(prev => [...prev, { id: Date.now(), produto: 'O2O', cluster: '', behaviorOff: '', behaviorOn: '', volumetria: '' }]); }
+  function removeScopeRow(id) { if (scopeRows.length > 1) setScopeRows(prev => prev.filter(r => r.id !== id)); }
+  function updateScopeRow(id, field, value) { setScopeRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r)); }
+
+  // ── CONTRACT ROW HANDLERS ──
+  function addContractRow() {
+    setContractRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4, tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25 }]);
+  }
+  function removeContractRow(id) { if (contractRows.length > 1) setContractRows(prev => prev.filter(r => r.id !== id)); }
+  function updateContractRow(id, field, value) {
+    setContractRows(prev => prev.map(r => {
+      if (r.id !== id) return r;
+      const updated = { ...r, [field]: value };
+      // Auto-update CPM tabela and payment type when product/format changes
+      if (field === 'produto' || field === 'formato') {
+        const prod = field === 'produto' ? value : r.produto;
+        const fmt = field === 'formato' ? value : r.formato;
+        const ref = CPM_TABLE[prod];
+        if (ref) updated.cpmTabela = ref[fmt] || 0;
+        // Auto-set payment type based on format
+        if (field === 'formato') updated.tipoPagamento = FORMAT_PAYMENT[value] || r.tipoPagamento;
+      }
+      return updated;
+    }));
+  }
+
+  // ── BONUS ROW HANDLERS ──
+  function addBonusRow() {
+    setBonusRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0 }]);
+  }
+  function removeBonusRow(id) { if (bonusRows.length > 1) setBonusRows(prev => prev.filter(r => r.id !== id)); }
+  function updateBonusRow(id, field, value) { setBonusRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r)); }
+
+  // ── FEATURE TOGGLE ──
+  function toggleFeature(f) {
+    setSelectedFeatures(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f]);
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════════
+  // RENDER
+  // ══════════════════════════════════════════════════════════════════════════════
+
+  // ── LIST VIEW ──
+  if (view === 'list') {
+    return (
+      <div className="page-enter">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h1 style={{ fontFamily: 'var(--fd)', fontSize: 26, fontWeight: 700, color: 'var(--t1)', margin: 0 }}>Proposal Builder</h1>
+            <p style={{ color: 'var(--t3)', fontSize: 14, margin: '6px 0 0' }}>Crie e gerencie propostas comerciais HYPR</p>
+          </div>
+          <button className="btn" onClick={() => { resetForm(); setView('create'); }}>
+            <I n="plus" s={14} /> Nova Proposta
+          </button>
+        </div>
+
+        {/* KPIs */}
+        <div className="g4" style={{ marginBottom: 24 }}>
+          {[
+            { label: 'Total Propostas', value: proposals.length, icon: 'file-text', color: 'var(--teal)' },
+            { label: 'Rascunhos', value: proposals.filter(p => (p.status || 'draft') === 'draft').length, icon: 'clock', color: 'var(--yellow-s)' },
+            { label: 'Enviadas', value: proposals.filter(p => p.status === 'sent').length, icon: 'send', color: 'var(--teal)' },
+            { label: 'Valor Total', value: fmtCurrency(proposals.reduce((s, p) => s + (parseFloat(p.total_gross_value) || 0), 0)), icon: 'dollar', color: 'var(--green)' },
+          ].map((k, i) => (
+            <div key={i} className="card" style={{ padding: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: `${k.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <I n={k.icon} s={18} c={k.color} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--t3)', fontWeight: 600 }}>{k.label}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--t1)', fontFamily: 'var(--fd)' }}>{k.value}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* List */}
+        {loading ? (
+          <div className="empty"><div style={{ color: 'var(--t3)' }}>Carregando propostas...</div></div>
+        ) : proposals.length === 0 ? (
+          <div className="card" style={{ padding: 60, textAlign: 'center' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>📝</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--t2)', marginBottom: 8 }}>Nenhuma proposta criada</div>
+            <div style={{ fontSize: 13, color: 'var(--t3)', marginBottom: 20 }}>Clique em "Nova Proposta" para começar a construir propostas comerciais</div>
+            <button className="btn" onClick={() => { resetForm(); setView('create'); }}>
+              <I n="plus" s={14} /> Criar Primeira Proposta
+            </button>
+          </div>
+        ) : (
+          <div className="card" style={{ overflow: 'hidden' }}>
+            <table className="dt" style={{ minWidth: 800 }}>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Agência</th>
+                  <th>Título</th>
+                  <th>Valor Bruto</th>
+                  <th>Status</th>
+                  <th>Criado por</th>
+                  <th>Data</th>
+                  <th style={{ textAlign: 'right' }}>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proposals.map(p => (
+                  <tr key={p.id}>
+                    <td style={{ fontWeight: 600 }}>{p.client}</td>
+                    <td>{p.agency || '—'}</td>
+                    <td style={{ color: 'var(--t2)', fontSize: 12 }}>{p.proposal_title || '—'}</td>
+                    <td style={{ fontWeight: 700, color: 'var(--teal)' }}>{fmtCurrency(parseFloat(p.total_gross_value) || 0)}</td>
+                    <td>
+                      <span className={`badge ${p.status === 'sent' ? 'b-teal' : p.status === 'approved' ? 'b-grn' : 'b-ylw'}`}>
+                        {p.status === 'sent' ? 'Enviada' : p.status === 'approved' ? 'Aprovada' : 'Rascunho'}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--t2)' }}>{p.created_by}</td>
+                    <td style={{ fontSize: 12, color: 'var(--t3)' }}>{p.created_at ? new Date(p.created_at?.value || p.created_at).toLocaleDateString('pt-BR') : '—'}</td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                        <button className="btn bg" style={{ padding: '5px 8px', fontSize: 11 }} title="Excluir" onClick={() => deleteProposal(p.id)}>
+                          <I n="x" s={12} c="var(--red)" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ── CREATE/EDIT VIEW ──
+  const sectionStyle = { marginBottom: 28 };
+  const sectionTitle = (title, sub) => (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--t1)', fontFamily: 'var(--fd)' }}>{title}</div>
+      {sub && <div style={{ fontSize: 12, color: 'var(--t3)', marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+
+  return (
+    <div className="page-enter">
+      {/* Top bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button className="btn bg" onClick={() => { setView('list'); resetForm(); }} style={{ padding: '6px 10px' }}>
+            <I n="chevron-down" s={14} style={{ transform: 'rotate(90deg)' }} /> Voltar
+          </button>
+          <h1 style={{ fontFamily: 'var(--fd)', fontSize: 22, fontWeight: 700, color: 'var(--t1)', margin: 0 }}>
+            {editId ? 'Editar Proposta' : 'Nova Proposta'}
+          </h1>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button className="btn bg" onClick={() => saveProposal('draft')} disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar Rascunho'}
+          </button>
+          <button className="btn" style={{ background: 'var(--green)', borderColor: 'var(--green)' }} onClick={generateExcel}>
+            📊 Gerar Excel
+          </button>
+          <button className="btn" onClick={generatePDF}>
+            📄 Gerar PDF
+          </button>
+        </div>
+      </div>
+
+      {/* ═══ Summary Cards ═══ */}
+      <div className="g4" style={{ marginBottom: 24 }}>
+        {[
+          { label: 'Vol. Display', value: fmtCompact(calcs.totalDisplay), color: 'var(--teal)' },
+          { label: 'Vol. Video', value: fmtCompact(calcs.totalVideo), color: 'var(--teal)' },
+          { label: 'Valor Bruto', value: fmtCurrency(calcs.totalBruto), color: 'var(--green)' },
+          { label: 'Valor Líquido', value: fmtCurrency(calcs.totalLiquido), color: 'var(--yellow-s)' },
+        ].map((c, i) => (
+          <div key={i} className="card" style={{ padding: '14px 18px', borderLeft: `3px solid ${c.color}` }}>
+            <div style={{ fontSize: 11, color: 'var(--t3)', fontWeight: 600, marginBottom: 4 }}>{c.label}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--t1)', fontFamily: 'var(--fd)' }}>{c.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* ═══ 1. Informações Gerais ═══ */}
+      <div className="card" style={{ padding: 24, ...sectionStyle }}>
+        {sectionTitle('1. Informações Gerais', 'Cliente, agência, período e praça')}
+        <div className="g2" style={{ marginBottom: 16 }}>
+          <div className="fg">
+            <label className="fl">Cliente *</label>
+            <div style={{ position: 'relative' }}>
+              <input className="fi" placeholder="Buscar cliente..." value={clientSearch}
+                onChange={e => { setClientSearch(e.target.value); setShowClientDD(true); }}
+                onFocus={() => { if (clientSearch) setShowClientDD(true); }} />
+              {showClientDD && filteredClients.length > 0 && (
+                <div className="dd">
+                  {filteredClients.map(c => (
+                    <div key={c.client + c.agency} className="di" onClick={() => selectClient(c)}>
+                      <div style={{ fontWeight: 600 }}>{c.client}</div>
+                      <div style={{ fontSize: 11, color: 'var(--t3)' }}>{c.agency}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="fg">
+            <label className="fl">Agência</label>
+            <input className="fi" value={agency} onChange={e => setAgency(e.target.value)} placeholder="Agência do cliente" />
+          </div>
+        </div>
+        <div className="g2" style={{ marginBottom: 16 }}>
+          <div className="fg">
+            <label className="fl">Título da Proposta</label>
+            <input className="fi" value={proposalTitle} onChange={e => setProposalTitle(e.target.value)} placeholder="Ex: Pacote de Q4/25" />
+          </div>
+          <div className="fg">
+            <label className="fl">Praça</label>
+            <select className="fs" value={praca} onChange={e => setPraca(e.target.value)}>
+              {PROPOSAL_PRACAS.map(p => <option key={p}>{p}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="g2" style={{ marginBottom: 16 }}>
+          <div className="fg">
+            <label className="fl">Período Início</label>
+            <input className="fi" type="date" value={periodStart} onChange={e => setPeriodStart(e.target.value)} />
+          </div>
+          <div className="fg">
+            <label className="fl">Período Fim</label>
+            <input className="fi" type="date" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} />
+          </div>
+        </div>
+        <div className="fg">
+          <label className="fl">Descrição do Projeto</label>
+          <textarea className="ft" value={projectDescription} onChange={e => setProjectDescription(e.target.value)}
+            placeholder="Ex: Digitalizar Jornadas do mundo físico, direcionando consumidores para funil de conversão digital" />
+        </div>
+      </div>
+
+      {/* ═══ 2. Escopo do Projeto ═══ */}
+      <div className="card" style={{ padding: 24, ...sectionStyle }}>
+        {sectionTitle('2. Escopo do Projeto', 'Produtos, clusters e volumetria estimada de audiência')}
+        {scopeRows.map((row, idx) => (
+          <div key={row.id} style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-start', padding: 14, background: 'var(--bg3)', borderRadius: 12 }}>
+            <div style={{ flex: '0 0 130px' }}>
+              <label className="fl" style={{ marginBottom: 4 }}>Produto</label>
+              <select className="fs" value={row.produto} onChange={e => updateScopeRow(row.id, 'produto', e.target.value)}>
+                {PROPOSAL_PRODUCTS.map(p => <option key={p}>{p}</option>)}
+              </select>
+            </div>
+            <div style={{ flex: '0 0 140px' }}>
+              <label className="fl" style={{ marginBottom: 4 }}>Cluster</label>
+              <input className="fi" value={row.cluster} onChange={e => updateScopeRow(row.id, 'cluster', e.target.value)} placeholder="Ex: Promo Seekers" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="fl" style={{ marginBottom: 4 }}>Comportamento OFF</label>
+              <input className="fi" value={row.behaviorOff} onChange={e => updateScopeRow(row.id, 'behaviorOff', e.target.value)} placeholder="Ex: Visitantes de lojas de departamento..." />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label className="fl" style={{ marginBottom: 4 }}>Comportamento ON</label>
+              <input className="fi" value={row.behaviorOn} onChange={e => updateScopeRow(row.id, 'behaviorOn', e.target.value)} placeholder="Ex: Interesse digital em descontos..." />
+            </div>
+            <div style={{ flex: '0 0 140px' }}>
+              <label className="fl" style={{ marginBottom: 4 }}>Volumetria</label>
+              <input className="fi" type="number" value={row.volumetria} onChange={e => updateScopeRow(row.id, 'volumetria', e.target.value)} placeholder="0" />
+            </div>
+            <button className="btn bg" style={{ marginTop: 18, padding: '6px 8px', flexShrink: 0 }} onClick={() => removeScopeRow(row.id)} title="Remover">
+              <I n="x" s={14} c="var(--red)" />
+            </button>
+          </div>
+        ))}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+          <button className="btn bg" onClick={addScopeRow}><I n="plus" s={14} /> Adicionar Linha</button>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal)' }}>
+            Total Volumetria: {new Intl.NumberFormat('pt-BR').format(scopeRows.reduce((s, r) => s + (parseFloat(r.volumetria) || 0), 0))}
+          </div>
+        </div>
+      </div>
+
+      {/* ═══ 3. Produtos Contratados ═══ */}
+      <div className="card" style={{ padding: 24, ...sectionStyle }}>
+        {sectionTitle('3. Produtos Contratados', 'Formatos, volumetria, CPM e desconto — valores calculados automaticamente')}
+        {/* Price reference */}
+        <div className="disc" style={{ marginBottom: 16, background: 'var(--teal-dim)', border: '1px solid rgba(51,151,185,0.2)' }}>
+          <I n="zap" s={14} c="var(--teal)" style={{ flexShrink: 0, marginTop: 1 }} />
+          <div style={{ fontSize: 11, color: 'var(--t2)', lineHeight: 1.5 }}>
+            <strong style={{ color: 'var(--teal)' }}>Tabela 2026:</strong>{' '}
+            Display CPM R$24,00 (líq. R$19,20) · Video O2O CPCV R$0,30 (líq. R$0,24) · Video CTV CPCV R$0,60 (líq. R$0,48) · Display BET CPM R$60,00 · P-DOOH CPP R$4,17 — Desconto máx. 25%
+          </div>
+        </div>
+        {contractRows.map((row, idx) => {
+          const c = calcs.rows[idx];
+          return (
+            <div key={row.id} style={{ marginBottom: 14, padding: 16, background: 'var(--bg3)', borderRadius: 14, border: '1px solid var(--bdr-card)' }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                <div style={{ flex: '0 0 130px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Produto</label>
+                  <select className="fs" value={row.produto} onChange={e => updateContractRow(row.id, 'produto', e.target.value)}>
+                    {PROPOSAL_PRODUCTS.map(p => <option key={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Segmentação</label>
+                  <input className="fi" value={row.segmentacao} onChange={e => updateContractRow(row.id, 'segmentacao', e.target.value)} />
+                </div>
+                <div style={{ flex: '0 0 110px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Formato</label>
+                  <select className="fs" value={row.formato} onChange={e => updateContractRow(row.id, 'formato', e.target.value)}>
+                    {PROPOSAL_FORMATS.map(p => <option key={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: '0 0 110px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Tipo Pag.</label>
+                  <select className="fs" value={row.tipoPagamento} onChange={e => updateContractRow(row.id, 'tipoPagamento', e.target.value)}>
+                    {PROPOSAL_PAYMENTS.map(p => <option key={p}>{p}</option>)}
+                  </select>
+                </div>
+                <button className="btn bg" style={{ marginTop: 18, padding: '6px 8px', flexShrink: 0 }} onClick={() => removeContractRow(row.id)} title="Remover">
+                  <I n="x" s={14} c="var(--red)" />
+                </button>
+              </div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <div style={{ flex: '0 0 140px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Usuários Estimados</label>
+                  <input className="fi" type="number" value={row.usuariosEstimados} onChange={e => updateContractRow(row.id, 'usuariosEstimados', e.target.value)} placeholder="0" />
+                </div>
+                <div style={{ flex: '0 0 100px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Cobertura (%)</label>
+                  <input className="fi" type="number" step="0.1" value={row.cobertura} onChange={e => updateContractRow(row.id, 'cobertura', e.target.value)} />
+                </div>
+                <div style={{ flex: '0 0 90px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Freq. Máx.</label>
+                  <input className="fi" type="number" value={row.frequenciaMaxima} onChange={e => updateContractRow(row.id, 'frequenciaMaxima', e.target.value)} />
+                </div>
+                <div style={{ flex: '0 0 110px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
+                  <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateContractRow(row.id, 'cpmTabela', e.target.value)} />
+                </div>
+                <div style={{ flex: '0 0 90px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
+                  <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateContractRow(row.id, 'desconto', e.target.value)} />
+                </div>
+              </div>
+              {/* Calculated values */}
+              <div style={{ display: 'flex', gap: 16, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--bdr)', flexWrap: 'wrap' }}>
+                {[
+                  ['Impressões', new Intl.NumberFormat('pt-BR').format(Math.round(c.impressoes))],
+                  ['CPM Neg. Bruto', fmtCurrency(c.cpmBruto)],
+                  ['CPM Neg. Líquido', fmtCurrency(c.cpmLiquido)],
+                  ['Valor Bruto', fmtCurrency(c.valorBruto)],
+                  ['Valor Líquido', fmtCurrency(c.valorLiquido)],
+                ].map(([label, val]) => (
+                  <div key={label}>
+                    <div style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 600 }}>{label}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal)', fontFamily: 'var(--fd)' }}>{val}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        <button className="btn bg" onClick={addContractRow} style={{ marginTop: 8 }}>
+          <I n="plus" s={14} /> Adicionar Produto
+        </button>
+      </div>
+
+      {/* ═══ 4. Bonificações ═══ */}
+      <div className="card" style={{ padding: 24, ...sectionStyle }}>
+        {sectionTitle('4. Bonificações', 'Impressões bonificadas vinculadas aos produtos contratados')}
+        {/* Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: hasBonus ? 20 : 0 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--t1)' }}>
+            <div onClick={() => setHasBonus(!hasBonus)} style={{
+              width: 44, height: 24, borderRadius: 12, background: hasBonus ? 'var(--teal)' : 'var(--bg3)',
+              border: `1px solid ${hasBonus ? 'var(--teal)' : 'var(--bdr)'}`, position: 'relative', cursor: 'pointer', transition: 'all 0.2s',
+            }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2,
+                left: hasBonus ? 22 : 2, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+              }} />
+            </div>
+            Esta proposta inclui bonificações
+          </label>
+        </div>
+        {hasBonus && (
+          <>
+            {bonusRows.map((row, idx) => {
+              const bc = calcs.bonusCalcs[idx];
+              return (
+                <div key={row.id} style={{ marginBottom: 14, padding: 16, background: 'var(--bg3)', borderRadius: 14, border: '1px solid rgba(51,151,185,0.2)' }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                    <div style={{ flex: '0 0 130px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Produto</label>
+                      <select className="fs" value={row.produto} onChange={e => updateBonusRow(row.id, 'produto', e.target.value)}>
+                        {PROPOSAL_PRODUCTS.map(p => <option key={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Segmentação</label>
+                      <input className="fi" value={row.segmentacao} onChange={e => updateBonusRow(row.id, 'segmentacao', e.target.value)} />
+                    </div>
+                    <div style={{ flex: '0 0 110px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Formato</label>
+                      <select className="fs" value={row.formato} onChange={e => updateBonusRow(row.id, 'formato', e.target.value)}>
+                        {PROPOSAL_FORMATS.map(p => <option key={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: '0 0 160px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Vinculado ao Produto #</label>
+                      <select className="fs" value={row.linkedIdx} onChange={e => updateBonusRow(row.id, 'linkedIdx', parseInt(e.target.value))}>
+                        {contractRows.map((cr, i) => <option key={i} value={i}>#{i + 1} — {cr.produto} {cr.formato}</option>)}
+                      </select>
+                    </div>
+                    <button className="btn bg" style={{ marginTop: 18, padding: '6px 8px', flexShrink: 0 }} onClick={() => removeBonusRow(row.id)} title="Remover">
+                      <I n="x" s={14} c="var(--red)" />
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ flex: '0 0 110px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
+                      <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateBonusRow(row.id, 'cpmTabela', e.target.value)} />
+                    </div>
+                    <div style={{ flex: '0 0 90px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
+                      <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateBonusRow(row.id, 'desconto', e.target.value)} />
+                    </div>
+                  </div>
+                  {/* Calculated bonus values */}
+                  {bc && (
+                    <div style={{ display: 'flex', gap: 16, marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--bdr)', flexWrap: 'wrap' }}>
+                      {[
+                        ['Impressões Bonificadas', new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes))],
+                        ['CPM Neg. Bruto', fmtCurrency(bc.cpmBruto)],
+                        ['Valor Total', fmtCurrency(bc.valorBruto)],
+                      ].map(([label, val]) => (
+                        <div key={label}>
+                          <div style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 600 }}>{label}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal)', fontFamily: 'var(--fd)' }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            <button className="btn bg" onClick={addBonusRow} style={{ marginTop: 8 }}>
+              <I n="plus" s={14} /> Adicionar Bonificação
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* ═══ 5. Features ═══ */}
+      <div className="card" style={{ padding: 24, ...sectionStyle }}>
+        {sectionTitle('5. Features', 'Selecione as features adicionais da proposta — preços e recomendações da Tabela 2026')}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {PROPOSAL_FEATURES.map(f => (
+            <button key={f} className={`chip${selectedFeatures.includes(f) ? ' sel' : ''}`}
+              onClick={() => toggleFeature(f)}
+              title={FEATURE_INFO[f]?.recomendacao || ''}>
+              {selectedFeatures.includes(f) && <I n="check" s={12} />}
+              {f}
+            </button>
+          ))}
+        </div>
+        {/* Feature details with conditional volumetry */}
+        {selectedFeatures.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            {selectedFeatures.map(f => {
+              const isNoVol = FEATURES_NO_VOL.includes(f);
+              const isPlays = FEATURES_PLAYS.includes(f);
+              const info = FEATURE_INFO[f];
+              return (
+                <div key={f} style={{ marginBottom: 12, padding: 16, background: 'var(--bg3)', borderRadius: 14, border: '1px solid var(--bdr-card)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: info?.recomendacao ? 8 : 12, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', minWidth: 160 }}>{f}</span>
+                    {info?.preco && info.preco !== 'N/A' && (
+                      <span className="badge b-teal" style={{ fontSize: 10 }}>{info.preco}</span>
+                    )}
+                    {info?.bet && (
+                      <span className="badge b-ylw" style={{ fontSize: 10 }}>BET</span>
+                    )}
+                  </div>
+                  {info?.recomendacao && (
+                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 12, padding: '6px 10px', background: 'var(--bg2)', borderRadius: 8, borderLeft: '3px solid var(--teal)' }}>
+                      💡 {info.recomendacao}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input className="fi" style={{ flex: 1, minWidth: 180 }} placeholder="Escopo / Segmentação"
+                      value={featureDetails[f]?.scope || ''}
+                      onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], scope: e.target.value } }))} />
+                    {isPlays && (
+                      <div style={{ flex: '0 0 140px' }}>
+                        <input className="fi" type="number" placeholder="Plays"
+                          value={featureDetails[f]?.plays || ''}
+                          onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], plays: e.target.value } }))} />
+                        <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Plays</div>
+                      </div>
+                    )}
+                    {!isNoVol && !isPlays && (
+                      <>
+                        <div style={{ flex: '0 0 150px' }}>
+                          <input className="fi" type="number" placeholder="Impressões Visíveis"
+                            value={featureDetails[f]?.impressoes || ''}
+                            onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], impressoes: e.target.value } }))} />
+                          <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Impressões Visíveis</div>
+                        </div>
+                        <div style={{ flex: '0 0 140px' }}>
+                          <input className="fi" type="number" placeholder="Views 100%"
+                            value={featureDetails[f]?.views || ''}
+                            onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], views: e.target.value } }))} />
+                          <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Views 100%</div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ═══ Footer actions ═══ */}
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', paddingBottom: 40, flexWrap: 'wrap' }}>
+        <button className="btn bg" onClick={() => { setView('list'); resetForm(); }}>Cancelar</button>
+        <button className="btn bg" onClick={() => saveProposal('draft')} disabled={saving}>
+          {saving ? 'Salvando...' : 'Salvar Rascunho'}
+        </button>
+        <button className="btn" style={{ background: 'var(--green)', borderColor: 'var(--green)' }} onClick={generateExcel}>
+          📊 Gerar Excel
+        </button>
+        <button className="btn" onClick={generatePDF}>
+          📄 Gerar PDF
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════════════════════════════════════════
 const NAV=[
@@ -1883,6 +3123,7 @@ const NAV=[
   {key:"tasks",icon:"check-square",label:"Task Center"},
   {key:"checklist",icon:"clipboard",label:"Checklist"},
   {key:"checklist-center",icon:"inbox",label:"Checklist Center"},
+  {key:"proposals",icon:"file-text",label:"Proposal Builder"},
 ];
 
 // ─── AUTH CONTEXT ────────────────────────────────────────────────────────────
@@ -1945,7 +3186,7 @@ export default function App() {
   const [user,setUser]=useState(null);
   const [clients,setClients]=useState([]);
   const [clientsLoading,setClientsLoading]=useState(false);
-  const [page,setPage]=useState(()=>{const h=window.location.hash.replace("#","");return ["home","monitor","tasks","checklist","checklist-center"].includes(h)?h:"home"});
+  const [page,setPage]=useState(()=>{const h=window.location.hash.replace("#","");return ["home","monitor","tasks","checklist","checklist-center","proposals"].includes(h)?h:"home"});
   const navigate=(p)=>{setPage(p);window.location.hash=p};
   const [theme,setTheme]=useState("light");
   const [collapsed,setCollapsed]=useState(false);
@@ -2059,7 +3300,7 @@ export default function App() {
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
-            {NAV.map(n=>(
+            {NAV.filter(n => n.key !== 'proposals' || hasProposalAccess(user?.email)).map(n=>(
               <button key={n.key} className={`ni${page===n.key?" act":""}`}
                 style={{justifyContent:collapsed?"center":"flex-start",padding:collapsed?10:"10px 12px"}}
                 title={collapsed?n.label:undefined}
@@ -2152,6 +3393,7 @@ export default function App() {
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
             {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} />}
+            {page==="proposals"&&hasProposalAccess(user?.email)&&<ProposalBuilder />}
           </div>
         </div>
       </div>
