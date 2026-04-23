@@ -2988,10 +2988,9 @@ function ProposalBuilder() {
         {hasBonus && (
           <>
             {bonusRows.map((row, idx) => {
-              const bc = calcs.bonusCalcs[idx];
               return (
                 <div key={row.id} style={{ marginBottom: 14, padding: 16, background: 'var(--bg3)', borderRadius: 14, border: '1px solid rgba(51,151,185,0.2)' }}>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                     <div style={{ flex: '0 0 130px' }}>
                       <label className="fl" style={{ marginBottom: 4 }}>Produto</label>
                       <select className="fs" value={row.produto} onChange={e => updateBonusRow(row.id, 'produto', e.target.value)}>
@@ -3008,41 +3007,10 @@ function ProposalBuilder() {
                         {PROPOSAL_FORMATS.map(p => <option key={p}>{p}</option>)}
                       </select>
                     </div>
-                    <div style={{ flex: '0 0 160px' }}>
-                      <label className="fl" style={{ marginBottom: 4 }}>Vinculado ao Produto #</label>
-                      <select className="fs" value={row.linkedIdx} onChange={e => updateBonusRow(row.id, 'linkedIdx', parseInt(e.target.value))}>
-                        {contractRows.map((cr, i) => <option key={i} value={i}>#{i + 1} — {cr.produto} {cr.formato}</option>)}
-                      </select>
-                    </div>
-                    <button className="btn bg" style={{ marginTop: 18, padding: '6px 8px', flexShrink: 0 }} onClick={() => removeBonusRow(row.id)} title="Remover">
+                    <button className="btn bg" style={{ padding: '6px 8px', flexShrink: 0 }} onClick={() => removeBonusRow(row.id)} title="Remover">
                       <I n="x" s={14} c="var(--red)" />
                     </button>
                   </div>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                    <div style={{ flex: '0 0 110px' }}>
-                      <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
-                      <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateBonusRow(row.id, 'cpmTabela', e.target.value)} />
-                    </div>
-                    <div style={{ flex: '0 0 90px' }}>
-                      <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
-                      <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateBonusRow(row.id, 'desconto', e.target.value)} />
-                    </div>
-                  </div>
-                  {/* Calculated bonus values */}
-                  {bc && (
-                    <div style={{ display: 'flex', gap: 16, marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--bdr)', flexWrap: 'wrap' }}>
-                      {[
-                        ['Impressões Bonificadas', new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes))],
-                        ['CPM Neg. Bruto', fmtCurrency(bc.cpmBruto)],
-                        ['Valor Total', fmtCurrency(bc.valorBruto)],
-                      ].map(([label, val]) => (
-                        <div key={label}>
-                          <div style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 600 }}>{label}</div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal)', fontFamily: 'var(--fd)' }}>{val}</div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               );
             })}
