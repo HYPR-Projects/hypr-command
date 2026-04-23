@@ -1928,6 +1928,9 @@ const CPM_TABLE = {
   'RMND': { Display: 24, Video: 0.30 },
 };
 
+// Available CPM/CPCV values per format
+const CPM_OPTIONS = { Display: [24, 60], Video: [1.50, 0.60, 0.30] };
+
 // Payment type auto-mapping by format
 const FORMAT_PAYMENT = { 'Display': 'CPM', 'Video': 'CPCV' };
 
@@ -2918,8 +2921,21 @@ function ProposalBuilder() {
                   <input className="fi" type="number" value={row.usuariosEstimados} onChange={e => updateContractRow(row.id, 'usuariosEstimados', e.target.value)} placeholder="Ex: 5000000" />
                 </div>
                 <div style={{ flex: '0 0 110px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>{row.formato === 'Video' ? 'CPCV Tab.' : 'CPM Tab.'}</label>
-                  <div className="fi" style={{ background: 'var(--bg2)', cursor: 'default', fontWeight: 700, color: 'var(--teal)' }}>R$ {row.cpmTabela}</div>
+                  <label className="fl" style={{ marginBottom: 4 }}>{row.formato === 'Video' ? 'CPCV Bruto' : 'CPM Bruto'}</label>
+                  <select className="fs" style={{ fontWeight: 700, color: 'var(--teal)' }} value={row.cpmTabela} onChange={e => updateContractRow(row.id, 'cpmTabela', parseFloat(e.target.value))}>
+                    {row.formato === 'Video' ? (
+                      <>
+                        <option value={1.50}>R$ 1,50</option>
+                        <option value={0.60}>R$ 0,60</option>
+                        <option value={0.30}>R$ 0,30</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value={24}>R$ 24,00</option>
+                        <option value={60}>R$ 60,00</option>
+                      </>
+                    )}
+                  </select>
                 </div>
                 <div style={{ flex: '0 0 100px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Desconto</label>
