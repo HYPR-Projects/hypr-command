@@ -2117,23 +2117,34 @@ function ProposalBuilder() {
     } catch (e) { toast('Erro ao excluir', 'error'); }
   }
 
+  // ── Load external script helper ──
+  async function loadScript(url) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector(`script[src="${url}"]`);
+      if (existing) { resolve(); return; }
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload = resolve;
+      s.onerror = () => reject(new Error(`Failed to load: ${url}`));
+      document.head.appendChild(s);
+    });
+  }
+
   // ── Generate Excel ──
   async function generateExcel() {
     if (!client) { toast('Preencha pelo menos o cliente', 'error'); return; }
     toast('Gerando Excel...');
 
-    // Dynamically import ExcelJS from CDN
-    if (!window.ExcelJS) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
-
     try {
+      // Load ExcelJS
+      if (!window.ExcelJS) {
+        try {
+          await loadScript('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js');
+        } catch {
+          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
+        }
+      }
+      if (!window.ExcelJS) { toast('Erro ao carregar biblioteca Excel', 'error'); return; }
       const wb = new window.ExcelJS.Workbook();
 
       // ── Sheet 1: Escopo Projeto ──
@@ -2282,12 +2293,12 @@ function ProposalBuilder() {
           cr.produto, cr.segmentacao, cr.formato,
           periodStart && periodEnd ? `${periodStart} a ${periodEnd}` : 'TBD',
           parseFloat(cr.usuariosEstimados) || 0,
-          (parseFloat(cr.cobertura) || 0) / 100,
-          cr.frequenciaMaxima,
+          c.cobertura,
+          c.frequencia,
           cr.tipoPagamento,
           c.impressoes,
           parseFloat(cr.cpmTabela) || 0,
-          (parseFloat(cr.desconto) || 0) / 100,
+          DESCONTO_FIXO,
           c.cpmBruto,
           c.cpmLiquido,
           c.valorBruto,
@@ -2326,13 +2337,12 @@ function ProposalBuilder() {
         // Bonus data
         bonusRows.forEach((br, idx) => {
           const r = bonusStart + 2 + idx;
-          const bc = calcs.bonusCalcs[idx];
+          const volBonif = parseFloat(br.volumetriaBonificada) || 0;
 
           const vals = [
             br.produto, br.segmentacao, br.formato, '—', '—', '—', '—',
-            br.tipoPagamento, bc.impressoes, parseFloat(br.cpmTabela) || 0,
-            (parseFloat(br.desconto) || 0) / 100, bc.cpmBruto, bc.cpmBruto * 0.8,
-            bc.valorBruto, bc.valorBruto * 0.8,
+            br.formato === 'Video' ? 'CPCV' : 'CPM', volBonif, '—',
+            '—', '—', '—', '—', '—',
           ];
 
           vals.forEach((v, ci) => {
@@ -2340,8 +2350,6 @@ function ProposalBuilder() {
             cell.value = v;
             cell.font = { size: 10 };
             if (ci === 8) cell.numFmt = '#,##0';
-            if (ci === 10) cell.numFmt = '0.00%';
-            if (ci >= 9 && ci !== 10) cell.numFmt = 'R$ #,##0.00';
           });
         });
       }
@@ -2422,28 +2430,24 @@ function ProposalBuilder() {
     if (!client) { toast('Preencha pelo menos o cliente', 'error'); return; }
     toast('Gerando PDF...');
 
-    // Load jsPDF
-    if (!window.jspdf) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
-    // Load autoTable
-    if (!window.jspdf?.jsPDF?.prototype?.autoTable) {
-      await new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
-        s.onload = resolve;
-        s.onerror = reject;
-        document.head.appendChild(s);
-      });
-    }
-
     try {
+      // Load jsPDF
+      if (!window.jspdf) {
+        try {
+          await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+        } catch {
+          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+        }
+      }
+      // Load autoTable
+      if (!window.jspdf?.jsPDF?.prototype?.autoTable) {
+        try {
+          await loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+        } catch {
+          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+        }
+      }
+      if (!window.jspdf) { toast('Erro ao carregar biblioteca PDF', 'error'); return; }
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
 
@@ -2501,9 +2505,9 @@ function ProposalBuilder() {
         return [
           cr.produto, cr.segmentacao, cr.formato, cr.tipoPagamento,
           new Intl.NumberFormat('pt-BR').format(parseFloat(cr.usuariosEstimados) || 0),
-          `${cr.cobertura}%`, cr.frequenciaMaxima,
+          `${(c.cobertura * 100).toFixed(1)}%`, c.frequencia,
           new Intl.NumberFormat('pt-BR').format(Math.round(c.impressoes)),
-          fmtCurrency(parseFloat(cr.cpmTabela)), `${cr.desconto}%`,
+          fmtCurrency(parseFloat(cr.cpmTabela)), '25%',
           fmtCurrency(c.cpmBruto), fmtCurrency(c.valorBruto), fmtCurrency(c.valorLiquido),
         ];
       });
@@ -2528,20 +2532,17 @@ function ProposalBuilder() {
         doc.setTextColor(...teal);
         doc.text('Bonificações', 14, bonusY);
 
-        const bonusData = bonusRows.map((br, idx) => {
-          const bc = calcs.bonusCalcs[idx];
+        const bonusData = bonusRows.map((br) => {
+          const volBonif = parseFloat(br.volumetriaBonificada) || 0;
           return [
-            br.produto, br.segmentacao, br.formato, br.tipoPagamento,
-            '—', '—', '—',
-            new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes)),
-            fmtCurrency(parseFloat(br.cpmTabela)), `${br.desconto}%`,
-            fmtCurrency(bc.cpmBruto), fmtCurrency(bc.valorBruto), fmtCurrency(bc.valorBruto * 0.8),
+            br.produto, br.segmentacao, br.formato,
+            new Intl.NumberFormat('pt-BR').format(volBonif),
           ];
         });
 
         doc.autoTable({
           startY: bonusY + 3,
-          head: [['Produto', 'Segmentação', 'Formato', 'Pag.', 'Usuários', 'Cobertura', 'Freq.', 'Impressões', 'CPM Tab.', 'Desc.', 'CPM Neg.', 'Val. Bruto', 'Val. Líquido']],
+          head: [['Produto', 'Segmentação', 'Formato', 'Volumetria Bonificada']],
           body: bonusData,
           theme: 'grid',
           headStyles: { fillColor: teal, fontSize: 7, halign: 'center' },
