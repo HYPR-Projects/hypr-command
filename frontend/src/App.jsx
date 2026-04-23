@@ -2918,8 +2918,8 @@ function ProposalBuilder() {
                   <input className="fi" type="number" value={row.usuariosEstimados} onChange={e => updateContractRow(row.id, 'usuariosEstimados', e.target.value)} placeholder="Ex: 5000000" />
                 </div>
                 <div style={{ flex: '0 0 110px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
-                  <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateContractRow(row.id, 'cpmTabela', e.target.value)} />
+                  <label className="fl" style={{ marginBottom: 4 }}>{row.formato === 'Video' ? 'CPCV Tab.' : 'CPM Tab.'}</label>
+                  <div className="fi" style={{ background: 'var(--bg2)', cursor: 'default', fontWeight: 700, color: 'var(--teal)' }}>R$ {row.cpmTabela}</div>
                 </div>
                 <div style={{ flex: '0 0 100px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Desconto</label>
