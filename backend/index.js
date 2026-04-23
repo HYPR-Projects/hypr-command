@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import crypto from 'crypto'
 import { BigQuery } from '@google-cloud/bigquery'
 import { google } from 'googleapis'
 import nodemailer from 'nodemailer'
@@ -595,6 +596,98 @@ app.get('/checklists', async (req, res) => {
       `SELECT * FROM \`${PROJECT}.${DATASET}.checklists\` ORDER BY created_at DESC LIMIT 100`
     )
     res.json(rows)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── PROPOSALS ───────────────────────────────────────────────────────────────
+app.get('/proposals', async (req, res) => {
+  try {
+    const { status, created_by_email } = req.query
+    let sql = `SELECT * FROM \`${PROJECT}.${DATASET}.proposals\``
+    const where = []
+    if (status) where.push(`status = '${status}'`)
+    if (created_by_email) where.push(`created_by_email = '${created_by_email}'`)
+    if (where.length) sql += ` WHERE ${where.join(' AND ')}`
+    sql += ` ORDER BY created_at DESC LIMIT 100`
+    res.json(await query(sql))
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/proposals', async (req, res) => {
+  try {
+    const p = req.body
+    const id = crypto.randomUUID()
+    const now = new Date().toISOString()
+
+    // Save to BigQuery
+    await bq.dataset(DATASET).table('proposals').insert([{
+      id,
+      created_at: now,
+      created_by: p.createdBy || null,
+      created_by_email: p.createdByEmail || null,
+      client: p.client,
+      agency: p.agency || null,
+      period_start: p.periodStart || null,
+      period_end: p.periodEnd || null,
+      praca: p.praca || 'Nacional',
+      project_description: p.projectDescription || null,
+      proposal_title: p.proposalTitle || 'Pacote HYPR',
+      scope_products: JSON.stringify(p.scopeProducts || []),
+      contracted_products: JSON.stringify(p.contractedProducts || []),
+      bonifications: JSON.stringify(p.bonifications || []),
+      features: p.features || [],
+      total_display_volume: p.totalVolumetriaDisplay ? parseInt(p.totalVolumetriaDisplay) : null,
+      total_video_volume: p.totalVolumetriaVideo ? parseInt(p.totalVolumetriaVideo) : null,
+      total_gross_value: p.totalValorBruto ? parseFloat(p.totalValorBruto) : null,
+      total_net_value: p.totalValorLiquido ? parseFloat(p.totalValorLiquido) : null,
+      total_bonification_value: p.totalBonificacao ? parseFloat(p.totalBonificacao) : null,
+      status: p.status || 'draft',
+      last_updated: now,
+    }])
+
+    res.json({ ok: true, id })
+  } catch (err) {
+    console.error('Error creating proposal:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.put('/proposals/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const updates = req.body
+    const now = new Date().toISOString()
+
+    const setClauses = []
+    if (updates.status !== undefined) setClauses.push(`status = '${updates.status}'`)
+    if (updates.client !== undefined) setClauses.push(`client = '${updates.client}'`)
+    if (updates.agency !== undefined) setClauses.push(`agency = '${updates.agency}'`)
+    // Add more fields as needed
+    setClauses.push(`last_updated = '${now}'`)
+
+    await bq.query({
+      query: `UPDATE \`${PROJECT}.${DATASET}.proposals\` SET ${setClauses.join(', ')} WHERE id = '${id}'`,
+      useLegacySql: false
+    })
+
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.delete('/proposals/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    await bq.query({
+      query: `DELETE FROM \`${PROJECT}.${DATASET}.proposals\` WHERE id = '${id}'`,
+      useLegacySql: false
+    })
+    res.json({ ok: true })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
