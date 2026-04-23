@@ -1895,7 +1895,7 @@ const isAdmin = (email) => ADMINS.includes(email);
 // ══════════════════════════════════════════════════════════════════════════════
 const PROPOSAL_PRODUCTS = ['O2O','OOH','RMNF','RMND'];
 const PROPOSAL_FORMATS = ['Display','Video'];
-const PROPOSAL_PAYMENTS = ['CPM','CPCV','CPV','CPC'];
+const PROPOSAL_PAYMENTS = ['CPM','CPCV'];
 const PROPOSAL_PRACAS = ['Nacional','Regional','Capital','Interior'];
 const PROPOSAL_FEATURES = ['P-DOOH','Weather','Topics','Click to Calendar','Downloaded Apps',
   'Tap To Chat','Tap To Hotspot','Attention Ad','Footfall','CTV','TV Sync',
@@ -2020,11 +2020,12 @@ function ProposalBuilder() {
     setShowClientDD(false);
   }
 
-  // ── Calculations (investment-based) ──
+  // ── Calculations (investment = valor líquido) ──
   const DESCONTO_FIXO = 0.25;
+  const FREQ_FIXA = 5;
   const calcs = useMemo(() => {
     const rows = contractRows.map(r => {
-      const investimento = parseFloat(r.investimento) || 0;
+      const investLiquido = parseFloat(r.investimento) || 0;
       const users = parseFloat(r.usuariosEstimados) || 0;
       const cpmTab = parseFloat(r.cpmTabela) || 0;
 
@@ -2032,23 +2033,20 @@ function ProposalBuilder() {
       const cpmBruto = cpmTab * (1 - DESCONTO_FIXO);
       const cpmLiquido = cpmBruto * 0.8;
 
-      // Calculate impressions FROM investment: valorBruto = (impressoes/1000) * cpmBruto
-      // So: impressoes = (investimento / cpmBruto) * 1000
-      const impressoes = cpmBruto > 0 ? (investimento / cpmBruto) * 1000 : 0;
+      // Investment is LIQUID value → calculate impressions using CPM/CPCV líquido
+      // investLiquido = (impressoes / 1000) * cpmLiquido
+      // So: impressoes = (investLiquido / cpmLiquido) * 1000
+      const impressoes = cpmLiquido > 0 ? (investLiquido / cpmLiquido) * 1000 : 0;
 
-      // Calculate coverage and frequency from users and impressions
-      // impressoes = users * cobertura * frequencia
-      // Default frequency = 4, calculate coverage
-      const freqDefault = 4;
-      const cobertura = users > 0 ? impressoes / (users * freqDefault) : 0;
-      // If coverage > 1, adjust frequency instead
-      const freq = cobertura > 1 ? (users > 0 ? impressoes / users : 0) : freqDefault;
-      const cobFinal = cobertura > 1 ? 1 : cobertura;
+      // Coverage = impressoes / (users * freq), freq fixed at 5
+      const cobertura = users > 0 ? impressoes / (users * FREQ_FIXA) : 0;
+      const cobFinal = Math.min(cobertura, 1);
 
-      const valorBruto = investimento;
-      const valorLiquido = investimento * 0.8;
+      // Valor bruto = investLiquido / 0.8
+      const valorBruto = investLiquido / 0.8;
+      const valorLiquido = investLiquido;
 
-      return { impressoes, cpmBruto, cpmLiquido, valorBruto, valorLiquido, cobertura: cobFinal, frequencia: cobertura > 1 ? freq : freqDefault };
+      return { impressoes, cpmBruto, cpmLiquido, valorBruto, valorLiquido, cobertura: cobFinal, frequencia: FREQ_FIXA };
     });
 
     const bonusCalcs = hasBonus ? bonusRows.map((b, i) => {
@@ -2912,8 +2910,8 @@ function ProposalBuilder() {
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ flex: '0 0 160px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Investimento (R$) *</label>
-                  <input className="fi" type="number" value={row.investimento} onChange={e => updateContractRow(row.id, 'investimento', e.target.value)} placeholder="Ex: 250000" style={{ borderColor: 'var(--teal)', fontWeight: 600 }} />
+                  <label className="fl" style={{ marginBottom: 4 }}>Investimento Líquido (R$) *</label>
+                  <input className="fi" type="number" value={row.investimento} onChange={e => updateContractRow(row.id, 'investimento', e.target.value)} placeholder="Ex: 200000" style={{ borderColor: 'var(--teal)', fontWeight: 600 }} />
                 </div>
                 <div style={{ flex: '0 0 150px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Usuários Estimados</label>
