@@ -2125,7 +2125,7 @@ function ProposalBuilder() {
       const s = document.createElement('script');
       s.src = url;
       s.onload = resolve;
-      s.onerror = () => reject(new Error(`Failed to load: ${url}`));
+      s.onerror = () => reject(new Error(`Failed: ${url}`));
       document.head.appendChild(s);
     });
   }
@@ -2134,294 +2134,120 @@ function ProposalBuilder() {
   async function generateExcel() {
     if (!client) { toast('Preencha pelo menos o cliente', 'error'); return; }
     toast('Gerando Excel...');
-
     try {
-      // Load ExcelJS
       if (!window.ExcelJS) {
-        try {
-          await loadScript('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js');
-        } catch {
-          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js');
-        }
+        try { await loadScript('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'); }
+        catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js'); }
       }
-      if (!window.ExcelJS) { toast('Erro ao carregar biblioteca Excel', 'error'); return; }
+      if (!window.ExcelJS) throw new Error('ExcelJS not loaded');
+
       const wb = new window.ExcelJS.Workbook();
+      const hF = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
+      const hBg = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
+      const tBg = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3397B9' } };
 
-      // ── Sheet 1: Escopo Projeto ──
+      // ── Sheet 1: Escopo ──
       const wsE = wb.addWorksheet('Escopo Projeto');
-
-      // HYPR branding row
-      wsE.mergeCells('B1:F1');
-      wsE.getCell('B1').value = 'HYPR';
-      wsE.getCell('B1').font = { bold: true, size: 20, color: { argb: 'FF3397B9' } };
-
-      wsE.mergeCells('B2:F2');
-      wsE.getCell('B2').value = 'ESCOPO DO PROJETO';
-      wsE.getCell('B2').font = { bold: true, size: 16, color: { argb: 'FF1C262F' } };
-
-      wsE.mergeCells('B3:F3');
-      wsE.getCell('B3').value = proposalTitle || `Pacote HYPR — ${client}`;
-      wsE.getCell('B3').font = { size: 13, color: { argb: 'FF4A6070' } };
-
-      wsE.mergeCells('B4:F4');
-      wsE.getCell('B4').value = `Descrição do Projeto: ${projectDescription || '—'}`;
-      wsE.getCell('B4').font = { size: 11, color: { argb: 'FF4A6070' } };
-      wsE.getCell('B4').alignment = { wrapText: true };
-
-      wsE.getCell('B5').value = ''; // spacer
-
-      wsE.mergeCells('B6:F6');
-      wsE.getCell('B6').value = `Praça: ${praca}`;
-      wsE.getCell('B6').font = { bold: true, size: 11 };
-
-      wsE.getCell('B7').value = ''; // spacer
-
-      // Table headers
-      const headerStyle = { font: { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } }, alignment: { horizontal: 'center', vertical: 'middle', wrapText: true }, border: { bottom: { style: 'thin', color: { argb: 'FF3397B9' } } } };
-      ['Produto', 'Cluster', 'Comportamento OFF', 'Comportamento ON', 'Volumetria Estimada da Audiência'].forEach((h, i) => {
-        const cell = wsE.getCell(8, i + 2);
-        cell.value = h;
-        Object.assign(cell, headerStyle);
+      wsE.columns = [{ width: 4 },{ width: 16 },{ width: 22 },{ width: 36 },{ width: 36 },{ width: 22 }];
+      wsE.getCell('B1').value = 'HYPR — ESCOPO DO PROJETO';
+      wsE.getCell('B1').font = { bold: true, size: 16, color: { argb: 'FF3397B9' } };
+      wsE.getCell('B2').value = proposalTitle || `Pacote HYPR — ${client}`;
+      wsE.getCell('B3').value = `Cliente: ${client} | Agência: ${agency} | Praça: ${praca}`;
+      wsE.getCell('B4').value = projectDescription || '';
+      ['Produto','Cluster','Comportamento OFF','Comportamento ON','Volumetria'].forEach((h, i) => {
+        const c = wsE.getCell(6, i + 2); c.value = h; c.font = hF; c.fill = hBg;
       });
-
-      // Data rows
-      const dataFill1 = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4F6F8' } };
-      const dataFill2 = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
       scopeRows.forEach((sp, idx) => {
-        const row = 9 + idx;
-        const fill = idx % 2 === 0 ? dataFill1 : dataFill2;
-        [sp.produto, sp.cluster, sp.behaviorOff, sp.behaviorOn].forEach((v, ci) => {
-          const c = wsE.getCell(row, ci + 2);
-          c.value = v || '';
-          c.fill = fill;
-          c.font = { size: 10 };
-          c.alignment = { wrapText: true, vertical: 'middle' };
-        });
-        const volCell = wsE.getCell(row, 6);
-        volCell.value = parseFloat(sp.volumetria) || 0;
-        volCell.numFmt = '#,##0';
-        volCell.fill = fill;
-        volCell.font = { size: 10, bold: true };
-        volCell.alignment = { horizontal: 'right' };
+        const r = 7 + idx;
+        wsE.getCell(r, 2).value = sp.produto; wsE.getCell(r, 3).value = sp.cluster;
+        wsE.getCell(r, 4).value = sp.behaviorOff; wsE.getCell(r, 5).value = sp.behaviorOn;
+        wsE.getCell(r, 6).value = parseFloat(sp.volumetria) || 0; wsE.getCell(r, 6).numFmt = '#,##0';
       });
+      const tR = 7 + scopeRows.length;
+      wsE.getCell(tR, 2).value = 'TOTAL'; wsE.getCell(tR, 2).font = { bold: true };
+      wsE.getCell(tR, 6).value = scopeRows.reduce((s, r) => s + (parseFloat(r.volumetria) || 0), 0);
+      wsE.getCell(tR, 6).numFmt = '#,##0'; wsE.getCell(tR, 6).font = { bold: true };
 
-      // Total
-      const totalR = 9 + scopeRows.length;
-      wsE.getCell(totalR, 2).value = 'TOTAL';
-      wsE.getCell(totalR, 2).font = { bold: true, size: 11 };
-      wsE.getCell(totalR, 6).value = scopeRows.reduce((s, r) => s + (parseFloat(r.volumetria) || 0), 0);
-      wsE.getCell(totalR, 6).numFmt = '#,##0';
-      wsE.getCell(totalR, 6).font = { bold: true, size: 11 };
-
-      // Column widths
-      wsE.getColumn(2).width = 18;
-      wsE.getColumn(3).width = 22;
-      wsE.getColumn(4).width = 38;
-      wsE.getColumn(5).width = 38;
-      wsE.getColumn(6).width = 24;
-
-      // ── Sheet 2: Proposta Comercial ──
+      // ── Sheet 2: Proposta ──
       const wsP = wb.addWorksheet('Proposta Comercial');
+      wsP.getCell('B1').value = 'HYPR — PROPOSTA COMERCIAL';
+      wsP.getCell('B1').font = { bold: true, size: 16, color: { argb: 'FF3397B9' } };
+      wsP.getCell('B2').value = proposalTitle || `Pacote HYPR — ${client}`;
+      wsP.getCell('B3').value = `Cliente: ${client} | Agência: ${agency} | Período: ${periodStart || 'TBD'} a ${periodEnd || 'TBD'} | Praça: ${praca}`;
 
-      // Header
-      wsP.mergeCells('B1:P1');
-      wsP.getCell('B1').value = 'HYPR';
-      wsP.getCell('B1').font = { bold: true, size: 20, color: { argb: 'FF3397B9' } };
-
-      wsP.mergeCells('E2:K2');
-      wsP.getCell('E2').value = 'PROPOSTA COMERCIAL';
-      wsP.getCell('E2').font = { bold: true, size: 16, color: { argb: 'FF1C262F' } };
-      wsP.getCell('E2').alignment = { horizontal: 'center' };
-
-      wsP.mergeCells('G3:I3');
-      wsP.getCell('G3').value = proposalTitle || `Pacote HYPR — ${client}`;
-      wsP.getCell('G3').font = { size: 12, color: { argb: 'FF4A6070' } };
-      wsP.getCell('G3').alignment = { horizontal: 'center' };
-
-      // Client info
-      wsP.getCell('B5').value = `Cliente: ${client}`;
-      wsP.getCell('B5').font = { bold: true, size: 11 };
-      wsP.getCell('E5').value = `Agência: ${agency}`;
-      wsP.getCell('E5').font = { bold: true, size: 11 };
-      wsP.getCell('H5').value = `Período: ${periodStart || 'TBD'} a ${periodEnd || 'TBD'}`;
-      wsP.getCell('H5').font = { size: 11 };
-
-      // Summary box (top-right)
-      const sumFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
-      const sumFont = { color: { argb: 'FFFFFFFF' }, size: 10 };
-      const sumValFont = { color: { argb: 'FF3397B9' }, size: 11, bold: true };
-
-      [
-        ['Volumetria Total Display', fmtCompact(calcs.totalDisplay)],
-        ['Volumetria Total Video', fmtCompact(calcs.totalVideo)],
-        ['Valor Total Bruto', fmtCurrency(calcs.totalBruto)],
-        ['Valor Total Líquido', fmtCurrency(calcs.totalLiquido)],
-        ['Bonificação Total', fmtCurrency(calcs.totalBonus)],
-      ].forEach(([label, val], i) => {
-        const r = 6 + i;
-        wsP.mergeCells(`L${r}:N${r}`);
-        wsP.getCell(`L${r}`).value = label;
-        wsP.getCell(`L${r}`).font = sumFont;
-        wsP.getCell(`L${r}`).fill = sumFill;
-        wsP.getCell(`O${r}`).value = val;
-        wsP.getCell(`O${r}`).font = sumValFont;
-        wsP.getCell(`O${r}`).fill = sumFill;
-        wsP.getCell(`O${r}`).alignment = { horizontal: 'right' };
+      wsP.getCell('B5').value = 'RESUMO'; wsP.getCell('B5').font = { bold: true, size: 12 };
+      [['Vol. Display', calcs.totalDisplay, '#,##0'],['Vol. Video', calcs.totalVideo, '#,##0'],
+       ['Valor Bruto', calcs.totalBruto, 'R$ #,##0.00'],['Valor Líquido', calcs.totalLiquido, 'R$ #,##0.00'],
+       ['Bonificação', calcs.totalBonus, 'R$ #,##0.00']].forEach(([l, v, f], i) => {
+        wsP.getCell(6+i, 2).value = l; wsP.getCell(6+i, 2).font = { bold: true };
+        wsP.getCell(6+i, 3).value = v; wsP.getCell(6+i, 3).numFmt = f;
       });
 
-      // Product table headers
-      const pHeaders = ['Produto', 'Segmentação', 'Formato', 'Período', 'Usuários/Telas\nEstimados',
-        'Cobertura*', 'Freq. Máxima', 'Tipo de\npagamento', 'Impressões\nContratadas',
-        'CPM/CPCV\nTabela', 'Desconto', 'CPM/CPCV\nNeg. Bruto', 'CPM/CPCV\nNeg. Líquido',
-        'Valor Total\nBruto', 'Valor Total\nLíquido'];
-
-      pHeaders.forEach((h, i) => {
-        const c = wsP.getCell(12, i + 2);
-        c.value = h;
-        c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
-        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
-        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      let row = 12;
+      ['Produto','Segmentação','Formato','Pag.','Invest. Líq.','Usuários','Cobertura','Freq.','Impressões','CPM/CPCV Tab.','Desconto','CPM Neg. Bruto','CPM Neg. Líq.','Valor Bruto','Valor Líquido'].forEach((h, i) => {
+        const c = wsP.getCell(row, i + 2); c.value = h; c.font = hF; c.fill = hBg;
       });
-
-      // Product data rows
+      row++;
       contractRows.forEach((cr, idx) => {
-        const r = 13 + idx;
         const c = calcs.rows[idx];
-        const fill = idx % 2 === 0 ? dataFill1 : dataFill2;
-
-        const vals = [
-          cr.produto, cr.segmentacao, cr.formato,
-          periodStart && periodEnd ? `${periodStart} a ${periodEnd}` : 'TBD',
-          parseFloat(cr.usuariosEstimados) || 0,
-          c.cobertura,
-          c.frequencia,
-          cr.tipoPagamento,
-          c.impressoes,
-          parseFloat(cr.cpmTabela) || 0,
-          DESCONTO_FIXO,
-          c.cpmBruto,
-          c.cpmLiquido,
-          c.valorBruto,
-          c.valorLiquido,
-        ];
-
-        vals.forEach((v, ci) => {
-          const cell = wsP.getCell(r, ci + 2);
-          cell.value = v;
-          cell.fill = fill;
-          cell.font = { size: 10 };
-          cell.alignment = { horizontal: ci >= 4 ? 'right' : 'left', vertical: 'middle' };
-          // Number formats
-          if (ci === 4 || ci === 8) cell.numFmt = '#,##0';
-          if (ci === 5 || ci === 10) cell.numFmt = '0.00%';
-          if (ci >= 9 && ci !== 10 || ci >= 11) cell.numFmt = 'R$ #,##0.00';
-        });
+        wsP.getCell(row, 2).value = cr.produto; wsP.getCell(row, 3).value = cr.segmentacao;
+        wsP.getCell(row, 4).value = cr.formato; wsP.getCell(row, 5).value = cr.tipoPagamento;
+        wsP.getCell(row, 6).value = parseFloat(cr.investimento)||0; wsP.getCell(row, 6).numFmt = 'R$ #,##0.00';
+        wsP.getCell(row, 7).value = parseFloat(cr.usuariosEstimados)||0; wsP.getCell(row, 7).numFmt = '#,##0';
+        wsP.getCell(row, 8).value = c.cobertura; wsP.getCell(row, 8).numFmt = '0.0%';
+        wsP.getCell(row, 9).value = c.frequencia;
+        wsP.getCell(row, 10).value = Math.round(c.impressoes); wsP.getCell(row, 10).numFmt = '#,##0';
+        wsP.getCell(row, 11).value = parseFloat(cr.cpmTabela); wsP.getCell(row, 11).numFmt = 'R$ #,##0.00';
+        wsP.getCell(row, 12).value = DESCONTO_FIXO; wsP.getCell(row, 12).numFmt = '0%';
+        wsP.getCell(row, 13).value = c.cpmBruto; wsP.getCell(row, 13).numFmt = 'R$ #,##0.00';
+        wsP.getCell(row, 14).value = c.cpmLiquido; wsP.getCell(row, 14).numFmt = 'R$ #,##0.00';
+        wsP.getCell(row, 15).value = c.valorBruto; wsP.getCell(row, 15).numFmt = 'R$ #,##0.00';
+        wsP.getCell(row, 16).value = c.valorLiquido; wsP.getCell(row, 16).numFmt = 'R$ #,##0.00';
+        row++;
       });
-
-      // Bonifications section (only if enabled)
-      const bonusStart = 13 + contractRows.length + 1;
-      if (hasBonus) {
-        wsP.mergeCells(`B${bonusStart}:P${bonusStart}`);
-        wsP.getCell(`B${bonusStart}`).value = 'Bonificações';
-        wsP.getCell(`B${bonusStart}`).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } };
-
-        // Bonus headers
-        pHeaders.forEach((h, i) => {
-          const c = wsP.getCell(bonusStart + 1, i + 2);
-          c.value = h;
-          c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
-          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3397B9' } };
-          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-        });
-
-        // Bonus data
-        bonusRows.forEach((br, idx) => {
-          const r = bonusStart + 2 + idx;
-          const volBonif = parseFloat(br.volumetriaBonificada) || 0;
-
-          const vals = [
-            br.produto, br.segmentacao, br.formato, '—', '—', '—', '—',
-            br.formato === 'Video' ? 'CPCV' : 'CPM', volBonif, '—',
-            '—', '—', '—', '—', '—',
-          ];
-
-          vals.forEach((v, ci) => {
-            const cell = wsP.getCell(r, ci + 2);
-            cell.value = v;
-            cell.font = { size: 10 };
-            if (ci === 8) cell.numFmt = '#,##0';
-          });
+      if (hasBonus && bonusRows.length > 0) {
+        row++; wsP.getCell(row, 2).value = 'BONIFICAÇÕES'; wsP.getCell(row, 2).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } }; row++;
+        ['Produto','Segmentação','Formato','Volumetria Bonificada'].forEach((h, i) => { const c = wsP.getCell(row, i+2); c.value = h; c.font = hF; c.fill = tBg; }); row++;
+        bonusRows.forEach(br => {
+          wsP.getCell(row, 2).value = br.produto; wsP.getCell(row, 3).value = br.segmentacao;
+          wsP.getCell(row, 4).value = br.formato;
+          wsP.getCell(row, 5).value = parseFloat(br.volumetriaBonificada)||0; wsP.getCell(row, 5).numFmt = '#,##0';
+          row++;
         });
       }
-
-      // Features section
-      const featStart = bonusStart + 2 + (hasBonus ? bonusRows.length : 0) + 1;
       if (selectedFeatures.length > 0) {
-        wsP.mergeCells(`B${featStart}:P${featStart}`);
-        wsP.getCell(`B${featStart}`).value = 'Features';
-        wsP.getCell(`B${featStart}`).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } };
-
-        ['Feature', 'Segmentação/Escopo', 'Formato', 'Período', 'Impressões Visíveis', 'Views 100%', 'Plays'].forEach((h, i) => {
-          const c = wsP.getCell(featStart + 1, i + 2);
-          c.value = h;
-          c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
-          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
-          c.alignment = { horizontal: 'center', vertical: 'middle' };
-        });
-
-        selectedFeatures.forEach((f, idx) => {
-          const r = featStart + 2 + idx;
+        row++; wsP.getCell(row, 2).value = 'FEATURES'; wsP.getCell(row, 2).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } }; row++;
+        ['Feature','Escopo','Impressões Visíveis','Views 100%','Plays'].forEach((h, i) => { const c = wsP.getCell(row, i+2); c.value = h; c.font = hF; c.fill = hBg; }); row++;
+        selectedFeatures.forEach(f => {
           const fd = featureDetails[f] || {};
-          wsP.getCell(r, 2).value = f;
-          wsP.getCell(r, 3).value = fd.scope || '—';
-          wsP.getCell(r, 4).value = f;
-          wsP.getCell(r, 5).value = periodStart && periodEnd ? `${periodStart} a ${periodEnd}` : 'TBD';
-          if (FEATURES_PLAYS.includes(f)) {
-            wsP.getCell(r, 8).value = parseFloat(fd.plays) || 0;
-            wsP.getCell(r, 8).numFmt = '#,##0';
-          } else if (!FEATURES_NO_VOL.includes(f)) {
-            wsP.getCell(r, 6).value = parseFloat(fd.impressoes) || 0;
-            wsP.getCell(r, 6).numFmt = '#,##0';
-            wsP.getCell(r, 7).value = parseFloat(fd.views) || 0;
-            wsP.getCell(r, 7).numFmt = '#,##0';
+          wsP.getCell(row, 2).value = f; wsP.getCell(row, 3).value = fd.scope || '';
+          if (FEATURES_PLAYS.includes(f)) { wsP.getCell(row, 6).value = parseFloat(fd.plays)||0; wsP.getCell(row, 6).numFmt = '#,##0'; }
+          else if (!FEATURES_NO_VOL.includes(f)) {
+            wsP.getCell(row, 4).value = parseFloat(fd.impressoes)||0; wsP.getCell(row, 4).numFmt = '#,##0';
+            wsP.getCell(row, 5).value = parseFloat(fd.views)||0; wsP.getCell(row, 5).numFmt = '#,##0';
           }
+          row++;
         });
       }
+      if (selectedPartners.length > 0) {
+        row++; wsP.getCell(row, 2).value = 'INVENTORY PARTNERS'; wsP.getCell(row, 2).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } }; row++;
+        wsP.getCell(row, 2).value = selectedPartners.join(', ');
+      }
+      row += 2;
+      wsP.getCell(row, 2).value = 'TABELA 2026 | Desconto: 25% | Prazo: 15 dfm | Material: 2 dias úteis antes';
+      wsP.getCell(row, 2).font = { size: 9, color: { argb: 'FF8DA0AE' } };
+      for (let i = 2; i <= 16; i++) wsP.getColumn(i).width = i <= 4 ? 20 : 16;
 
-      // Footer notes
-      const footerRow = featStart + (selectedFeatures.length > 0 ? selectedFeatures.length + 3 : 1);
-      wsP.getCell(`B${footerRow}`).value = `Praça: ${praca}`;
-      wsP.getCell(`B${footerRow}`).font = { bold: true, size: 10 };
-      wsP.getCell(`B${footerRow + 1}`).value = '* Modelo de compra de Display por CPM - Impressões auditadas por parceiros terceiros que garantem que os anúncios sejam vistos por completo por pelo menos 1 segundo. A HYPR cobra apenas por impressões visíveis.';
-      wsP.getCell(`B${footerRow + 1}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
-      wsP.getCell(`B${footerRow + 1}`).alignment = { wrapText: true };
-      wsP.getCell(`B${footerRow + 2}`).value = '* Modelo de compra de Vídeo por CPCV - custo por completed view que leva em consideração apenas as visualizações de video completas (100% vistas e auditadas por terceiros).';
-      wsP.getCell(`B${footerRow + 2}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
-      wsP.getCell(`B${footerRow + 2}`).alignment = { wrapText: true };
-      wsP.getCell(`B${footerRow + 3}`).value = 'TABELA 2026';
-      wsP.getCell(`B${footerRow + 3}`).font = { bold: true, size: 10 };
-      wsP.getCell(`B${footerRow + 4}`).value = 'Prazo de Pagamento: 15 dfm (15 dias fora o mês de veiculação)';
-      wsP.getCell(`B${footerRow + 4}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
-      wsP.getCell(`B${footerRow + 5}`).value = 'Entrega de material: 2 dias úteis antes do início da campanha';
-      wsP.getCell(`B${footerRow + 5}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
-
-      // Column widths
-      [2,18],[3,24],[4,12],[5,14],[6,18],[7,12],[8,14],[9,14],[10,18],[11,14],[12,12],[13,16],[14,16],[15,16],[16,16]
-      .forEach(([c,w]) => { wsP.getColumn(c).width = w; });
-
-      // Generate and download
       const buffer = await wb.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Proposta_HYPR_${agency ? agency.replace(/\s/g, '_') + '_' : ''}${client.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      const a = document.createElement('a'); a.href = url;
+      a.download = `Proposta_HYPR_${client.replace(/\s/g,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click(); URL.revokeObjectURL(url);
       toast('Excel gerado com sucesso!');
     } catch (e) {
-      console.error('Error generating Excel:', e);
-      toast('Erro ao gerar Excel', 'error');
+      console.error('Excel error:', e);
+      toast(`Erro Excel: ${e.message}`, 'error');
     }
   }
 
@@ -2429,154 +2255,79 @@ function ProposalBuilder() {
   async function generatePDF() {
     if (!client) { toast('Preencha pelo menos o cliente', 'error'); return; }
     toast('Gerando PDF...');
-
     try {
-      // Load jsPDF
       if (!window.jspdf) {
-        try {
-          await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-        } catch {
-          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-        }
+        try { await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'); }
+        catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
       }
-      // Load autoTable
       if (!window.jspdf?.jsPDF?.prototype?.autoTable) {
-        try {
-          await loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
-        } catch {
-          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
-        }
+        try { await loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'); }
+        catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'); }
       }
-      if (!window.jspdf) { toast('Erro ao carregar biblioteca PDF', 'error'); return; }
+      if (!window.jspdf) throw new Error('jsPDF not loaded');
+
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      const navy = [28,38,47], teal = [51,151,185], grey = [141,160,174];
 
-      // Colors
-      const navy = [28, 38, 47];
-      const teal = [51, 151, 185];
-      const grey = [141, 160, 174];
+      doc.setFillColor(...navy); doc.rect(0, 0, 297, 28, 'F');
+      doc.setFontSize(20); doc.setTextColor(...teal); doc.text('HYPR', 14, 16);
+      doc.setFontSize(11); doc.setTextColor(255,255,255); doc.text('PROPOSTA COMERCIAL', 50, 12);
+      doc.setFontSize(9); doc.text(proposalTitle || `Pacote HYPR — ${client}`, 50, 20);
+      doc.setFontSize(8); doc.text(new Date().toLocaleDateString('pt-BR'), 270, 12);
 
-      // Header
-      doc.setFillColor(...navy);
-      doc.rect(0, 0, 297, 32, 'F');
-      doc.setFontSize(22);
-      doc.setTextColor(...teal);
-      doc.text('HYPR', 14, 18);
-      doc.setFontSize(11);
-      doc.setTextColor(255, 255, 255);
-      doc.text('PROPOSTA COMERCIAL', 50, 14);
-      doc.setFontSize(9);
-      doc.text(proposalTitle || `Pacote HYPR — ${client}`, 50, 22);
-      doc.setFontSize(8);
-      doc.text(`${new Date().toLocaleDateString('pt-BR')}`, 270, 14);
+      doc.setFontSize(10); doc.setTextColor(...navy);
+      doc.text(`Cliente: ${client}  |  Agência: ${agency||'—'}  |  Período: ${periodStart||'TBD'} a ${periodEnd||'TBD'}  |  Praça: ${praca}`, 14, 36);
 
-      // Client info
-      doc.setFontSize(10);
-      doc.setTextColor(...navy);
-      doc.text(`Cliente: ${client}`, 14, 40);
-      doc.text(`Agência: ${agency || '—'}`, 100, 40);
-      doc.text(`Período: ${periodStart || 'TBD'} a ${periodEnd || 'TBD'}`, 190, 40);
-      doc.text(`Praça: ${praca}`, 14, 47);
-
-      // Summary boxes
-      const boxY = 54;
-      const boxes = [
-        ['Vol. Display', fmtCompact(calcs.totalDisplay)],
-        ['Vol. Video', fmtCompact(calcs.totalVideo)],
-        ['Valor Bruto', fmtCurrency(calcs.totalBruto)],
-        ['Valor Líquido', fmtCurrency(calcs.totalLiquido)],
-        ['Bonificação', fmtCurrency(calcs.totalBonus)],
-      ];
-      boxes.forEach(([label, val], i) => {
-        const x = 14 + i * 55;
-        doc.setFillColor(244, 246, 248);
-        doc.roundedRect(x, boxY, 50, 18, 2, 2, 'F');
-        doc.setFontSize(7);
-        doc.setTextColor(...grey);
-        doc.text(label, x + 4, boxY + 6);
-        doc.setFontSize(10);
-        doc.setTextColor(...navy);
-        doc.text(val, x + 4, boxY + 14);
+      const boxes = [['Vol. Display',fmtCompact(calcs.totalDisplay)],['Vol. Video',fmtCompact(calcs.totalVideo)],
+        ['Valor Bruto',fmtCurrency(calcs.totalBruto)],['Valor Líquido',fmtCurrency(calcs.totalLiquido)],['Bonificação',fmtCurrency(calcs.totalBonus)]];
+      boxes.forEach(([l,v], i) => {
+        const x = 14 + i*55;
+        doc.setFillColor(244,246,248); doc.roundedRect(x, 42, 50, 16, 2, 2, 'F');
+        doc.setFontSize(7); doc.setTextColor(...grey); doc.text(l, x+4, 49);
+        doc.setFontSize(10); doc.setTextColor(...navy); doc.text(String(v), x+4, 55);
       });
 
-      // Products table
-      const tableData = contractRows.map((cr, idx) => {
+      const tData = contractRows.map((cr, idx) => {
         const c = calcs.rows[idx];
-        return [
-          cr.produto, cr.segmentacao, cr.formato, cr.tipoPagamento,
-          new Intl.NumberFormat('pt-BR').format(parseFloat(cr.usuariosEstimados) || 0),
-          `${(c.cobertura * 100).toFixed(1)}%`, c.frequencia,
+        return [cr.produto,cr.formato,cr.tipoPagamento,fmtCurrency(parseFloat(cr.investimento)||0),
           new Intl.NumberFormat('pt-BR').format(Math.round(c.impressoes)),
-          fmtCurrency(parseFloat(cr.cpmTabela)), '25%',
-          fmtCurrency(c.cpmBruto), fmtCurrency(c.valorBruto), fmtCurrency(c.valorLiquido),
-        ];
+          `${(c.cobertura*100).toFixed(1)}%`, String(c.frequencia),
+          `R$ ${cr.cpmTabela}`, '25%', fmtCurrency(c.cpmBruto), fmtCurrency(c.valorBruto), fmtCurrency(c.valorLiquido)];
       });
-
       doc.autoTable({
-        startY: boxY + 24,
-        head: [['Produto', 'Segmentação', 'Formato', 'Pag.', 'Usuários Est.', 'Cobertura', 'Freq.', 'Impressões', 'CPM Tab.', 'Desc.', 'CPM Neg.', 'Val. Bruto', 'Val. Líquido']],
-        body: tableData,
-        theme: 'grid',
+        startY: 64,
+        head: [['Produto','Formato','Pag.','Invest. Líq.','Impressões','Cobert.','Freq.','CPM Tab.','Desc.','CPM Neg.','Val. Bruto','Val. Líq.']],
+        body: tData, theme: 'grid',
         headStyles: { fillColor: navy, fontSize: 7, halign: 'center' },
         bodyStyles: { fontSize: 7 },
-        alternateRowStyles: { fillColor: [244, 246, 248] },
-        columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' }, 10: { halign: 'right' }, 11: { halign: 'right' }, 12: { halign: 'right' } },
-        margin: { left: 14 },
+        alternateRowStyles: { fillColor: [244,246,248] },
+        margin: { left: 14, right: 14 },
       });
 
-      // Bonifications table (only if enabled)
-      let lastTableY = doc.lastAutoTable.finalY;
-      if (hasBonus) {
-        const bonusY = lastTableY + 8;
-        doc.setFontSize(11);
-        doc.setTextColor(...teal);
-        doc.text('Bonificações', 14, bonusY);
-
-        const bonusData = bonusRows.map((br) => {
-          const volBonif = parseFloat(br.volumetriaBonificada) || 0;
-          return [
-            br.produto, br.segmentacao, br.formato,
-            new Intl.NumberFormat('pt-BR').format(volBonif),
-          ];
-        });
-
-        doc.autoTable({
-          startY: bonusY + 3,
-          head: [['Produto', 'Segmentação', 'Formato', 'Volumetria Bonificada']],
-          body: bonusData,
-          theme: 'grid',
-          headStyles: { fillColor: teal, fontSize: 7, halign: 'center' },
-          bodyStyles: { fontSize: 7 },
-          margin: { left: 14 },
-        });
-        lastTableY = doc.lastAutoTable.finalY;
+      let lastY = doc.lastAutoTable.finalY;
+      if (hasBonus && bonusRows.length > 0) {
+        lastY += 6; doc.setFontSize(10); doc.setTextColor(...teal); doc.text('Bonificações', 14, lastY);
+        const bData = bonusRows.map(br => [br.produto, br.segmentacao, br.formato,
+          new Intl.NumberFormat('pt-BR').format(parseFloat(br.volumetriaBonificada)||0)]);
+        doc.autoTable({ startY: lastY+2, head: [['Produto','Segmentação','Formato','Volumetria Bonificada']],
+          body: bData, theme: 'grid', headStyles: { fillColor: teal, fontSize: 7, halign: 'center' },
+          bodyStyles: { fontSize: 7 }, margin: { left: 14, right: 14 } });
+        lastY = doc.lastAutoTable.finalY;
       }
 
-      // Footer
-      const fY = lastTableY + 8;
-      doc.setFontSize(7);
-      doc.setTextColor(...grey);
-      doc.text('* Modelo de compra de Display por CPM — Impressões auditadas.', 14, fY);
-      doc.text('* Modelo de compra de Vídeo por CPCV — custo por completed view (100% vistas).', 14, fY + 4);
-      doc.text('TABELA 2026 | Prazo de Pagamento: 15 dfm | Entrega de material: 2 dias úteis antes do início', 14, fY + 10);
+      doc.setFillColor(...navy); doc.rect(0, 200, 297, 10, 'F');
+      doc.setFontSize(7); doc.setTextColor(...teal); doc.text('HYPR Command — Proposta gerada automaticamente', 14, 206);
+      doc.setTextColor(255,255,255); doc.text(`Gerado por: ${user.name} | ${new Date().toLocaleDateString('pt-BR')}`, 200, 206);
 
-      // HYPR footer bar
-      doc.setFillColor(...navy);
-      doc.rect(0, 200, 297, 10, 'F');
-      doc.setFontSize(7);
-      doc.setTextColor(...teal);
-      doc.text('HYPR Command — Proposta gerada automaticamente', 14, 206);
-      doc.setTextColor(255, 255, 255);
-      doc.text(`Gerado por: ${user.name} | ${new Date().toLocaleDateString('pt-BR')}`, 200, 206);
-
-      // Save
-      doc.save(`Proposta_HYPR_${agency ? agency.replace(/\s/g, '_') + '_' : ''}${client.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`Proposta_HYPR_${client.replace(/\s/g,'_')}_${new Date().toISOString().split('T')[0]}.pdf`);
       toast('PDF gerado com sucesso!');
     } catch (e) {
-      console.error('Error generating PDF:', e);
-      toast('Erro ao gerar PDF', 'error');
+      console.error('PDF error:', e);
+      toast(`Erro PDF: ${e.message}`, 'error');
     }
   }
+
 
   function resetForm() {
     setClient(''); setAgency(''); setProposalTitle(''); setPraca('Nacional');
