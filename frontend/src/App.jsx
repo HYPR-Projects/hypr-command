@@ -3007,6 +3007,10 @@ function ProposalBuilder() {
                         {PROPOSAL_FORMATS.map(p => <option key={p}>{p}</option>)}
                       </select>
                     </div>
+                    <div style={{ flex: '0 0 160px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>{row.formato === 'Video' ? 'Views 100% Bonificadas' : 'Impressões Bonificadas'}</label>
+                      <input className="fi" type="number" value={row.volumetriaBonificada || ''} onChange={e => updateBonusRow(row.id, 'volumetriaBonificada', e.target.value)} placeholder="0" />
+                    </div>
                     <button className="btn bg" style={{ padding: '6px 8px', flexShrink: 0 }} onClick={() => removeBonusRow(row.id)} title="Remover">
                       <I n="x" s={14} c="var(--red)" />
                     </button>
