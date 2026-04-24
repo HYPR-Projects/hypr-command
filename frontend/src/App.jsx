@@ -179,8 +179,8 @@ function getTaskStatus(t) {
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300&display=swap');
-:root{--navy:#1C262F;--teal:#3397B9;--teal-l:#4ab3d6;--teal-dim:rgba(51,151,185,0.12);--yellow:#EDD900;--yellow-dim:rgba(237,217,0,0.10);--bg1:#F4F6F8;--bg2:#FFFFFF;--bg3:#EEF1F4;--bg-card:#FFFFFF;--bg-sidebar:#1C262F;--bg-input:#FFFFFF;--t1:#1C262F;--t2:#4A6070;--t3:#8DA0AE;--bdr:#DDE3E8;--bdr-focus:#3397B9;--bdr-card:#E8ECF0;--sh-sm:0 1px 3px rgba(28,38,47,0.06);--sh-md:0 4px 12px rgba(28,38,47,0.08);--sh-lg:0 8px 24px rgba(28,38,47,0.10);--green:#22C55E;--green-bg:rgba(34,197,94,0.10);--red:#EF4444;--red-bg:rgba(239,68,68,0.10);--yellow-s:#F59E0B;--yellow-s-bg:rgba(245,158,11,0.10);--r:10px;--ff:'DM Sans',sans-serif;--fd:'Syne',sans-serif;--tr:0.18s ease}
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap');
+:root{--navy:#1C262F;--teal:#3397B9;--teal-l:#4ab3d6;--teal-dim:rgba(51,151,185,0.12);--yellow:#EDD900;--yellow-dim:rgba(237,217,0,0.10);--bg1:#F4F6F8;--bg2:#FFFFFF;--bg3:#EEF1F4;--bg-card:#FFFFFF;--bg-sidebar:#1C262F;--bg-input:#FFFFFF;--t1:#1C262F;--t2:#4A6070;--t3:#8DA0AE;--bdr:#DDE3E8;--bdr-focus:#3397B9;--bdr-card:#E8ECF0;--sh-sm:0 1px 3px rgba(28,38,47,0.06);--sh-md:0 4px 12px rgba(28,38,47,0.08);--sh-lg:0 8px 24px rgba(28,38,47,0.10);--green:#22C55E;--green-bg:rgba(34,197,94,0.10);--red:#EF4444;--red-bg:rgba(239,68,68,0.10);--yellow-s:#F59E0B;--yellow-s-bg:rgba(245,158,11,0.10);--r:10px;--ff:'Urbanist',sans-serif;--fd:'Urbanist',sans-serif;--tr:0.18s ease}
 [data-theme="dark"]{--bg1:#111820;--bg2:#1C262F;--bg3:#141D25;--bg-card:#1C262F;--bg-sidebar:#0E151C;--bg-input:#253340;--t1:#E8EDF1;--t2:#94A9B8;--t3:#5A7080;--bdr:#2A3845;--bdr-card:#253340;--sh-sm:0 1px 3px rgba(0,0,0,0.25);--sh-md:0 4px 12px rgba(0,0,0,0.3);--sh-lg:0 8px 24px rgba(0,0,0,0.35)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:14px;-webkit-font-smoothing:antialiased}
@@ -1888,7 +1888,6 @@ const SALES_TEAM = [
   'pablo.souza@hypr.mobi','larissa.reis@hypr.mobi','marcelo.nogueira@hypr.mobi',
 ];
 const hasProposalAccess = (email) => ADMINS.includes(email) || SALES_TEAM.includes(email);
-const HYPR_LOGO='data:image/png;base64,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';
 const isAdmin = (email) => ADMINS.includes(email);
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -1896,72 +1895,23 @@ const isAdmin = (email) => ADMINS.includes(email);
 // ══════════════════════════════════════════════════════════════════════════════
 const PROPOSAL_PRODUCTS = ['O2O','OOH','RMNF','RMND'];
 const PROPOSAL_FORMATS = ['Display','Video'];
-const PROPOSAL_PAYMENTS = ['CPM','CPCV'];
+const PROPOSAL_PAYMENTS = ['CPM','CPCV','CPV','CPC'];
 const PROPOSAL_PRACAS = ['Nacional','Regional','Capital','Interior'];
 const PROPOSAL_FEATURES = ['P-DOOH','Weather','Topics','Click to Calendar','Downloaded Apps',
   'Tap To Chat','Tap To Hotspot','Attention Ad','Footfall','CTV','TV Sync',
   'Tap To Scratch','Tap to Go','Tap To Carousel','Tap To Max','Purchase Context',
-  'Tap To Map','Explorers','HYPR Pass','Survey','Brand Query','Design Studio','Carbon Neutral'];
-// Inventory partners (separate section)
-const INVENTORY_PARTNERS_PROPOSAL = ['Spotify','Activision','Disney+','Globoplay','Roku','Prime Video','Twitch TV'];
+  'HYPR Pass','Survey','Brand Query','Design Studio','Carbon Neutral'];
 // Features that do NOT get volumetry fields (just a checkbox)
-const FEATURES_NO_VOL = ['Survey','Brand Query','Design Studio','Carbon Neutral','Explorers','HYPR Pass'];
+const FEATURES_NO_VOL = ['Survey','Brand Query','Design Studio','Carbon Neutral'];
 // Features with only "Plays" field
 const FEATURES_PLAYS = ['P-DOOH'];
 
-// ── Pricing Table 2026 ──────────────────────────────────────────────────────
-// Formato → { modeloCompra, bruto, liquido, descontoMax, finalBruto, finalLiquido }
-const PRICE_TABLE = {
-  'Display':         { modelo: 'CPM',  bruto: 24.00, liquido: 19.20, descontoMax: 0.25, finalBruto: 18.00, finalLiquido: 14.40 },
-  'Display BET':     { modelo: 'CPM',  bruto: 60.00, liquido: 48.00, descontoMax: 0.25, finalBruto: 45.00, finalLiquido: 36.00 },
-  'Vídeo BET':       { modelo: 'CPCV', bruto: 1.50,  liquido: 1.20,  descontoMax: 0.25, finalBruto: 1.125, finalLiquido: 0.90 },
-  'Video O2O | CTV': { modelo: 'CPCV', bruto: 0.60,  liquido: 0.48,  descontoMax: 0.25, finalBruto: 0.45,  finalLiquido: 0.36 },
-  'Video O2O':       { modelo: 'CPCV', bruto: 0.30,  liquido: 0.24,  descontoMax: 0.25, finalBruto: 0.225, finalLiquido: 0.18 },
-  'Video Standard':  { modelo: 'CPCV', bruto: 0.10,  liquido: 0.08,  descontoMax: 0.25, finalBruto: 0.075, finalLiquido: 0.06 },
-  'P-DOOH':          { modelo: 'CPP',  bruto: 4.17,  liquido: 3.33,  descontoMax: 0.25, finalBruto: 3.125, finalLiquido: 2.50 },
-};
-
-// CPM/CPCV reference table for product auto-fill (Tabela 2026)
+// CPM/CPCV reference table (Tabela 2026)
 const CPM_TABLE = {
-  'O2O':  { Display: 24, Video: 0.30 },
-  'OOH':  { Display: 24, Video: 0.30 },
-  'RMNF': { Display: 24, Video: 0.30 },
-  'RMND': { Display: 24, Video: 0.30 },
-};
-
-// Available CPM/CPCV values per format
-const CPM_OPTIONS = { Display: [24, 60], Video: [1.50, 0.60, 0.30] };
-
-// Payment type auto-mapping by format
-const FORMAT_PAYMENT = { 'Display': 'CPM', 'Video': 'CPCV' };
-
-// Feature pricing & recommendations (Tabela 2026)
-const FEATURE_INFO = {
-  'Survey':            { preco: 'N/A',  bet: true,  recomendacao: 'Deal acima de R$100k. 1 pergunta a cada R$100k.' },
-  'P-DOOH':            { preco: 'CPP R$2.50 líq.', bet: true, recomendacao: 'Deals acima de R$150k. 10% bonificação do valor total.' },
-  'Click to Calendar': { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: 'Deal acima de R$50k.' },
-  'Design Studio':     { preco: 'N/A',  bet: true,  recomendacao: 'Deal acima de R$60k. 1 linha criativa em todos os formatos.' },
-  'Carbon Neutral':    { preco: 'N/A',  bet: true,  recomendacao: 'Deals acima de R$150k.' },
-  'Topics':            { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: 'Sem mínimo. Use para elevar ticket médio.' },
-  'Weather':           { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: 'Sem mínimo. Use para elevar ticket médio.' },
-  'Brand Query':       { preco: 'N/A',  bet: true,  recomendacao: 'Deals acima de R$150k.' },
-  'Explorers':         { preco: 'N/A',  bet: true,  recomendacao: 'Sem mínimo. Use para elevar ticket médio.' },
-  'Downloaded Apps':   { preco: 'CPM 14.40 / CPCV 0.36', bet: false, recomendacao: 'Deals acima de R$100k. Até 50% da entrega como bonificação.' },
-  'Attention Ad':      { preco: '1 criativo, máx 5 formatos (Display)', bet: true, recomendacao: 'Deals acima de R$100k.' },
-  'Tap To Map':        { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k. Até 50% como reach media.' },
-  'Purchase Context':  { preco: 'CPM 14.40', bet: false, recomendacao: 'Aplicar como bonificação apenas.' },
-  'Tap To Scratch':    { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
-  'Tap to Go':         { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
-  'Tap To Carousel':   { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
-  'Tap To Max':        { preco: 'CPM 14.40', bet: true, recomendacao: 'Deals acima de R$150k.' },
-  'Spotify & Activision': undefined,
-  'Disney & Globoplay & Roku & Prime & Twitch': undefined,
-  'HYPR Pass':         { preco: 'N/A', bet: true, recomendacao: '' },
-  'Tap To Chat':       { preco: 'CPM 14.40', bet: true, recomendacao: '' },
-  'Tap To Hotspot':    { preco: 'CPM 14.40', bet: true, recomendacao: '' },
-  'Footfall':          { preco: 'N/A', bet: true, recomendacao: '' },
-  'CTV':               { preco: 'CPCV 0.60', bet: true, recomendacao: '' },
-  'TV Sync':           { preco: 'CPM 14.40 / CPCV 0.36', bet: true, recomendacao: '' },
+  'O2O': { Display: 24, Video: 0.22 },
+  'OOH': { Display: 24, Video: 0.22 },
+  'RMNF': { Display: 35, Video: 0 },
+  'RMND': { Display: 30, Video: 0.28 },
 };
 
 function ProposalBuilder() {
@@ -1990,22 +1940,20 @@ function ProposalBuilder() {
   // Contracted products
   const [contractRows, setContractRows] = useState([{
     id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display',
-    investimento: '', usuariosEstimados: '',
-    tipoPagamento: 'CPM', cpmTabela: 24,
+    usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4,
+    tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25,
   }]);
 
   // Bonifications
   const [hasBonus, setHasBonus] = useState(false);
   const [bonusRows, setBonusRows] = useState([{
     id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display',
-    tipoPagamento: 'CPM', cpmTabela: 24, linkedIdx: 0,
+    tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0,
   }]);
 
   // Features
   const [selectedFeatures, setSelectedFeatures] = useState([]);
   const [featureDetails, setFeatureDetails] = useState({});
-  // Inventory partners
-  const [selectedPartners, setSelectedPartners] = useState([]);
 
   // Client search
   const [clientSearch, setClientSearch] = useState('');
@@ -2024,39 +1972,29 @@ function ProposalBuilder() {
     setShowClientDD(false);
   }
 
-  // ── Calculations (investment = valor líquido) ──
-  const DESCONTO_FIXO = 0.25;
-  const FREQ_FIXA = 5;
+  // ── Calculations ──
   const calcs = useMemo(() => {
     const rows = contractRows.map(r => {
-      const investLiquido = parseFloat(r.investimento) || 0;
       const users = parseFloat(r.usuariosEstimados) || 0;
+      const cob = (parseFloat(r.cobertura) || 0) / 100;
+      const freq = parseFloat(r.frequenciaMaxima) || 0;
       const cpmTab = parseFloat(r.cpmTabela) || 0;
+      const desc = (parseFloat(r.desconto) || 0) / 100;
 
-      // Fixed discount 25%
-      const cpmBruto = cpmTab * (1 - DESCONTO_FIXO);
+      const impressoes = users * cob * freq;
+      const cpmBruto = cpmTab * (1 - desc);
       const cpmLiquido = cpmBruto * 0.8;
+      const valorBruto = (impressoes / 1000) * cpmBruto;
+      const valorLiquido = valorBruto * 0.8;
 
-      // Investment is LIQUID value → calculate impressions using CPM/CPCV líquido
-      // investLiquido = (impressoes / 1000) * cpmLiquido
-      // So: impressoes = (investLiquido / cpmLiquido) * 1000
-      const impressoes = cpmLiquido > 0 ? (investLiquido / cpmLiquido) * 1000 : 0;
-
-      // Coverage = impressoes / (users * freq), freq fixed at 5
-      const cobertura = users > 0 ? impressoes / (users * FREQ_FIXA) : 0;
-      const cobFinal = Math.min(cobertura, 1);
-
-      // Valor bruto = investLiquido / 0.8
-      const valorBruto = investLiquido / 0.8;
-      const valorLiquido = investLiquido;
-
-      return { impressoes, cpmBruto, cpmLiquido, valorBruto, valorLiquido, cobertura: cobFinal, frequencia: FREQ_FIXA };
+      return { impressoes, cpmBruto, cpmLiquido, valorBruto, valorLiquido };
     });
 
     const bonusCalcs = hasBonus ? bonusRows.map((b, i) => {
       const linked = rows[b.linkedIdx] || rows[0] || { impressoes: 0 };
       const cpmTab = parseFloat(b.cpmTabela) || 0;
-      const cpmBruto = cpmTab * (1 - DESCONTO_FIXO);
+      const desc = (parseFloat(b.desconto) || 0) / 100;
+      const cpmBruto = cpmTab * (1 - desc);
       const valorBruto = (linked.impressoes / 1000) * cpmBruto;
       return { impressoes: linked.impressoes, cpmBruto, valorBruto };
     }) : [];
@@ -2092,7 +2030,7 @@ function ProposalBuilder() {
         client, agency, proposalTitle: proposalTitle || `Pacote HYPR — ${client}`, praca,
         projectDescription, periodStart, periodEnd,
         scopeProducts: scopeRows, contractedProducts: contractRows, bonifications: bonusRows,
-        features: selectedFeatures, featureDetails, inventoryPartners: selectedPartners,
+        features: selectedFeatures, featureDetails,
         totalVolumetriaDisplay: calcs.totalDisplay,
         totalVolumetriaVideo: calcs.totalVideo,
         totalValorBruto: calcs.totalBruto,
@@ -2118,137 +2056,303 @@ function ProposalBuilder() {
     } catch (e) { toast('Erro ao excluir', 'error'); }
   }
 
-  // ── Load external script helper ──
-  async function loadScript(url) {
-    return new Promise((resolve, reject) => {
-      const existing = document.querySelector(`script[src="${url}"]`);
-      if (existing) { resolve(); return; }
-      const s = document.createElement('script');
-      s.src = url;
-      s.onload = resolve;
-      s.onerror = () => reject(new Error(`Failed: ${url}`));
-      document.head.appendChild(s);
-    });
-  }
-
   // ── Generate Excel ──
   async function generateExcel() {
     if (!client) { toast('Preencha pelo menos o cliente', 'error'); return; }
     toast('Gerando Excel...');
+
+    // Dynamically import ExcelJS from CDN
+    if (!window.ExcelJS) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
     try {
-      if (!window.ExcelJS) {
-        try { await loadScript('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'); }
-        catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js'); }
-      }
-      if (!window.ExcelJS) throw new Error('ExcelJS not loaded');
-
       const wb = new window.ExcelJS.Workbook();
-      const hF = { bold: true, size: 10, color: { argb: 'FFFFFFFF' } };
-      const hBg = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
-      const tBg = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3397B9' } };
 
-      // ── Sheet 1: Escopo ──
+      // ── Sheet 1: Escopo Projeto ──
       const wsE = wb.addWorksheet('Escopo Projeto');
-      wsE.columns = [{ width: 4 },{ width: 16 },{ width: 22 },{ width: 36 },{ width: 36 },{ width: 22 }];
-      wsE.getCell('B1').value = 'HYPR — ESCOPO DO PROJETO';
-      wsE.getCell('B1').font = { bold: true, size: 16, color: { argb: 'FF3397B9' } };
-      wsE.getCell('B2').value = proposalTitle || `Pacote HYPR — ${client}`;
-      wsE.getCell('B3').value = `Cliente: ${client} | Agência: ${agency} | Praça: ${praca}`;
-      wsE.getCell('B4').value = projectDescription || '';
-      ['Produto','Cluster','Comportamento OFF','Comportamento ON','Volumetria'].forEach((h, i) => {
-        const c = wsE.getCell(6, i + 2); c.value = h; c.font = hF; c.fill = hBg;
+
+      // HYPR branding row
+      wsE.mergeCells('B1:F1');
+      wsE.getCell('B1').value = 'HYPR';
+      wsE.getCell('B1').font = { bold: true, size: 20, color: { argb: 'FF3397B9' } };
+
+      wsE.mergeCells('B2:F2');
+      wsE.getCell('B2').value = 'ESCOPO DO PROJETO';
+      wsE.getCell('B2').font = { bold: true, size: 16, color: { argb: 'FF1C262F' } };
+
+      wsE.mergeCells('B3:F3');
+      wsE.getCell('B3').value = proposalTitle || `Pacote HYPR — ${client}`;
+      wsE.getCell('B3').font = { size: 13, color: { argb: 'FF4A6070' } };
+
+      wsE.mergeCells('B4:F4');
+      wsE.getCell('B4').value = `Descrição do Projeto: ${projectDescription || '—'}`;
+      wsE.getCell('B4').font = { size: 11, color: { argb: 'FF4A6070' } };
+      wsE.getCell('B4').alignment = { wrapText: true };
+
+      wsE.getCell('B5').value = ''; // spacer
+
+      wsE.mergeCells('B6:F6');
+      wsE.getCell('B6').value = `Praça: ${praca}`;
+      wsE.getCell('B6').font = { bold: true, size: 11 };
+
+      wsE.getCell('B7').value = ''; // spacer
+
+      // Table headers
+      const headerStyle = { font: { bold: true, size: 10, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } }, alignment: { horizontal: 'center', vertical: 'middle', wrapText: true }, border: { bottom: { style: 'thin', color: { argb: 'FF3397B9' } } } };
+      ['Produto', 'Cluster', 'Comportamento OFF', 'Comportamento ON', 'Volumetria Estimada da Audiência'].forEach((h, i) => {
+        const cell = wsE.getCell(8, i + 2);
+        cell.value = h;
+        Object.assign(cell, headerStyle);
       });
+
+      // Data rows
+      const dataFill1 = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4F6F8' } };
+      const dataFill2 = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFFFF' } };
       scopeRows.forEach((sp, idx) => {
-        const r = 7 + idx;
-        wsE.getCell(r, 2).value = sp.produto; wsE.getCell(r, 3).value = sp.cluster;
-        wsE.getCell(r, 4).value = sp.behaviorOff; wsE.getCell(r, 5).value = sp.behaviorOn;
-        wsE.getCell(r, 6).value = parseFloat(sp.volumetria) || 0; wsE.getCell(r, 6).numFmt = '#,##0';
+        const row = 9 + idx;
+        const fill = idx % 2 === 0 ? dataFill1 : dataFill2;
+        [sp.produto, sp.cluster, sp.behaviorOff, sp.behaviorOn].forEach((v, ci) => {
+          const c = wsE.getCell(row, ci + 2);
+          c.value = v || '';
+          c.fill = fill;
+          c.font = { size: 10 };
+          c.alignment = { wrapText: true, vertical: 'middle' };
+        });
+        const volCell = wsE.getCell(row, 6);
+        volCell.value = parseFloat(sp.volumetria) || 0;
+        volCell.numFmt = '#,##0';
+        volCell.fill = fill;
+        volCell.font = { size: 10, bold: true };
+        volCell.alignment = { horizontal: 'right' };
       });
-      const tR = 7 + scopeRows.length;
-      wsE.getCell(tR, 2).value = 'TOTAL'; wsE.getCell(tR, 2).font = { bold: true };
-      wsE.getCell(tR, 6).value = scopeRows.reduce((s, r) => s + (parseFloat(r.volumetria) || 0), 0);
-      wsE.getCell(tR, 6).numFmt = '#,##0'; wsE.getCell(tR, 6).font = { bold: true };
 
-      // ── Sheet 2: Proposta ──
+      // Total
+      const totalR = 9 + scopeRows.length;
+      wsE.getCell(totalR, 2).value = 'TOTAL';
+      wsE.getCell(totalR, 2).font = { bold: true, size: 11 };
+      wsE.getCell(totalR, 6).value = scopeRows.reduce((s, r) => s + (parseFloat(r.volumetria) || 0), 0);
+      wsE.getCell(totalR, 6).numFmt = '#,##0';
+      wsE.getCell(totalR, 6).font = { bold: true, size: 11 };
+
+      // Column widths
+      wsE.getColumn(2).width = 18;
+      wsE.getColumn(3).width = 22;
+      wsE.getColumn(4).width = 38;
+      wsE.getColumn(5).width = 38;
+      wsE.getColumn(6).width = 24;
+
+      // ── Sheet 2: Proposta Comercial ──
       const wsP = wb.addWorksheet('Proposta Comercial');
-      wsP.getCell('B1').value = 'HYPR — PROPOSTA COMERCIAL';
-      wsP.getCell('B1').font = { bold: true, size: 16, color: { argb: 'FF3397B9' } };
-      wsP.getCell('B2').value = proposalTitle || `Pacote HYPR — ${client}`;
-      wsP.getCell('B3').value = `Cliente: ${client} | Agência: ${agency} | Período: ${periodStart || 'TBD'} a ${periodEnd || 'TBD'} | Praça: ${praca}`;
 
-      wsP.getCell('B5').value = 'RESUMO'; wsP.getCell('B5').font = { bold: true, size: 12 };
-      [['Vol. Display', calcs.totalDisplay, '#,##0'],['Vol. Video', calcs.totalVideo, '#,##0'],
-       ['Valor Bruto', calcs.totalBruto, 'R$ #,##0.00'],['Valor Líquido', calcs.totalLiquido, 'R$ #,##0.00'],
-       ['Bonificação', calcs.totalBonus, 'R$ #,##0.00']].forEach(([l, v, f], i) => {
-        wsP.getCell(6+i, 2).value = l; wsP.getCell(6+i, 2).font = { bold: true };
-        wsP.getCell(6+i, 3).value = v; wsP.getCell(6+i, 3).numFmt = f;
+      // Header
+      wsP.mergeCells('B1:P1');
+      wsP.getCell('B1').value = 'HYPR';
+      wsP.getCell('B1').font = { bold: true, size: 20, color: { argb: 'FF3397B9' } };
+
+      wsP.mergeCells('E2:K2');
+      wsP.getCell('E2').value = 'PROPOSTA COMERCIAL';
+      wsP.getCell('E2').font = { bold: true, size: 16, color: { argb: 'FF1C262F' } };
+      wsP.getCell('E2').alignment = { horizontal: 'center' };
+
+      wsP.mergeCells('G3:I3');
+      wsP.getCell('G3').value = proposalTitle || `Pacote HYPR — ${client}`;
+      wsP.getCell('G3').font = { size: 12, color: { argb: 'FF4A6070' } };
+      wsP.getCell('G3').alignment = { horizontal: 'center' };
+
+      // Client info
+      wsP.getCell('B5').value = `Cliente: ${client}`;
+      wsP.getCell('B5').font = { bold: true, size: 11 };
+      wsP.getCell('E5').value = `Agência: ${agency}`;
+      wsP.getCell('E5').font = { bold: true, size: 11 };
+      wsP.getCell('H5').value = `Período: ${periodStart || 'TBD'} a ${periodEnd || 'TBD'}`;
+      wsP.getCell('H5').font = { size: 11 };
+
+      // Summary box (top-right)
+      const sumFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
+      const sumFont = { color: { argb: 'FFFFFFFF' }, size: 10 };
+      const sumValFont = { color: { argb: 'FF3397B9' }, size: 11, bold: true };
+
+      [
+        ['Volumetria Total Display', fmtCompact(calcs.totalDisplay)],
+        ['Volumetria Total Video', fmtCompact(calcs.totalVideo)],
+        ['Valor Total Bruto', fmtCurrency(calcs.totalBruto)],
+        ['Valor Total Líquido', fmtCurrency(calcs.totalLiquido)],
+        ['Bonificação Total', fmtCurrency(calcs.totalBonus)],
+      ].forEach(([label, val], i) => {
+        const r = 6 + i;
+        wsP.mergeCells(`L${r}:N${r}`);
+        wsP.getCell(`L${r}`).value = label;
+        wsP.getCell(`L${r}`).font = sumFont;
+        wsP.getCell(`L${r}`).fill = sumFill;
+        wsP.getCell(`O${r}`).value = val;
+        wsP.getCell(`O${r}`).font = sumValFont;
+        wsP.getCell(`O${r}`).fill = sumFill;
+        wsP.getCell(`O${r}`).alignment = { horizontal: 'right' };
       });
 
-      let row = 12;
-      ['Produto','Segmentação','Formato','Pag.','Invest. Líq.','Usuários','Cobertura','Freq.','Impressões','CPM/CPCV Tab.','Desconto','CPM Neg. Bruto','CPM Neg. Líq.','Valor Bruto','Valor Líquido'].forEach((h, i) => {
-        const c = wsP.getCell(row, i + 2); c.value = h; c.font = hF; c.fill = hBg;
+      // Product table headers
+      const pHeaders = ['Produto', 'Segmentação', 'Formato', 'Período', 'Usuários/Telas\nEstimados',
+        'Cobertura*', 'Freq. Máxima', 'Tipo de\npagamento', 'Impressões\nContratadas',
+        'CPM/CPCV\nTabela', 'Desconto', 'CPM/CPCV\nNeg. Bruto', 'CPM/CPCV\nNeg. Líquido',
+        'Valor Total\nBruto', 'Valor Total\nLíquido'];
+
+      pHeaders.forEach((h, i) => {
+        const c = wsP.getCell(12, i + 2);
+        c.value = h;
+        c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
+        c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       });
-      row++;
+
+      // Product data rows
       contractRows.forEach((cr, idx) => {
+        const r = 13 + idx;
         const c = calcs.rows[idx];
-        wsP.getCell(row, 2).value = cr.produto; wsP.getCell(row, 3).value = cr.segmentacao;
-        wsP.getCell(row, 4).value = cr.formato; wsP.getCell(row, 5).value = cr.tipoPagamento;
-        wsP.getCell(row, 6).value = parseFloat(cr.investimento)||0; wsP.getCell(row, 6).numFmt = 'R$ #,##0.00';
-        wsP.getCell(row, 7).value = parseFloat(cr.usuariosEstimados)||0; wsP.getCell(row, 7).numFmt = '#,##0';
-        wsP.getCell(row, 8).value = c.cobertura; wsP.getCell(row, 8).numFmt = '0.0%';
-        wsP.getCell(row, 9).value = c.frequencia;
-        wsP.getCell(row, 10).value = Math.round(c.impressoes); wsP.getCell(row, 10).numFmt = '#,##0';
-        wsP.getCell(row, 11).value = parseFloat(cr.cpmTabela); wsP.getCell(row, 11).numFmt = 'R$ #,##0.00';
-        wsP.getCell(row, 12).value = DESCONTO_FIXO; wsP.getCell(row, 12).numFmt = '0%';
-        wsP.getCell(row, 13).value = c.cpmBruto; wsP.getCell(row, 13).numFmt = 'R$ #,##0.00';
-        wsP.getCell(row, 14).value = c.cpmLiquido; wsP.getCell(row, 14).numFmt = 'R$ #,##0.00';
-        wsP.getCell(row, 15).value = c.valorBruto; wsP.getCell(row, 15).numFmt = 'R$ #,##0.00';
-        wsP.getCell(row, 16).value = c.valorLiquido; wsP.getCell(row, 16).numFmt = 'R$ #,##0.00';
-        row++;
-      });
-      if (hasBonus && bonusRows.length > 0) {
-        row++; wsP.getCell(row, 2).value = 'BONIFICAÇÕES'; wsP.getCell(row, 2).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } }; row++;
-        ['Produto','Segmentação','Formato','Volumetria Bonificada'].forEach((h, i) => { const c = wsP.getCell(row, i+2); c.value = h; c.font = hF; c.fill = tBg; }); row++;
-        bonusRows.forEach(br => {
-          wsP.getCell(row, 2).value = br.produto; wsP.getCell(row, 3).value = br.segmentacao;
-          wsP.getCell(row, 4).value = br.formato;
-          wsP.getCell(row, 5).value = parseFloat(br.volumetriaBonificada)||0; wsP.getCell(row, 5).numFmt = '#,##0';
-          row++;
-        });
-      }
-      if (selectedFeatures.length > 0) {
-        row++; wsP.getCell(row, 2).value = 'FEATURES'; wsP.getCell(row, 2).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } }; row++;
-        ['Feature','Escopo','Impressões Visíveis','Views 100%','Plays'].forEach((h, i) => { const c = wsP.getCell(row, i+2); c.value = h; c.font = hF; c.fill = hBg; }); row++;
-        selectedFeatures.forEach(f => {
-          const fd = featureDetails[f] || {};
-          wsP.getCell(row, 2).value = f; wsP.getCell(row, 3).value = fd.scope || '';
-          if (FEATURES_PLAYS.includes(f)) { wsP.getCell(row, 6).value = parseFloat(fd.plays)||0; wsP.getCell(row, 6).numFmt = '#,##0'; }
-          else if (!FEATURES_NO_VOL.includes(f)) {
-            wsP.getCell(row, 4).value = parseFloat(fd.impressoes)||0; wsP.getCell(row, 4).numFmt = '#,##0';
-            wsP.getCell(row, 5).value = parseFloat(fd.views)||0; wsP.getCell(row, 5).numFmt = '#,##0';
-          }
-          row++;
-        });
-      }
-      if (selectedPartners.length > 0) {
-        row++; wsP.getCell(row, 2).value = 'INVENTORY PARTNERS'; wsP.getCell(row, 2).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } }; row++;
-        wsP.getCell(row, 2).value = selectedPartners.join(', ');
-      }
-      row += 2;
-      wsP.getCell(row, 2).value = 'TABELA 2026 | Desconto: 25% | Prazo: 15 dfm | Material: 2 dias úteis antes';
-      wsP.getCell(row, 2).font = { size: 9, color: { argb: 'FF8DA0AE' } };
-      for (let i = 2; i <= 16; i++) wsP.getColumn(i).width = i <= 4 ? 20 : 16;
+        const fill = idx % 2 === 0 ? dataFill1 : dataFill2;
 
+        const vals = [
+          cr.produto, cr.segmentacao, cr.formato,
+          periodStart && periodEnd ? `${periodStart} a ${periodEnd}` : 'TBD',
+          parseFloat(cr.usuariosEstimados) || 0,
+          (parseFloat(cr.cobertura) || 0) / 100,
+          cr.frequenciaMaxima,
+          cr.tipoPagamento,
+          c.impressoes,
+          parseFloat(cr.cpmTabela) || 0,
+          (parseFloat(cr.desconto) || 0) / 100,
+          c.cpmBruto,
+          c.cpmLiquido,
+          c.valorBruto,
+          c.valorLiquido,
+        ];
+
+        vals.forEach((v, ci) => {
+          const cell = wsP.getCell(r, ci + 2);
+          cell.value = v;
+          cell.fill = fill;
+          cell.font = { size: 10 };
+          cell.alignment = { horizontal: ci >= 4 ? 'right' : 'left', vertical: 'middle' };
+          // Number formats
+          if (ci === 4 || ci === 8) cell.numFmt = '#,##0';
+          if (ci === 5 || ci === 10) cell.numFmt = '0.00%';
+          if (ci >= 9 && ci !== 10 || ci >= 11) cell.numFmt = 'R$ #,##0.00';
+        });
+      });
+
+      // Bonifications section (only if enabled)
+      const bonusStart = 13 + contractRows.length + 1;
+      if (hasBonus) {
+        wsP.mergeCells(`B${bonusStart}:P${bonusStart}`);
+        wsP.getCell(`B${bonusStart}`).value = 'Bonificações';
+        wsP.getCell(`B${bonusStart}`).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } };
+
+        // Bonus headers
+        pHeaders.forEach((h, i) => {
+          const c = wsP.getCell(bonusStart + 1, i + 2);
+          c.value = h;
+          c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3397B9' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        });
+
+        // Bonus data
+        bonusRows.forEach((br, idx) => {
+          const r = bonusStart + 2 + idx;
+          const bc = calcs.bonusCalcs[idx];
+
+          const vals = [
+            br.produto, br.segmentacao, br.formato, '—', '—', '—', '—',
+            br.tipoPagamento, bc.impressoes, parseFloat(br.cpmTabela) || 0,
+            (parseFloat(br.desconto) || 0) / 100, bc.cpmBruto, bc.cpmBruto * 0.8,
+            bc.valorBruto, bc.valorBruto * 0.8,
+          ];
+
+          vals.forEach((v, ci) => {
+            const cell = wsP.getCell(r, ci + 2);
+            cell.value = v;
+            cell.font = { size: 10 };
+            if (ci === 8) cell.numFmt = '#,##0';
+            if (ci === 10) cell.numFmt = '0.00%';
+            if (ci >= 9 && ci !== 10) cell.numFmt = 'R$ #,##0.00';
+          });
+        });
+      }
+
+      // Features section
+      const featStart = bonusStart + 2 + (hasBonus ? bonusRows.length : 0) + 1;
+      if (selectedFeatures.length > 0) {
+        wsP.mergeCells(`B${featStart}:P${featStart}`);
+        wsP.getCell(`B${featStart}`).value = 'Features';
+        wsP.getCell(`B${featStart}`).font = { bold: true, size: 12, color: { argb: 'FF3397B9' } };
+
+        ['Feature', 'Segmentação/Escopo', 'Formato', 'Período', 'Impressões Visíveis', 'Views 100%', 'Plays'].forEach((h, i) => {
+          const c = wsP.getCell(featStart + 1, i + 2);
+          c.value = h;
+          c.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+          c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1C262F' } };
+          c.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+
+        selectedFeatures.forEach((f, idx) => {
+          const r = featStart + 2 + idx;
+          const fd = featureDetails[f] || {};
+          wsP.getCell(r, 2).value = f;
+          wsP.getCell(r, 3).value = fd.scope || '—';
+          wsP.getCell(r, 4).value = f;
+          wsP.getCell(r, 5).value = periodStart && periodEnd ? `${periodStart} a ${periodEnd}` : 'TBD';
+          if (FEATURES_PLAYS.includes(f)) {
+            wsP.getCell(r, 8).value = parseFloat(fd.plays) || 0;
+            wsP.getCell(r, 8).numFmt = '#,##0';
+          } else if (!FEATURES_NO_VOL.includes(f)) {
+            wsP.getCell(r, 6).value = parseFloat(fd.impressoes) || 0;
+            wsP.getCell(r, 6).numFmt = '#,##0';
+            wsP.getCell(r, 7).value = parseFloat(fd.views) || 0;
+            wsP.getCell(r, 7).numFmt = '#,##0';
+          }
+        });
+      }
+
+      // Footer notes
+      const footerRow = featStart + (selectedFeatures.length > 0 ? selectedFeatures.length + 3 : 1);
+      wsP.getCell(`B${footerRow}`).value = `Praça: ${praca}`;
+      wsP.getCell(`B${footerRow}`).font = { bold: true, size: 10 };
+      wsP.getCell(`B${footerRow + 1}`).value = '* Modelo de compra de Display por CPM - Impressões auditadas por parceiros terceiros que garantem que os anúncios sejam vistos por completo por pelo menos 1 segundo. A HYPR cobra apenas por impressões visíveis.';
+      wsP.getCell(`B${footerRow + 1}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
+      wsP.getCell(`B${footerRow + 1}`).alignment = { wrapText: true };
+      wsP.getCell(`B${footerRow + 2}`).value = '* Modelo de compra de Vídeo por CPCV - custo por completed view que leva em consideração apenas as visualizações de video completas (100% vistas e auditadas por terceiros).';
+      wsP.getCell(`B${footerRow + 2}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
+      wsP.getCell(`B${footerRow + 2}`).alignment = { wrapText: true };
+      wsP.getCell(`B${footerRow + 3}`).value = 'TABELA 2026';
+      wsP.getCell(`B${footerRow + 3}`).font = { bold: true, size: 10 };
+      wsP.getCell(`B${footerRow + 4}`).value = 'Prazo de Pagamento: 15 dfm (15 dias fora o mês de veiculação)';
+      wsP.getCell(`B${footerRow + 4}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
+      wsP.getCell(`B${footerRow + 5}`).value = 'Entrega de material: 2 dias úteis antes do início da campanha';
+      wsP.getCell(`B${footerRow + 5}`).font = { size: 9, color: { argb: 'FF8DA0AE' } };
+
+      // Column widths
+      [2,18],[3,24],[4,12],[5,14],[6,18],[7,12],[8,14],[9,14],[10,18],[11,14],[12,12],[13,16],[14,16],[15,16],[16,16]
+      .forEach(([c,w]) => { wsP.getColumn(c).width = w; });
+
+      // Generate and download
       const buffer = await wb.xlsx.writeBuffer();
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url;
-      a.download = `Proposta_HYPR_${client.replace(/\s/g,'_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
-      a.click(); URL.revokeObjectURL(url);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Proposta_HYPR_${agency ? agency.replace(/\s/g, '_') + '_' : ''}${client.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
       toast('Excel gerado com sucesso!');
     } catch (e) {
-      console.error('Excel error:', e);
-      toast(`Erro Excel: ${e.message}`, 'error');
+      console.error('Error generating Excel:', e);
+      toast('Erro ao gerar Excel', 'error');
     }
   }
 
@@ -2256,88 +2360,170 @@ function ProposalBuilder() {
   async function generatePDF() {
     if (!client) { toast('Preencha pelo menos o cliente', 'error'); return; }
     toast('Gerando PDF...');
-    try {
-      if (!window.jspdf) {
-        try { await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'); }
-        catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
-      }
-      if (!window.jspdf?.jsPDF?.prototype?.autoTable) {
-        try { await loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'); }
-        catch { await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js'); }
-      }
-      if (!window.jspdf) throw new Error('jsPDF not loaded');
 
+    // Load jsPDF
+    if (!window.jspdf) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    // Load autoTable
+    if (!window.jspdf?.jsPDF?.prototype?.autoTable) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    try {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-      const navy = [28,38,47], teal = [51,151,185], grey = [141,160,174];
 
-      doc.setFillColor(...navy); doc.rect(0, 0, 297, 28, 'F');
-      doc.setFontSize(20); doc.setTextColor(...teal); doc.text('HYPR', 14, 16);
-      doc.setFontSize(11); doc.setTextColor(255,255,255); doc.text('PROPOSTA COMERCIAL', 50, 12);
-      doc.setFontSize(9); doc.text(proposalTitle || `Pacote HYPR — ${client}`, 50, 20);
-      doc.setFontSize(8); doc.text(new Date().toLocaleDateString('pt-BR'), 270, 12);
+      // Colors
+      const navy = [28, 38, 47];
+      const teal = [51, 151, 185];
+      const grey = [141, 160, 174];
 
-      doc.setFontSize(10); doc.setTextColor(...navy);
-      doc.text(`Cliente: ${client}  |  Agência: ${agency||'—'}  |  Período: ${periodStart||'TBD'} a ${periodEnd||'TBD'}  |  Praça: ${praca}`, 14, 36);
+      // Header
+      doc.setFillColor(...navy);
+      doc.rect(0, 0, 297, 32, 'F');
+      doc.setFontSize(22);
+      doc.setTextColor(...teal);
+      doc.text('HYPR', 14, 18);
+      doc.setFontSize(11);
+      doc.setTextColor(255, 255, 255);
+      doc.text('PROPOSTA COMERCIAL', 50, 14);
+      doc.setFontSize(9);
+      doc.text(proposalTitle || `Pacote HYPR — ${client}`, 50, 22);
+      doc.setFontSize(8);
+      doc.text(`${new Date().toLocaleDateString('pt-BR')}`, 270, 14);
 
-      const boxes = [['Vol. Display',fmtCompact(calcs.totalDisplay)],['Vol. Video',fmtCompact(calcs.totalVideo)],
-        ['Valor Bruto',fmtCurrency(calcs.totalBruto)],['Valor Líquido',fmtCurrency(calcs.totalLiquido)],['Bonificação',fmtCurrency(calcs.totalBonus)]];
-      boxes.forEach(([l,v], i) => {
-        const x = 14 + i*55;
-        doc.setFillColor(244,246,248); doc.roundedRect(x, 42, 50, 16, 2, 2, 'F');
-        doc.setFontSize(7); doc.setTextColor(...grey); doc.text(l, x+4, 49);
-        doc.setFontSize(10); doc.setTextColor(...navy); doc.text(String(v), x+4, 55);
+      // Client info
+      doc.setFontSize(10);
+      doc.setTextColor(...navy);
+      doc.text(`Cliente: ${client}`, 14, 40);
+      doc.text(`Agência: ${agency || '—'}`, 100, 40);
+      doc.text(`Período: ${periodStart || 'TBD'} a ${periodEnd || 'TBD'}`, 190, 40);
+      doc.text(`Praça: ${praca}`, 14, 47);
+
+      // Summary boxes
+      const boxY = 54;
+      const boxes = [
+        ['Vol. Display', fmtCompact(calcs.totalDisplay)],
+        ['Vol. Video', fmtCompact(calcs.totalVideo)],
+        ['Valor Bruto', fmtCurrency(calcs.totalBruto)],
+        ['Valor Líquido', fmtCurrency(calcs.totalLiquido)],
+        ['Bonificação', fmtCurrency(calcs.totalBonus)],
+      ];
+      boxes.forEach(([label, val], i) => {
+        const x = 14 + i * 55;
+        doc.setFillColor(244, 246, 248);
+        doc.roundedRect(x, boxY, 50, 18, 2, 2, 'F');
+        doc.setFontSize(7);
+        doc.setTextColor(...grey);
+        doc.text(label, x + 4, boxY + 6);
+        doc.setFontSize(10);
+        doc.setTextColor(...navy);
+        doc.text(val, x + 4, boxY + 14);
       });
 
-      const tData = contractRows.map((cr, idx) => {
+      // Products table
+      const tableData = contractRows.map((cr, idx) => {
         const c = calcs.rows[idx];
-        return [cr.produto,cr.formato,cr.tipoPagamento,fmtCurrency(parseFloat(cr.investimento)||0),
+        return [
+          cr.produto, cr.segmentacao, cr.formato, cr.tipoPagamento,
+          new Intl.NumberFormat('pt-BR').format(parseFloat(cr.usuariosEstimados) || 0),
+          `${cr.cobertura}%`, cr.frequenciaMaxima,
           new Intl.NumberFormat('pt-BR').format(Math.round(c.impressoes)),
-          `${(c.cobertura*100).toFixed(1)}%`, String(c.frequencia),
-          `R$ ${cr.cpmTabela}`, '25%', fmtCurrency(c.cpmBruto), fmtCurrency(c.valorBruto), fmtCurrency(c.valorLiquido)];
+          fmtCurrency(parseFloat(cr.cpmTabela)), `${cr.desconto}%`,
+          fmtCurrency(c.cpmBruto), fmtCurrency(c.valorBruto), fmtCurrency(c.valorLiquido),
+        ];
       });
+
       doc.autoTable({
-        startY: 64,
-        head: [['Produto','Formato','Pag.','Invest. Líq.','Impressões','Cobert.','Freq.','CPM Tab.','Desc.','CPM Neg.','Val. Bruto','Val. Líq.']],
-        body: tData, theme: 'grid',
+        startY: boxY + 24,
+        head: [['Produto', 'Segmentação', 'Formato', 'Pag.', 'Usuários Est.', 'Cobertura', 'Freq.', 'Impressões', 'CPM Tab.', 'Desc.', 'CPM Neg.', 'Val. Bruto', 'Val. Líquido']],
+        body: tableData,
+        theme: 'grid',
         headStyles: { fillColor: navy, fontSize: 7, halign: 'center' },
         bodyStyles: { fontSize: 7 },
-        alternateRowStyles: { fillColor: [244,246,248] },
-        margin: { left: 14, right: 14 },
+        alternateRowStyles: { fillColor: [244, 246, 248] },
+        columnStyles: { 4: { halign: 'right' }, 5: { halign: 'right' }, 7: { halign: 'right' }, 8: { halign: 'right' }, 10: { halign: 'right' }, 11: { halign: 'right' }, 12: { halign: 'right' } },
+        margin: { left: 14 },
       });
 
-      let lastY = doc.lastAutoTable.finalY;
-      if (hasBonus && bonusRows.length > 0) {
-        lastY += 6; doc.setFontSize(10); doc.setTextColor(...teal); doc.text('Bonificações', 14, lastY);
-        const bData = bonusRows.map(br => [br.produto, br.segmentacao, br.formato,
-          new Intl.NumberFormat('pt-BR').format(parseFloat(br.volumetriaBonificada)||0)]);
-        doc.autoTable({ startY: lastY+2, head: [['Produto','Segmentação','Formato','Volumetria Bonificada']],
-          body: bData, theme: 'grid', headStyles: { fillColor: teal, fontSize: 7, halign: 'center' },
-          bodyStyles: { fontSize: 7 }, margin: { left: 14, right: 14 } });
-        lastY = doc.lastAutoTable.finalY;
+      // Bonifications table (only if enabled)
+      let lastTableY = doc.lastAutoTable.finalY;
+      if (hasBonus) {
+        const bonusY = lastTableY + 8;
+        doc.setFontSize(11);
+        doc.setTextColor(...teal);
+        doc.text('Bonificações', 14, bonusY);
+
+        const bonusData = bonusRows.map((br, idx) => {
+          const bc = calcs.bonusCalcs[idx];
+          return [
+            br.produto, br.segmentacao, br.formato, br.tipoPagamento,
+            '—', '—', '—',
+            new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes)),
+            fmtCurrency(parseFloat(br.cpmTabela)), `${br.desconto}%`,
+            fmtCurrency(bc.cpmBruto), fmtCurrency(bc.valorBruto), fmtCurrency(bc.valorBruto * 0.8),
+          ];
+        });
+
+        doc.autoTable({
+          startY: bonusY + 3,
+          head: [['Produto', 'Segmentação', 'Formato', 'Pag.', 'Usuários', 'Cobertura', 'Freq.', 'Impressões', 'CPM Tab.', 'Desc.', 'CPM Neg.', 'Val. Bruto', 'Val. Líquido']],
+          body: bonusData,
+          theme: 'grid',
+          headStyles: { fillColor: teal, fontSize: 7, halign: 'center' },
+          bodyStyles: { fontSize: 7 },
+          margin: { left: 14 },
+        });
+        lastTableY = doc.lastAutoTable.finalY;
       }
 
-      doc.setFillColor(...navy); doc.rect(0, 200, 297, 10, 'F');
-      doc.setFontSize(7); doc.setTextColor(...teal); doc.text('HYPR Command — Proposta gerada automaticamente', 14, 206);
-      doc.setTextColor(255,255,255); doc.text(`Gerado por: ${user.name} | ${new Date().toLocaleDateString('pt-BR')}`, 200, 206);
+      // Footer
+      const fY = lastTableY + 8;
+      doc.setFontSize(7);
+      doc.setTextColor(...grey);
+      doc.text('* Modelo de compra de Display por CPM — Impressões auditadas.', 14, fY);
+      doc.text('* Modelo de compra de Vídeo por CPCV — custo por completed view (100% vistas).', 14, fY + 4);
+      doc.text('TABELA 2026 | Prazo de Pagamento: 15 dfm | Entrega de material: 2 dias úteis antes do início', 14, fY + 10);
 
-      doc.save(`Proposta_HYPR_${client.replace(/\s/g,'_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+      // HYPR footer bar
+      doc.setFillColor(...navy);
+      doc.rect(0, 200, 297, 10, 'F');
+      doc.setFontSize(7);
+      doc.setTextColor(...teal);
+      doc.text('HYPR Command — Proposta gerada automaticamente', 14, 206);
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Gerado por: ${user.name} | ${new Date().toLocaleDateString('pt-BR')}`, 200, 206);
+
+      // Save
+      doc.save(`Proposta_HYPR_${agency ? agency.replace(/\s/g, '_') + '_' : ''}${client.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
       toast('PDF gerado com sucesso!');
     } catch (e) {
-      console.error('PDF error:', e);
-      toast(`Erro PDF: ${e.message}`, 'error');
+      console.error('Error generating PDF:', e);
+      toast('Erro ao gerar PDF', 'error');
     }
   }
-
 
   function resetForm() {
     setClient(''); setAgency(''); setProposalTitle(''); setPraca('Nacional');
     setProjectDescription(''); setPeriodStart(''); setPeriodEnd('');
     setScopeRows([{ id: 1, produto: 'O2O', cluster: '', behaviorOff: '', behaviorOn: '', volumetria: '' }]);
-    setContractRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', investimento: '', usuariosEstimados: '', tipoPagamento: 'CPM', cpmTabela: 24 }]);
+    setContractRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4, tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25 }]);
     setHasBonus(false);
-    setBonusRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, linkedIdx: 0 }]);
-    setSelectedFeatures([]); setFeatureDetails({}); setSelectedPartners([]); setClientSearch(''); setEditId(null);
+    setBonusRows([{ id: 1, produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0 }]);
+    setSelectedFeatures([]); setFeatureDetails({}); setClientSearch(''); setEditId(null);
   }
 
   // ── SCOPE ROW HANDLERS ──
@@ -2347,21 +2533,19 @@ function ProposalBuilder() {
 
   // ── CONTRACT ROW HANDLERS ──
   function addContractRow() {
-    setContractRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', investimento: '', usuariosEstimados: '', tipoPagamento: 'CPM', cpmTabela: 24 }]);
+    setContractRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', usuariosEstimados: '', cobertura: 20, frequenciaMaxima: 4, tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25 }]);
   }
   function removeContractRow(id) { if (contractRows.length > 1) setContractRows(prev => prev.filter(r => r.id !== id)); }
   function updateContractRow(id, field, value) {
     setContractRows(prev => prev.map(r => {
       if (r.id !== id) return r;
       const updated = { ...r, [field]: value };
-      // Auto-update CPM tabela and payment type when product/format changes
+      // Auto-update CPM tabela when product/format changes
       if (field === 'produto' || field === 'formato') {
         const prod = field === 'produto' ? value : r.produto;
         const fmt = field === 'formato' ? value : r.formato;
         const ref = CPM_TABLE[prod];
         if (ref) updated.cpmTabela = ref[fmt] || 0;
-        // Auto-set payment type based on format
-        if (field === 'formato') updated.tipoPagamento = FORMAT_PAYMENT[value] || r.tipoPagamento;
       }
       return updated;
     }));
@@ -2369,7 +2553,7 @@ function ProposalBuilder() {
 
   // ── BONUS ROW HANDLERS ──
   function addBonusRow() {
-    setBonusRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, linkedIdx: 0 }]);
+    setBonusRows(prev => [...prev, { id: Date.now(), produto: 'O2O', segmentacao: 'Listada na aba "Audiências"', formato: 'Display', tipoPagamento: 'CPM', cpmTabela: 24, desconto: 25, linkedIdx: 0 }]);
   }
   function removeBonusRow(id) { if (bonusRows.length > 1) setBonusRows(prev => prev.filter(r => r.id !== id)); }
   function updateBonusRow(id, field, value) { setBonusRows(prev => prev.map(r => r.id === id ? { ...r, [field]: value } : r)); }
@@ -2625,14 +2809,6 @@ function ProposalBuilder() {
       {/* ═══ 3. Produtos Contratados ═══ */}
       <div className="card" style={{ padding: 24, ...sectionStyle }}>
         {sectionTitle('3. Produtos Contratados', 'Formatos, volumetria, CPM e desconto — valores calculados automaticamente')}
-        {/* Price reference */}
-        <div className="disc" style={{ marginBottom: 16, background: 'var(--teal-dim)', border: '1px solid rgba(51,151,185,0.2)' }}>
-          <I n="zap" s={14} c="var(--teal)" style={{ flexShrink: 0, marginTop: 1 }} />
-          <div style={{ fontSize: 11, color: 'var(--t2)', lineHeight: 1.5 }}>
-            <strong style={{ color: 'var(--teal)' }}>Tabela 2026:</strong>{' '}
-            Display CPM R$24,00 (líq. R$19,20) · Video O2O CPCV R$0,30 (líq. R$0,24) · Video CTV CPCV R$0,60 (líq. R$0,48) · Display BET CPM R$60,00 · P-DOOH CPP R$4,17 — Desconto máx. 25%
-          </div>
-        </div>
         {contractRows.map((row, idx) => {
           const c = calcs.rows[idx];
           return (
@@ -2654,7 +2830,7 @@ function ProposalBuilder() {
                     {PROPOSAL_FORMATS.map(p => <option key={p}>{p}</option>)}
                   </select>
                 </div>
-                <div style={{ flex: '0 0 100px' }}>
+                <div style={{ flex: '0 0 110px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Tipo Pag.</label>
                   <select className="fs" value={row.tipoPagamento} onChange={e => updateContractRow(row.id, 'tipoPagamento', e.target.value)}>
                     {PROPOSAL_PAYMENTS.map(p => <option key={p}>{p}</option>)}
@@ -2665,34 +2841,25 @@ function ProposalBuilder() {
                 </button>
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <div style={{ flex: '0 0 160px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Investimento Líquido (R$) *</label>
-                  <input className="fi" type="number" value={row.investimento} onChange={e => updateContractRow(row.id, 'investimento', e.target.value)} placeholder="Ex: 200000" style={{ borderColor: 'var(--teal)', fontWeight: 600 }} />
-                </div>
-                <div style={{ flex: '0 0 150px' }}>
+                <div style={{ flex: '0 0 140px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Usuários Estimados</label>
-                  <input className="fi" type="number" value={row.usuariosEstimados} onChange={e => updateContractRow(row.id, 'usuariosEstimados', e.target.value)} placeholder="Ex: 5000000" />
-                </div>
-                <div style={{ flex: '0 0 110px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>{row.formato === 'Video' ? 'CPCV Bruto' : 'CPM Bruto'}</label>
-                  <select className="fs" style={{ fontWeight: 700, color: 'var(--teal)' }} value={row.cpmTabela} onChange={e => updateContractRow(row.id, 'cpmTabela', parseFloat(e.target.value))}>
-                    {row.formato === 'Video' ? (
-                      <>
-                        <option value={1.50}>R$ 1,50</option>
-                        <option value={0.60}>R$ 0,60</option>
-                        <option value={0.30}>R$ 0,30</option>
-                      </>
-                    ) : (
-                      <>
-                        <option value={24}>R$ 24,00</option>
-                        <option value={60}>R$ 60,00</option>
-                      </>
-                    )}
-                  </select>
+                  <input className="fi" type="number" value={row.usuariosEstimados} onChange={e => updateContractRow(row.id, 'usuariosEstimados', e.target.value)} placeholder="0" />
                 </div>
                 <div style={{ flex: '0 0 100px' }}>
-                  <label className="fl" style={{ marginBottom: 4 }}>Desconto</label>
-                  <div className="fi" style={{ background: 'var(--bg2)', cursor: 'default', fontWeight: 700, color: 'var(--teal)' }}>25%</div>
+                  <label className="fl" style={{ marginBottom: 4 }}>Cobertura (%)</label>
+                  <input className="fi" type="number" step="0.1" value={row.cobertura} onChange={e => updateContractRow(row.id, 'cobertura', e.target.value)} />
+                </div>
+                <div style={{ flex: '0 0 90px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Freq. Máx.</label>
+                  <input className="fi" type="number" value={row.frequenciaMaxima} onChange={e => updateContractRow(row.id, 'frequenciaMaxima', e.target.value)} />
+                </div>
+                <div style={{ flex: '0 0 110px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
+                  <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateContractRow(row.id, 'cpmTabela', e.target.value)} />
+                </div>
+                <div style={{ flex: '0 0 90px' }}>
+                  <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
+                  <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateContractRow(row.id, 'desconto', e.target.value)} />
                 </div>
               </div>
               {/* Calculated values */}
@@ -2701,8 +2868,6 @@ function ProposalBuilder() {
                   ['Impressões', new Intl.NumberFormat('pt-BR').format(Math.round(c.impressoes))],
                   ['CPM Neg. Bruto', fmtCurrency(c.cpmBruto)],
                   ['CPM Neg. Líquido', fmtCurrency(c.cpmLiquido)],
-                  ['Cobertura', `${(c.cobertura * 100).toFixed(1)}%`],
-                  ['Frequência', c.frequencia.toFixed(1)],
                   ['Valor Bruto', fmtCurrency(c.valorBruto)],
                   ['Valor Líquido', fmtCurrency(c.valorLiquido)],
                 ].map(([label, val]) => (
@@ -2741,9 +2906,10 @@ function ProposalBuilder() {
         {hasBonus && (
           <>
             {bonusRows.map((row, idx) => {
+              const bc = calcs.bonusCalcs[idx];
               return (
                 <div key={row.id} style={{ marginBottom: 14, padding: 16, background: 'var(--bg3)', borderRadius: 14, border: '1px solid rgba(51,151,185,0.2)' }}>
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
                     <div style={{ flex: '0 0 130px' }}>
                       <label className="fl" style={{ marginBottom: 4 }}>Produto</label>
                       <select className="fs" value={row.produto} onChange={e => updateBonusRow(row.id, 'produto', e.target.value)}>
@@ -2761,13 +2927,40 @@ function ProposalBuilder() {
                       </select>
                     </div>
                     <div style={{ flex: '0 0 160px' }}>
-                      <label className="fl" style={{ marginBottom: 4 }}>{row.formato === 'Video' ? 'Views 100% Bonificadas' : 'Impressões Bonificadas'}</label>
-                      <input className="fi" type="number" value={row.volumetriaBonificada || ''} onChange={e => updateBonusRow(row.id, 'volumetriaBonificada', e.target.value)} placeholder="0" />
+                      <label className="fl" style={{ marginBottom: 4 }}>Vinculado ao Produto #</label>
+                      <select className="fs" value={row.linkedIdx} onChange={e => updateBonusRow(row.id, 'linkedIdx', parseInt(e.target.value))}>
+                        {contractRows.map((cr, i) => <option key={i} value={i}>#{i + 1} — {cr.produto} {cr.formato}</option>)}
+                      </select>
                     </div>
-                    <button className="btn bg" style={{ padding: '6px 8px', flexShrink: 0 }} onClick={() => removeBonusRow(row.id)} title="Remover">
+                    <button className="btn bg" style={{ marginTop: 18, padding: '6px 8px', flexShrink: 0 }} onClick={() => removeBonusRow(row.id)} title="Remover">
                       <I n="x" s={14} c="var(--red)" />
                     </button>
                   </div>
+                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ flex: '0 0 110px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
+                      <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateBonusRow(row.id, 'cpmTabela', e.target.value)} />
+                    </div>
+                    <div style={{ flex: '0 0 90px' }}>
+                      <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
+                      <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateBonusRow(row.id, 'desconto', e.target.value)} />
+                    </div>
+                  </div>
+                  {/* Calculated bonus values */}
+                  {bc && (
+                    <div style={{ display: 'flex', gap: 16, marginTop: 14, paddingTop: 12, borderTop: '1px dashed var(--bdr)', flexWrap: 'wrap' }}>
+                      {[
+                        ['Impressões Bonificadas', new Intl.NumberFormat('pt-BR').format(Math.round(bc.impressoes))],
+                        ['CPM Neg. Bruto', fmtCurrency(bc.cpmBruto)],
+                        ['Valor Total', fmtCurrency(bc.valorBruto)],
+                      ].map(([label, val]) => (
+                        <div key={label}>
+                          <div style={{ fontSize: 10, color: 'var(--t3)', fontWeight: 600 }}>{label}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--teal)', fontFamily: 'var(--fd)' }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -2780,12 +2973,11 @@ function ProposalBuilder() {
 
       {/* ═══ 5. Features ═══ */}
       <div className="card" style={{ padding: 24, ...sectionStyle }}>
-        {sectionTitle('5. Features', 'Selecione as features adicionais da proposta — preços e recomendações da Tabela 2026')}
+        {sectionTitle('5. Features', 'Selecione as features adicionais da proposta')}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
           {PROPOSAL_FEATURES.map(f => (
             <button key={f} className={`chip${selectedFeatures.includes(f) ? ' sel' : ''}`}
-              onClick={() => toggleFeature(f)}
-              title={FEATURE_INFO[f]?.recomendacao || ''}>
+              onClick={() => toggleFeature(f)}>
               {selectedFeatures.includes(f) && <I n="check" s={12} />}
               {f}
             </button>
@@ -2797,80 +2989,39 @@ function ProposalBuilder() {
             {selectedFeatures.map(f => {
               const isNoVol = FEATURES_NO_VOL.includes(f);
               const isPlays = FEATURES_PLAYS.includes(f);
-              const info = FEATURE_INFO[f];
               return (
-                <div key={f} style={{ marginBottom: 12, padding: 16, background: 'var(--bg3)', borderRadius: 14, border: '1px solid var(--bdr-card)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: info?.recomendacao ? 8 : 12, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--teal)', minWidth: 160 }}>{f}</span>
-                    {info?.preco && info.preco !== 'N/A' && (
-                      <span className="badge b-teal" style={{ fontSize: 10 }}>{info.preco}</span>
-                    )}
-                    {info?.bet && (
-                      <span className="badge b-ylw" style={{ fontSize: 10 }}>BET</span>
-                    )}
-                  </div>
-                  {info?.recomendacao && (
-                    <div style={{ fontSize: 11, color: 'var(--t3)', marginBottom: 12, padding: '6px 10px', background: 'var(--bg2)', borderRadius: 8, borderLeft: '3px solid var(--teal)' }}>
-                      💡 {info.recomendacao}
+                <div key={f} style={{ display: 'flex', gap: 10, marginBottom: 10, padding: 14, background: 'var(--bg3)', borderRadius: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--teal)', minWidth: 140 }}>{f}</span>
+                  <input className="fi" style={{ flex: 1, minWidth: 180 }} placeholder="Escopo / Segmentação"
+                    value={featureDetails[f]?.scope || ''}
+                    onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], scope: e.target.value } }))} />
+                  {isPlays && (
+                    <div style={{ flex: '0 0 140px' }}>
+                      <input className="fi" type="number" placeholder="Plays"
+                        value={featureDetails[f]?.plays || ''}
+                        onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], plays: e.target.value } }))} />
+                      <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Plays</div>
                     </div>
                   )}
-                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <input className="fi" style={{ flex: 1, minWidth: 180 }} placeholder="Escopo / Segmentação"
-                      value={featureDetails[f]?.scope || ''}
-                      onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], scope: e.target.value } }))} />
-                    {isPlays && (
-                      <div style={{ flex: '0 0 140px' }}>
-                        <input className="fi" type="number" placeholder="Plays"
-                          value={featureDetails[f]?.plays || ''}
-                          onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], plays: e.target.value } }))} />
-                        <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Plays</div>
+                  {!isNoVol && !isPlays && (
+                    <>
+                      <div style={{ flex: '0 0 150px' }}>
+                        <input className="fi" type="number" placeholder="Impressões Visíveis"
+                          value={featureDetails[f]?.impressoes || ''}
+                          onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], impressoes: e.target.value } }))} />
+                        <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Impressões Visíveis</div>
                       </div>
-                    )}
-                    {!isNoVol && !isPlays && (
-                      <>
-                        <div style={{ flex: '0 0 150px' }}>
-                          <input className="fi" type="number" placeholder="Impressões Visíveis"
-                            value={featureDetails[f]?.impressoes || ''}
-                            onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], impressoes: e.target.value } }))} />
-                          <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Impressões Visíveis</div>
-                        </div>
-                        <div style={{ flex: '0 0 140px' }}>
-                          <input className="fi" type="number" placeholder="Views 100%"
-                            value={featureDetails[f]?.views || ''}
-                            onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], views: e.target.value } }))} />
-                          <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Views 100%</div>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                      <div style={{ flex: '0 0 140px' }}>
+                        <input className="fi" type="number" placeholder="Views 100%"
+                          value={featureDetails[f]?.views || ''}
+                          onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], views: e.target.value } }))} />
+                        <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Views 100%</div>
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}
-          </div>
-        )}
-      </div>
-
-      {/* ═══ 6. Inventory Partners ═══ */}
-      <div className="card" style={{ padding: 24, ...sectionStyle }}>
-        {sectionTitle('6. Inventory Partners', 'Parceiros de inventário premium — bonificações em impressões/views')}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {INVENTORY_PARTNERS_PROPOSAL.map(p => (
-            <button key={p} className={`chip${selectedPartners.includes(p) ? ' sel' : ''}`}
-              onClick={() => setSelectedPartners(prev => prev.includes(p) ? prev.filter(x => x !== p) : [...prev, p])}>
-              {selectedPartners.includes(p) && <I n="check" s={12} />}
-              {p}
-            </button>
-          ))}
-        </div>
-        {selectedPartners.length > 0 && (
-          <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--bg3)', borderRadius: 10, fontSize: 11, color: 'var(--t2)', lineHeight: 1.6 }}>
-            <strong style={{ color: 'var(--teal)' }}>Regras de bonificação:</strong><br/>
-            {selectedPartners.some(p => ['Spotify','Activision'].includes(p)) && (
-              <span>• <strong>Spotify / Activision:</strong> Bonif. até 15% do investido. CPM R$14,40 ou CPCV R$0,36. Deals acima de R$100k.<br/></span>
-            )}
-            {selectedPartners.some(p => ['Disney+','Globoplay','Roku','Prime Video','Twitch TV'].includes(p)) && (
-              <span>• <strong>Disney+ / Globoplay / Roku / Prime Video / Twitch TV:</strong> Bonif. até 5% do investido em Completed Views. CPCV R$0,36. Deals acima de R$150k.</span>
-            )}
           </div>
         )}
       </div>
@@ -2943,9 +3094,8 @@ function LoginScreen() {
   return (
     <div style={{minHeight:"100vh",background:"#1C262F",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',sans-serif"}}>
       <div style={{textAlign:"center",padding:40}}>
-        <div style={{marginBottom:8,display:'flex',alignItems:'center',justifyContent:'center',gap:12}}>
-          <img src={HYPR_LOGO} alt="HYPR" style={{height:36,width:'auto',objectFit:'contain'}} />
-          <span style={{color:"#3397B9",fontSize:22,fontWeight:400,letterSpacing:"0.08em",fontFamily:"'Syne','DM Sans',sans-serif"}}>Command</span>
+        <div style={{fontFamily:"'Syne',sans-serif",fontSize:36,fontWeight:800,color:"#fff",marginBottom:4}}>
+          HYPR <span style={{color:"#3397B9",fontSize:20,fontWeight:400,letterSpacing:"0.08em"}}>Command</span>
         </div>
         <div style={{color:"#8DA0AE",fontSize:14,marginBottom:40}}>Plataforma integrada Sales & CS</div>
         <div style={{display:"flex",justifyContent:"center",marginBottom:16}} ref={divRef} />
@@ -3073,11 +3223,8 @@ export default function App() {
         {/* SIDEBAR */}
         <aside className={`sb${collapsed?" col":""}${mobileOpen?" mob":""}`}>
           <div className="sb-logo">
-            {collapsed?<img src={HYPR_LOGO} alt="HYPR" style={{height:18,width:'auto',objectFit:'contain'}} />
-            :<div style={{display:'flex',alignItems:'center',gap:8}}>
-              <img src={HYPR_LOGO} alt="HYPR" style={{height:18,width:'auto',objectFit:'contain'}} />
-              <span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em",fontFamily:"'Syne','DM Sans',sans-serif"}}>Command</span>
-            </div>}
+            {collapsed?<svg viewBox="0 0 28 32" style={{height:28,width:28}}><text x="1" y="26" fontFamily="Arial Black,sans-serif" fontWeight="900" fontSize="26" fill="#FFFFFF">H</text></svg>
+            :<div style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:800,color:"#fff",letterSpacing:"-0.5px"}}>HYPR <span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em"}}>Command</span></div>}
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
