@@ -337,6 +337,7 @@ const SETUP_SQL = {
       pi_link STRING, proposta_link STRING,
       cs_name STRING, cs_email STRING, submitted_by STRING, submitted_by_email STRING,
       short_token STRING,
+      extras JSON,
       created_at TIMESTAMP
     )`
 }
@@ -509,6 +510,27 @@ app.post('/checklists', async (req, res) => {
     const f = req.body
     const now = new Date().toISOString()
 
+    // Capture all dynamic fields (per-product volumes, feature volumes, surveys, etc.)
+    // These come from the frontend with prefixes that don't map to fixed BQ columns.
+    const KNOWN_KEYS = new Set([
+      'cp_name','cp_email','agency','industry','campaign_type','client','campaign_name',
+      'start_date','end_date','investment','deal_dv360','formats','cpm','cpcv','products',
+      'o2o_impressoes','o2o_views','has_bonus','bonus_o2o_impressoes','bonus_o2o_views',
+      'ooh_link','audiences','pracas_type','pracas_detail','had_cs_meeting','marketplaces',
+      'features','feature_volumes','pecas_link','redirect_urls','extra_urls','pi_link',
+      'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
+      'submittedByEmail','short_token',
+      // praças variants kept out of extras (already mapped above)
+      'praças_type','praças_state','praças_city','praças_other','praças_states','praças_cities',
+      'praças_city_input','praças_city_state',
+    ])
+    const extras = {}
+    for (const [key, value] of Object.entries(f)) {
+      if (KNOWN_KEYS.has(key)) continue
+      if (value === undefined || value === null || value === '') continue
+      extras[key] = value
+    }
+
     // Save to BigQuery
     await bq.dataset(DATASET).table('checklists').insert([{
       id: crypto.randomUUID(),
@@ -544,6 +566,7 @@ app.post('/checklists', async (req, res) => {
       submitted_by: f.submittedBy || null,
       submitted_by_email: f.submittedByEmail || null,
       short_token: f.short_token || null,
+      extras: JSON.stringify(extras),
       created_at: now,
     }])
 
@@ -595,8 +618,112 @@ app.get('/checklists', async (req, res) => {
     const rows = await query(
       `SELECT * FROM \`${PROJECT}.${DATASET}.checklists\` ORDER BY created_at DESC LIMIT 100`
     )
-    res.json(rows)
+    // Hydrate `extras` JSON back into the row, so dynamic fields like O2O_imp,
+    // OOH_imp, fv_Topics_*, ftext_Survey, cl_features, etc. are visible to the frontend.
+    const hydrated = rows.map(row => {
+      const out = { ...row }
+      if (row.extras) {
+        let parsed = row.extras
+        if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed) } catch { parsed = {} }
+        }
+        if (parsed && typeof parsed === 'object') {
+          for (const [k, v] of Object.entries(parsed)) {
+            // Don't overwrite existing fixed columns
+            if (out[k] === undefined || out[k] === null) out[k] = v
+          }
+        }
+      }
+      // Also parse feature_volumes JSON if it came as a string
+      if (typeof out.feature_volumes === 'string') {
+        try { out.feature_volumes = JSON.parse(out.feature_volumes) } catch {}
+      }
+      return out
+    })
+    res.json(hydrated)
   } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── PUT /checklists/:id — update existing checklist (used by Edit modal) ────
+app.put('/checklists/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const f = req.body
+
+    // Same separation as POST: known fixed columns vs. dynamic extras
+    const KNOWN_KEYS = new Set([
+      'cp_name','cp_email','agency','industry','campaign_type','client','campaign_name',
+      'start_date','end_date','investment','deal_dv360','formats','cpm','cpcv','products',
+      'o2o_impressoes','o2o_views','has_bonus','bonus_o2o_impressoes','bonus_o2o_views',
+      'ooh_link','audiences','pracas_type','pracas_detail','had_cs_meeting','marketplaces',
+      'features','feature_volumes','pecas_link','redirect_urls','extra_urls','pi_link',
+      'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
+      'submittedByEmail','short_token','id','created_at','updated_at','extras',
+      'praças_type','praças_state','praças_city','praças_other','praças_states','praças_cities',
+      'praças_city_input','praças_city_state',
+    ])
+    const extras = {}
+    for (const [key, value] of Object.entries(f)) {
+      if (KNOWN_KEYS.has(key)) continue
+      if (value === undefined || value === null || value === '') continue
+      extras[key] = value
+    }
+
+    // Build UPDATE statement
+    const esc = v => {
+      if (v === null || v === undefined) return 'NULL'
+      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
+      if (typeof v === 'number') return String(v)
+      if (Array.isArray(v)) return `[${v.map(x=>`'${String(x).replace(/'/g,"\\'")}'`).join(',')}]`
+      return `'${String(v).replace(/'/g,"\\'")}'`
+    }
+    const sets = []
+    const fld = (col, val) => { if (val !== undefined) sets.push(`${col} = ${esc(val)}`) }
+
+    fld('cp_name', f.cp_name ?? null)
+    fld('cp_email', f.cp_email ?? null)
+    fld('agency', f.agency ?? null)
+    fld('industry', f.industry ?? null)
+    fld('campaign_type', f.campaign_type ?? null)
+    if (f.client !== undefined) fld('client', f.client)
+    if (f.campaign_name !== undefined) fld('campaign_name', f.campaign_name)
+    if (f.start_date !== undefined) sets.push(`start_date = ${f.start_date ? `DATE '${f.start_date}'` : 'NULL'}`)
+    if (f.end_date !== undefined) sets.push(`end_date = ${f.end_date ? `DATE '${f.end_date}'` : 'NULL'}`)
+    if (f.investment !== undefined) sets.push(`investment = ${f.investment ? parseFloat(f.investment) : 'NULL'}`)
+    if (f.deal_dv360 !== undefined) sets.push(`deal_dv360 = ${f.deal_dv360 === 'Sim' || f.deal_dv360 === true ? 'TRUE' : 'FALSE'}`)
+    if (f.formats !== undefined) sets.push(`formats = ${esc(f.formats || [])}`)
+    if (f.cpm !== undefined) sets.push(`cpm = ${f.cpm ? parseFloat(f.cpm) : 'NULL'}`)
+    if (f.cpcv !== undefined) sets.push(`cpcv = ${f.cpcv ? parseFloat(f.cpcv) : 'NULL'}`)
+    if (f.products !== undefined) sets.push(`products = ${esc(f.products || [])}`)
+    if (f.o2o_impressoes !== undefined) sets.push(`o2o_impressoes = ${f.o2o_impressoes ? parseInt(f.o2o_impressoes) : 'NULL'}`)
+    if (f.o2o_views !== undefined) sets.push(`o2o_views = ${f.o2o_views ? parseInt(f.o2o_views) : 'NULL'}`)
+    if (f.has_bonus !== undefined) sets.push(`has_bonus = ${f.has_bonus === 'Sim' || f.has_bonus === true ? 'TRUE' : 'FALSE'}`)
+    if (f.bonus_o2o_impressoes !== undefined) sets.push(`bonus_o2o_impressoes = ${f.bonus_o2o_impressoes ? parseInt(f.bonus_o2o_impressoes) : 'NULL'}`)
+    if (f.bonus_o2o_views !== undefined) sets.push(`bonus_o2o_views = ${f.bonus_o2o_views ? parseInt(f.bonus_o2o_views) : 'NULL'}`)
+    fld('ooh_link', f.ooh_link ?? null)
+    fld('audiences', f.audiences ?? null)
+    if (f.pracas_type !== undefined || f.praças_type !== undefined) fld('pracas_type', f.pracas_type || f.praças_type || null)
+    if (f.pracas_detail !== undefined) fld('pracas_detail', f.pracas_detail ?? null)
+    if (f.had_cs_meeting !== undefined) sets.push(`had_cs_meeting = ${f.had_cs_meeting === 'Sim' || f.had_cs_meeting === true ? 'TRUE' : 'FALSE'}`)
+    if (f.marketplaces !== undefined) sets.push(`marketplaces = ${esc(f.marketplaces || [])}`)
+    if (f.features !== undefined) sets.push(`features = ${esc(f.features || [])}`)
+    if (f.feature_volumes !== undefined) sets.push(`feature_volumes = JSON '${JSON.stringify(f.feature_volumes || {}).replace(/'/g,"\\'")}'`)
+    fld('pecas_link', f.pecas_link ?? null)
+    if (f.extra_urls !== undefined) sets.push(`redirect_urls = ${esc((f.extra_urls || []).filter(Boolean))}`)
+    fld('pi_link', f.pi_link ?? null)
+    fld('proposta_link', f.proposta_link ?? null)
+    fld('cs_name', f.cs_name ?? null)
+    fld('cs_email', f.cs_email ?? null)
+    sets.push(`extras = JSON '${JSON.stringify(extras).replace(/'/g,"\\'")}'`)
+
+    const sql = `UPDATE \`${PROJECT}.${DATASET}.checklists\` SET ${sets.join(', ')} WHERE id = '${id}'`
+    await bq.query({ query: sql, useLegacySql: false })
+
+    res.json({ ok: true })
+  } catch (err) {
+    console.error(err)
     res.status(500).json({ error: err.message })
   }
 })
