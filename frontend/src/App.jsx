@@ -44,6 +44,12 @@ const FEAT_NO_VOL = ["HYPR Pass","Tap To Chat","Tap To Hotspot","Attention Ad","
 // Features with text box
 const FEAT_TEXT = ["Survey","Video Survey"];
 
+// Features that ALSO need an extra text input (asked alongside volumetry)
+const FEAT_EXTRA_TEXT = {
+  "Topics": { label: "Categorias / Keywords do Topics", placeholder: "Ex: Categoria de eletrodomésticos; keywords: geladeira, fogão, lava-louças..." },
+  "Downloaded Apps": { label: "Apps a serem incluídos no setup", placeholder: "Liste os apps (um por linha ou separados por vírgula). Ex: iFood, Rappi, Uber Eats..." },
+};
+
 // All checklist features
 const ALL_CL_FEATURES = [...FEAT_VOL_NAMES, ...FEAT_NO_VOL, ...FEAT_TEXT];
 
@@ -1626,6 +1632,13 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
                         <CF key={field} l={field}><input type="number" className="fi" placeholder={feat==="P-DOOH"?"Obrigatório":"Opcional"} value={f[`fv_${feat}_${field}`]||""} onChange={e=>set(`fv_${feat}_${field}`,e.target.value)}/></CF>
                       ))}
                     </div>
+                    {FEAT_EXTRA_TEXT[feat]&&(
+                      <div style={{marginTop:10}}>
+                        <CF l={FEAT_EXTRA_TEXT[feat].label} req>
+                          <textarea className="ft" rows={3} placeholder={FEAT_EXTRA_TEXT[feat].placeholder} value={f[`fextra_${feat}`]||""} onChange={e=>set(`fextra_${feat}`,e.target.value)}/>
+                        </CF>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -2248,6 +2261,12 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                             );
                           })}
                         </div>
+                        {FEAT_EXTRA_TEXT[feat]&&(
+                          <div style={{marginTop:10,padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
+                            <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{FEAT_EXTRA_TEXT[feat].label}</div>
+                            <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,whiteSpace:"pre-wrap"}}>{selected[`fextra_${feat}`]||"—"}</div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
