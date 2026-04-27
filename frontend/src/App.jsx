@@ -3,12 +3,20 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const CS_LIST = ["Beatriz Severine","Isaac Agiman","João Armelin","João Buzolin","Mariana Lewinski","Thiago Nascimento","Greenfield"];
+const CS_EMAILS = {
+  "Beatriz Severine":"beatriz.severine@hypr.mobi",
+  "Isaac Agiman":"isaac.lobo@hypr.mobi",
+  "João Armelin":"joao.armelin@hypr.mobi",
+  "João Buzolin":"joao.buzolin@hypr.mobi",
+  "Mariana Lewinski":"mariana.lewinski@hypr.mobi",
+  "Thiago Nascimento":"thiago.nascimento@hypr.mobi",
+};
 const GREENFIELD_QUEUE = CS_LIST.filter(c => c !== "Greenfield");
 const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","Pós-Venda","Dados RMNF"];
 const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados RMNF": 3 };
 const CORE_PRODUCTS = ["O2O","OOH","RMN Digital","RMN Físico"];
 const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","RMNF","RMND"];
-const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context"];
+const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Survey","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context"];
 const FEATURES_WITH_VOLUMETRIA = ["P-DOOH","Tap to Go","Tap To Scratch","Weather","Topics","Click to Calendar","Downloaded Apps"];
 const MARKETPLACES = ["VTEX","Amazon"];
 
@@ -179,8 +187,8 @@ function getTaskStatus(t) {
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap');
-:root{--navy:#1C262F;--teal:#3397B9;--teal-l:#4ab3d6;--teal-dim:rgba(51,151,185,0.12);--yellow:#EDD900;--yellow-dim:rgba(237,217,0,0.10);--bg1:#F4F6F8;--bg2:#FFFFFF;--bg3:#EEF1F4;--bg-card:#FFFFFF;--bg-sidebar:#1C262F;--bg-input:#FFFFFF;--t1:#1C262F;--t2:#4A6070;--t3:#8DA0AE;--bdr:#DDE3E8;--bdr-focus:#3397B9;--bdr-card:#E8ECF0;--sh-sm:0 1px 3px rgba(28,38,47,0.06);--sh-md:0 4px 12px rgba(28,38,47,0.08);--sh-lg:0 8px 24px rgba(28,38,47,0.10);--green:#22C55E;--green-bg:rgba(34,197,94,0.10);--red:#EF4444;--red-bg:rgba(239,68,68,0.10);--yellow-s:#F59E0B;--yellow-s-bg:rgba(245,158,11,0.10);--r:10px;--ff:'Urbanist',sans-serif;--fd:'Urbanist',sans-serif;--tr:0.18s ease}
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300&display=swap');
+:root{--navy:#1C262F;--teal:#3397B9;--teal-l:#4ab3d6;--teal-dim:rgba(51,151,185,0.12);--yellow:#EDD900;--yellow-dim:rgba(237,217,0,0.10);--bg1:#F4F6F8;--bg2:#FFFFFF;--bg3:#EEF1F4;--bg-card:#FFFFFF;--bg-sidebar:#1C262F;--bg-input:#FFFFFF;--t1:#1C262F;--t2:#4A6070;--t3:#8DA0AE;--bdr:#DDE3E8;--bdr-focus:#3397B9;--bdr-card:#E8ECF0;--sh-sm:0 1px 3px rgba(28,38,47,0.06);--sh-md:0 4px 12px rgba(28,38,47,0.08);--sh-lg:0 8px 24px rgba(28,38,47,0.10);--green:#22C55E;--green-bg:rgba(34,197,94,0.10);--red:#EF4444;--red-bg:rgba(239,68,68,0.10);--yellow-s:#F59E0B;--yellow-s-bg:rgba(245,158,11,0.10);--r:10px;--ff:'DM Sans',sans-serif;--fd:'Syne',sans-serif;--tr:0.18s ease}
 [data-theme="dark"]{--bg1:#111820;--bg2:#1C262F;--bg3:#141D25;--bg-card:#1C262F;--bg-sidebar:#0E151C;--bg-input:#253340;--t1:#E8EDF1;--t2:#94A9B8;--t3:#5A7080;--bdr:#2A3845;--bdr-card:#253340;--sh-sm:0 1px 3px rgba(0,0,0,0.25);--sh-md:0 4px 12px rgba(0,0,0,0.3);--sh-lg:0 8px 24px rgba(0,0,0,0.35)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:14px;-webkit-font-smoothing:antialiased}
@@ -907,7 +915,7 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
     if(entry.cs&&entry.csEmail){sF(p=>({...p,cs:entry.cs,csEmail:entry.csEmail,autoCS:true}));}
     else{sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));}
   };
-  const handleCS=cs=>{if(cs==="Greenfield"){const next=GREENFIELD_QUEUE[gfIdx.current%GREENFIELD_QUEUE.length];gfIdx.current++;sF(p=>({...p,cs:next,autoCS:false}));}else sF(p=>({...p,cs:cs,autoCS:false}));};
+  const handleCS=cs=>{if(cs===""){sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));return;}if(cs==="Greenfield"){const next=GREENFIELD_QUEUE[gfIdx.current%GREENFIELD_QUEUE.length];gfIdx.current++;sF(p=>({...p,cs:next,csEmail:CS_EMAILS[next]||"",autoCS:false}));}else sF(p=>({...p,cs:cs,csEmail:CS_EMAILS[cs]||"",autoCS:false}));};
   const sla=f.customDeadline||f.slaDate;
   const valid=f.type&&f.client&&f.cs&&f.briefing;
 
@@ -1166,14 +1174,26 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           <CF l="Investimento (R$)" req><input type="number" className="fi" placeholder="0,00" value={f.investment} onChange={e=>set("investment",e.target.value)}/></CF>
           <CF l="Deal DV360?" req><RG row opts={["Sim","Não"]} val={f.deal_dv360} onChange={v=>set("deal_dv360",v)}/></CF>
         </div>
-        {f.cs_name&&f.cs_email&&(
-          <div style={{marginTop:16,padding:"12px 16px",borderRadius:"var(--r)",background:"var(--green-bg)",border:"1px solid var(--green)",display:"flex",alignItems:"center",gap:10}}>
-            <I n="check-circle" s={16} c="var(--green)"/>
-            <div><div style={{fontSize:12,fontWeight:700,color:"var(--green)"}}>CS identificado automaticamente</div><div style={{fontSize:13,color:"var(--t1)",fontWeight:600,marginTop:2}}>{f.cs_name} <span style={{fontWeight:400,color:"var(--t3)"}}>({f.cs_email})</span></div></div>
-          </div>
-        )}
+        {f.cs_name&&f.cs_email&&(()=>{
+          const dbEntry=CLIENT_DB.find(c=>c.client===f.client);
+          const isAuto=dbEntry&&dbEntry.cs===f.cs_name;
+          return (
+            <div style={{marginTop:16,padding:"12px 16px",borderRadius:"var(--r)",background:"var(--green-bg)",border:"1px solid var(--green)",display:"flex",alignItems:"center",gap:10}}>
+              <I n="check-circle" s={16} c="var(--green)"/>
+              <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:"var(--green)"}}>{isAuto?"CS identificado automaticamente":"CS selecionado manualmente"}</div><div style={{fontSize:13,color:"var(--t1)",fontWeight:600,marginTop:2}}>{f.cs_name} <span style={{fontWeight:400,color:"var(--t3)"}}>({f.cs_email})</span></div></div>
+              {!isAuto&&<button className="btn bg" style={{fontSize:11,padding:"4px 8px"}} onClick={()=>sF(p=>({...p,cs_name:"",cs_email:""}))}>Alterar</button>}
+            </div>
+          );
+        })()}
         {f.client&&!f.cs_name&&CLIENT_DB.find(c=>c.client===f.client)&&(
-          <div className="disc" style={{marginTop:16}}><I n="alert-triangle" s={14} c="var(--yellow-s)"/><span>Cliente sem CS encarteirado. O checklist será enviado apenas para o seu e-mail.</span></div>
+          <div className="fg" style={{marginTop:16}}>
+            <div className="disc" style={{marginBottom:8}}><I n="alert-triangle" s={14} c="var(--yellow-s)"/><span>Cliente sem CS encarteirado. Selecione o CS responsável para receber a notificação.</span></div>
+            <label className="fl">CS Responsável *</label>
+            <select className="fs" value={f.cs_name} onChange={e=>{const cs=e.target.value;sF(p=>({...p,cs_name:cs,cs_email:CS_EMAILS[cs]||""}));}}>
+              <option value="">Selecione...</option>
+              {CS_LIST.filter(c=>c!=="Greenfield").map(cs=><option key={cs}>{cs}</option>)}
+            </select>
+          </div>
         )}
       </Sec>
 
