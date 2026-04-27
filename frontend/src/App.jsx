@@ -3643,7 +3643,22 @@ function LoginScreen() {
 }
 
 export default function App() {
-  const [user,setUser]=useState(null);
+  // Session persistence: restore user from localStorage if not expired (1h TTL)
+  const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
+  const [user,setUser]=useState(()=>{
+    try {
+      const raw = localStorage.getItem("hypr_session");
+      if (!raw) return null;
+      const { user, expiresAt } = JSON.parse(raw);
+      if (Date.now() > expiresAt) {
+        localStorage.removeItem("hypr_session");
+        return null;
+      }
+      // Re-publish so other parts of the app that read window.__hyprUser see it.
+      window.__hyprUser = user;
+      return user;
+    } catch { return null; }
+  });
   const [clients,setClients]=useState([]);
   const [clientsLoading,setClientsLoading]=useState(false);
   const [page,setPage]=useState(()=>{const h=window.location.hash.replace("#","");return ["home","monitor","tasks","checklist","checklist-center","proposals"].includes(h)?h:"home"});
@@ -3658,10 +3673,48 @@ export default function App() {
   const [notifs,setNotifs]=useState(INITIAL_NOTIFS);
   const [showNotifs,setShowNotifs]=useState(false);
   const notifRef=useRef();
+  const [showUserMenu,setShowUserMenu]=useState(false);
+  const userMenuRef=useRef();
 
   useEffect(()=>{document.documentElement.setAttribute("data-theme",theme)},[theme]);
   useEffect(()=>{const fn=e=>{if(notifRef.current&&!notifRef.current.contains(e.target))setShowNotifs(false)};document.addEventListener("mousedown",fn);return()=>document.removeEventListener("mousedown",fn)},[]);
-  useEffect(()=>{const fn=()=>setUser(window.__hyprUser);window.addEventListener("hypr-login",fn);return()=>window.removeEventListener("hypr-login",fn);},[]);
+  useEffect(()=>{const fn=e=>{if(userMenuRef.current&&!userMenuRef.current.contains(e.target))setShowUserMenu(false)};document.addEventListener("mousedown",fn);return()=>document.removeEventListener("mousedown",fn)},[]);
+  useEffect(()=>{
+    const fn=()=>{
+      const u = window.__hyprUser;
+      setUser(u);
+      // Persist session in localStorage with expiration
+      if (u) {
+        try {
+          localStorage.setItem("hypr_session", JSON.stringify({
+            user: u,
+            expiresAt: Date.now() + SESSION_TTL_MS,
+          }));
+        } catch {}
+      }
+    };
+    window.addEventListener("hypr-login",fn);
+    return()=>window.removeEventListener("hypr-login",fn);
+  },[]);
+
+  // Periodically check if the session expired (every 60s) and force re-login if so
+  useEffect(()=>{
+    if (!user) return;
+    const check = ()=>{
+      try {
+        const raw = localStorage.getItem("hypr_session");
+        if (!raw) return;
+        const { expiresAt } = JSON.parse(raw);
+        if (Date.now() > expiresAt) {
+          localStorage.removeItem("hypr_session");
+          window.__hyprUser = null;
+          setUser(null);
+        }
+      } catch {}
+    };
+    const id = setInterval(check, 60_000);
+    return ()=>clearInterval(id);
+  },[user]);
 
   // Fetch clients from Cloud Function when user logs in
   useEffect(()=>{
@@ -3738,7 +3791,12 @@ export default function App() {
   const markAllRead=()=>setNotifs(ns=>ns.map(n=>({...n,read:true})));
   const pageTitle=NAV.find(n=>n.key===page)?.label||"Command";
 
-  const handleLogout=()=>{setUser(null);window.__hyprUser=null;try{window.google.accounts.id.disableAutoSelect()}catch(e){}};
+  const handleLogout=()=>{
+    setUser(null);
+    window.__hyprUser=null;
+    try{localStorage.removeItem("hypr_session")}catch{}
+    try{window.google.accounts.id.disableAutoSelect()}catch(e){}
+  };
 
   if(!user) return <LoginScreen />;
 
@@ -3843,8 +3901,23 @@ export default function App() {
                   </div>
                 )}
               </div>
-              {user.picture?<img src={user.picture} alt="" style={{width:34,height:34,borderRadius:"50%",flexShrink:0}}/>
-              :<div style={{width:34,height:34,background:"linear-gradient(135deg, var(--teal), #1a5f7a)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",letterSpacing:".05em",flexShrink:0}}>{user.initials}</div>}
+              <div ref={userMenuRef} style={{position:"relative"}}>
+                <button onClick={()=>setShowUserMenu(s=>!s)} title={`${user.name} — clique para opções`} style={{background:"transparent",border:"none",padding:0,cursor:"pointer",display:"block"}}>
+                  {user.picture?<img src={user.picture} alt="" style={{width:34,height:34,borderRadius:"50%",flexShrink:0,display:"block"}}/>
+                  :<div style={{width:34,height:34,background:"linear-gradient(135deg, var(--teal), #1a5f7a)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",letterSpacing:".05em",flexShrink:0}}>{user.initials}</div>}
+                </button>
+                {showUserMenu&&(
+                  <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,minWidth:240,background:"var(--bg-card)",border:"1px solid var(--bdr-card)",borderRadius:"var(--r)",boxShadow:"var(--sh-lg)",overflow:"hidden",zIndex:100}}>
+                    <div style={{padding:"14px 16px",borderBottom:"1px solid var(--bdr)"}}>
+                      <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{user.name}</div>
+                      <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{user.email}</div>
+                    </div>
+                    <button onClick={()=>{setShowUserMenu(false);handleLogout();}} style={{width:"100%",padding:"12px 16px",border:"none",background:"transparent",color:"var(--red)",fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontFamily:"inherit",textAlign:"left"}} onMouseEnter={e=>e.currentTarget.style.background="var(--bg3)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      <I n="x" s={14} c="var(--red)"/>Sair
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </header>
 
