@@ -2108,11 +2108,40 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                     </CF>
                   )}
 
-                  {/* Editable volumetries */}
+                  {/* Editable Products & Volumetries */}
+                  <CF l="Produtos Core">
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {CHECKLIST_CORE_PRODUCTS.map(p=>(
+                        <span key={p} className={`chip${(editData.products||[]).includes(p)?" sel":""}`} style={{cursor:"pointer"}} onClick={()=>{
+                          setEditData(prev=>{
+                            const cur=prev.products||[];
+                            const has=cur.includes(p);
+                            const next=has?cur.filter(x=>x!==p):[...cur,p];
+                            // If removing the product, also clear its volumetry fields
+                            const update={...prev,products:next};
+                            if(has){delete update[`${p}_imp`];delete update[`${p}_views`];delete update[`${p}_bonus_imp`];delete update[`${p}_bonus_views`];}
+                            return update;
+                          });
+                        }}>{p}</span>
+                      ))}
+                    </div>
+                  </CF>
                   {(editData.products||[]).map(prod=>(
-                    <div key={prod} className="g2" style={{gap:12}}>
-                      <CF l={`${prod} — Impressões Visíveis`}><input type="number" className="fi" value={editData[`${prod}_imp`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_imp`]:e.target.value}))}/></CF>
-                      <CF l={`${prod} — Views 100%`}><input type="number" className="fi" value={editData[`${prod}_views`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_views`]:e.target.value}))}/></CF>
+                    <div key={prod} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
+                      <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>{prod} — Volumetria Contratada</div>
+                      <div className="g2" style={{gap:12,marginBottom:10}}>
+                        <CF l="Impressões Visíveis"><input type="number" className="fi" placeholder="0" value={editData[`${prod}_imp`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_imp`]:e.target.value}))}/></CF>
+                        <CF l="Views 100%"><input type="number" className="fi" placeholder="0" value={editData[`${prod}_views`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_views`]:e.target.value}))}/></CF>
+                      </div>
+                      {(editData[`${prod}_bonus_imp`]||editData[`${prod}_bonus_views`]||editData.has_bonus==="Sim"||editData.has_bonus===true)&&(
+                        <>
+                          <div style={{fontSize:11,fontWeight:700,color:"#a07a00",marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}}>{prod} — Bonificação</div>
+                          <div className="g2" style={{gap:12}}>
+                            <CF l="Impressões Bonif."><input type="number" className="fi" placeholder="0" value={editData[`${prod}_bonus_imp`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_bonus_imp`]:e.target.value}))}/></CF>
+                            <CF l="Views Bonif."><input type="number" className="fi" placeholder="0" value={editData[`${prod}_bonus_views`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_bonus_views`]:e.target.value}))}/></CF>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
 
