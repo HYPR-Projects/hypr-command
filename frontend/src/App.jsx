@@ -769,6 +769,7 @@ function CampaignDetail({camp,onClose}) {
 function TaskCenter({tasks,setTasks}) {
   const [showNew,setShowNew]=useState(false);
   const [linkModal,setLinkModal]=useState(null);
+  const [selected,setSelected]=useState(null);
   const [search,setSearch]=useState("");
   const [filterStatus,setFilterStatus]=useState("all");
   const [filterCS,setFilterCS]=useState("");
@@ -853,21 +854,23 @@ function TaskCenter({tasks,setTasks}) {
         <div className="card"><div className="empty"><I n="check-circle" s={40} c="var(--t3)" /><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhuma task encontrada</h3></div></div>
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:16}}>
-          {filtered.map(t=><TaskCard key={t.id} task={t} onComplete={handleComplete} onAddLink={setLinkModal} />)}
+          {filtered.map(t=><TaskCard key={t.id} task={t} onComplete={handleComplete} onAddLink={setLinkModal} onOpen={setSelected} />)}
         </div>
       )}
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
+      {selected && <TaskDetailModal task={selected} onClose={()=>setSelected(null)} onComplete={(id)=>{handleComplete(id);setSelected(null);}} onAddLink={(t)=>{setLinkModal(t);setSelected(null);}} />}
     </div>
   );
 }
 
-function TaskCard({task,onComplete,onAddLink}) {
+function TaskCard({task,onComplete,onAddLink,onOpen}) {
   const st=getTaskStatus(task);
   const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":"b-grn";
+  const stop=e=>e.stopPropagation();
   return (
-    <div className="card" style={{padding:"18px 20px",display:"flex",flexDirection:"column",gap:12}}>
+    <div className="card" style={{padding:"18px 20px",display:"flex",flexDirection:"column",gap:12,cursor:"pointer"}} onClick={()=>onOpen&&onOpen(task)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <span style={{padding:"3px 10px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:11,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
@@ -877,7 +880,7 @@ function TaskCard({task,onComplete,onAddLink}) {
       </div>
       <div>
         <div style={{fontSize:15,fontWeight:700,fontFamily:"var(--fd)",marginBottom:2}}>{task.client}</div>
-        <div style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{task.briefing}</div>
+        <div style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{task.briefing}</div>
       </div>
       {task.budget>0 && <div style={{fontSize:12,color:"var(--teal)",fontWeight:600}}><I n="dollar" s={12} c="var(--teal)" style={{verticalAlign:"middle",marginRight:4}} />{fmtCurrency(task.budget)}</div>}
       {(task.products?.length>0||task.features?.length>0)&&(
@@ -891,10 +894,97 @@ function TaskCard({task,onComplete,onAddLink}) {
           <div style={{display:"flex",alignItems:"center",gap:4}}><I n="user" s={12} c="var(--t3)" /><span style={{fontSize:12,color:"var(--t2)",fontWeight:600}}>{task.cs}</span></div>
           <div style={{display:"flex",alignItems:"center",gap:4}}><I n="calendar" s={12} c="var(--t3)" /><span style={{fontSize:12,color:st==="Atrasada"?"var(--red)":"var(--t2)"}}>{fmtDate(task.deadline)}</span></div>
         </div>
-        <div style={{display:"flex",gap:6}}>
-          {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:11,padding:"5px 10px",textDecoration:"none"}}><I n="external" s={12} />Doc</a>}
-          <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>onAddLink(task)} title={task.docLink?"Editar link":"Adicionar link"}><I n="link" s={12} />{task.docLink?"Editar":"Link"}</button>
-          {task.status!=="completed"&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onComplete(task.id)}><I n="check" s={12} />Concluir</button>}
+        <div style={{display:"flex",gap:6}} onClick={stop}>
+          {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:11,padding:"5px 10px",textDecoration:"none"}} onClick={stop}><I n="external" s={12} />Doc</a>}
+          <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={e=>{stop(e);onAddLink(task);}} title={task.docLink?"Editar link":"Adicionar link"}><I n="link" s={12} />{task.docLink?"Editar":"Link"}</button>
+          {task.status!=="completed"&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} onClick={e=>{stop(e);onComplete(task.id);}}><I n="check" s={12} />Concluir</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Task Detail Modal ──────────────────────────────────────────────────────
+function TaskDetailModal({task,onClose,onComplete,onAddLink}) {
+  useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
+  const st=getTaskStatus(task);
+  const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":"b-grn";
+  const D=({l,v,wide})=>{
+    if(!v||v==="—") return null;
+    const isUrl=typeof v==="string"&&(v.startsWith("http://")||v.startsWith("https://"));
+    return(
+      <div style={{padding:12,background:"var(--bg3)",borderRadius:"var(--r)",gridColumn:wide?"1/-1":"auto"}}>
+        <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{l}</div>
+        {isUrl?(
+          <a href={v} target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--teal)",fontWeight:600,wordBreak:"break-all",display:"flex",alignItems:"center",gap:6}}>
+            <I n="external" s={12}/>{v}
+          </a>
+        ):(
+          <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,whiteSpace:"pre-wrap"}}>{v}</div>
+        )}
+      </div>
+    );
+  };
+  const Tags=({items,color})=>(items||[]).length>0?(
+    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+      {items.map(p=><span key={p} style={{padding:"3px 10px",background:color==="teal"?"var(--teal-dim)":"var(--bg3)",color:color==="teal"?"var(--teal-l)":"var(--t2)",borderRadius:99,fontSize:12,fontWeight:600,border:color==="teal"?"1px solid var(--teal)":"1px solid var(--bdr)"}}>{p}</span>)}
+    </div>
+  ):null;
+  return(
+    <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="ml ml-lg" style={{maxWidth:760}}>
+        <div className="mh">
+          <div>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+              <span style={{padding:"3px 10px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:11,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
+              <span className={`badge ${stCls}`}><I n={st==="Atrasada"?"alert-circle":"check-circle"} s={10}/> {st}</span>
+              <span style={{fontSize:11,color:"var(--t3)"}}>#{task.id}</span>
+            </div>
+            <div className="mt">{task.client}</div>
+            {task.agency&&<div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>{task.agency}</div>}
+          </div>
+          <button className="btn bg" onClick={onClose}><I n="x" s={18}/></button>
+        </div>
+        <div className="mb">
+          {/* Briefing - destaque */}
+          <div style={{padding:16,background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)",marginBottom:16}}>
+            <div style={{fontSize:11,color:"var(--teal-l)",textTransform:"uppercase",fontWeight:700,marginBottom:8,letterSpacing:"0.06em"}}>Briefing</div>
+            <div style={{fontSize:14,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{task.briefing||"—"}</div>
+          </div>
+
+          {/* Detalhes em grid */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:16}}>
+            <D l="CS Responsável" v={task.cs}/>
+            <D l="E-mail do CS" v={task.csEmail||task.cs_email}/>
+            <D l="Solicitante" v={task.requestedBy}/>
+            <D l="E-mail Solicitante" v={task.requesterEmail||task.requester_email}/>
+            <D l="Prazo" v={fmtDate(task.deadline)}/>
+            <D l="Criada em" v={fmtDate(task.createdAt||task.created_at)}/>
+            {task.budget>0&&<D l="Investimento" v={fmtCurrency(task.budget)}/>}
+            {task.sla&&<D l="SLA" v={task.sla}/>}
+            {task.docLink&&<D l="Documento" v={task.docLink} wide/>}
+          </div>
+
+          {/* Produtos & Features */}
+          {(task.products?.length>0||task.features?.length>0)&&(
+            <div style={{padding:16,background:"var(--bg3)",borderRadius:"var(--r)",marginBottom:16}}>
+              {task.products?.length>0&&<div style={{marginBottom:task.features?.length>0?12:0}}>
+                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:8,letterSpacing:"0.06em"}}>Produtos</div>
+                <Tags items={task.products} color="teal"/>
+              </div>}
+              {task.features?.length>0&&<div>
+                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:8,letterSpacing:"0.06em"}}>Features</div>
+                <Tags items={task.features}/>
+              </div>}
+            </div>
+          )}
+
+          {/* Ações */}
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid var(--bdr)"}}>
+            {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{textDecoration:"none"}}><I n="external" s={14}/>Abrir Doc</a>}
+            <button className="btn bs" onClick={()=>onAddLink(task)}><I n="link" s={14}/>{task.docLink?"Editar Link":"Adicionar Link"}</button>
+            {task.status!=="completed"&&<button className="btn bp" onClick={()=>onComplete(task.id)}><I n="check" s={14}/>Concluir Task</button>}
+          </div>
         </div>
       </div>
     </div>
@@ -1750,33 +1840,56 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   {/* Section 3: Produtos e Volumetria */}
                   <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>3. Produtos Core e Volumetria</div>
                   {(selected.products||[]).length>0&&<div><div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Produtos</div><Tags items={selected.products} color="teal"/></div>}
-                  {(selected.products||[]).map(prod=>(
+                  {(selected.products||[]).map(prod=>{
+                    const imp=selected[`${prod}_imp`];
+                    const views=selected[`${prod}_views`];
+                    return(
                     <div key={prod} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
                       <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:8,textTransform:"uppercase"}}>{prod} — Volumetria Contratada</div>
                       <div className="g2" style={{gap:10}}>
-                        <D l="Impressões Visíveis" v={fmtNum(selected[`${prod}_imp`])}/>
-                        <D l="Views 100%" v={fmtNum(selected[`${prod}_views`])}/>
+                        <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
+                          <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Impressões Visíveis</div>
+                          <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{imp?Number(imp).toLocaleString("pt-BR"):"—"}</div>
+                        </div>
+                        <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
+                          <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Views 100%</div>
+                          <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{views?Number(views).toLocaleString("pt-BR"):"—"}</div>
+                        </div>
                       </div>
                       {prod==="OOH"&&selected.ooh_link&&<div style={{marginTop:8}}><D l="Link OOH" v={selected.ooh_link}/></div>}
                       {prod==="RMND"&&(selected.marketplaces||[]).length>0&&<div style={{marginTop:8}}><div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Marketplaces</div><Tags items={selected.marketplaces} color="teal"/></div>}
                     </div>
-                  ))}
-                  {(selected.has_bonus==="Sim"||selected.has_bonus===true)&&(
+                  );})}
+                  {(()=>{
+                    const hasBonusFlag=selected.has_bonus==="Sim"||selected.has_bonus===true;
+                    const productsWithBonus=(selected.products||[]).filter(prod=>selected[`${prod}_bonus_imp`]||selected[`${prod}_bonus_views`]);
+                    if(!hasBonusFlag&&productsWithBonus.length===0) return null;
+                    const showProds=productsWithBonus.length>0?productsWithBonus:(selected.products||[]);
+                    return(
                     <div>
                       <div style={{fontSize:12,fontWeight:700,color:"#a07a00",marginBottom:8,textTransform:"uppercase"}}>Bonificações</div>
-                      {(selected.products||[]).map(prod=>(
-                        (selected[`${prod}_bonus_imp`]||selected[`${prod}_bonus_views`])?(
+                      {showProds.map(prod=>{
+                        const bImp=selected[`${prod}_bonus_imp`];
+                        const bViews=selected[`${prod}_bonus_views`];
+                        return(
                           <div key={prod+"_b"} style={{padding:14,background:"var(--yellow-dim)",borderRadius:"var(--r)",border:"1px solid rgba(237,217,0,0.3)",marginBottom:8}}>
                             <div style={{fontSize:12,fontWeight:700,color:"#a07a00",marginBottom:8,textTransform:"uppercase"}}>{prod} — Bonificação</div>
                             <div className="g2" style={{gap:10}}>
-                              <D l="Impressões Bonif." v={fmtNum(selected[`${prod}_bonus_imp`])}/>
-                              <D l="Views Bonif." v={fmtNum(selected[`${prod}_bonus_views`])}/>
+                              <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
+                                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Impressões Bonif.</div>
+                                <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{bImp?Number(bImp).toLocaleString("pt-BR"):"—"}</div>
+                              </div>
+                              <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
+                                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Views Bonif.</div>
+                                <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{bViews?Number(bViews).toLocaleString("pt-BR"):"—"}</div>
+                              </div>
                             </div>
                           </div>
-                        ):null
-                      ))}
+                        );
+                      })}
                     </div>
-                  )}
+                    );
+                  })()}
 
                   {/* Section 4: Audiências, Features, Praças */}
                   <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>4. Audiências, Features e Praças</div>
@@ -1813,8 +1926,6 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   {(selected.cl_features||[]).filter(f=>FEAT_VOL[f]).map(feat=>{
                     const cfg=FEAT_VOL[feat];
                     const volType=selected[`fvol_type_${feat}`]||"contratada";
-                    const hasValues=cfg.fields.some(field=>selected[`fv_${feat}_${field}`]);
-                    if(!hasValues) return null;
                     return(
                       <div key={feat} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -1822,7 +1933,15 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                           <span className={`badge ${volType==="bonificada"?"b-teal":"b-ylw"}`} style={{textTransform:"capitalize"}}>{volType}</span>
                         </div>
                         <div className="g2" style={{gap:10}}>
-                          {cfg.fields.map(field=><D key={field} l={field} v={fmtNum(selected[`fv_${feat}_${field}`])}/>)}
+                          {cfg.fields.map(field=>{
+                            const v=selected[`fv_${feat}_${field}`];
+                            return(
+                              <div key={field} style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
+                                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{field}</div>
+                                <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{v?Number(v).toLocaleString("pt-BR"):"—"}</div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );
@@ -1830,12 +1949,13 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
 
                   {/* Survey / Video Survey */}
                   {(selected.cl_features||[]).filter(f=>["Survey","Video Survey"].includes(f)).map(feat=>(
-                    selected[`ftext_${feat}`]?(
-                      <div key={feat} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
-                        <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:8,textTransform:"uppercase"}}>{feat}</div>
-                        <D l="Perguntas e Respostas" v={selected[`ftext_${feat}`]} wide/>
+                    <div key={feat} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
+                      <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:8,textTransform:"uppercase"}}>{feat}</div>
+                      <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
+                        <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Perguntas e Respostas</div>
+                        <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,whiteSpace:"pre-wrap"}}>{selected[`ftext_${feat}`]||"—"}</div>
                       </div>
-                    ):null
+                    </div>
                   ))}
 
                   {/* Inventário Parceiro */}
