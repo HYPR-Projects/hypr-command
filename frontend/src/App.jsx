@@ -1787,6 +1787,33 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                     <CF l="Data Final"><input type="date" className="fi" value={editData.end_date||""} onChange={e=>setEditData(p=>({...p,end_date:e.target.value}))}/></CF>
                   </div>
                   <CF l="Audiências"><textarea className="ft" rows={3} value={editData.audiences||""} onChange={e=>setEditData(p=>({...p,audiences:e.target.value}))}/></CF>
+
+                  {/* Editable Praças */}
+                  <CF l="Praças — Tipo">
+                    <select className="fs" value={editData.praças_type||editData.pracas_type||""} onChange={e=>{const v=e.target.value;setEditData(p=>({...p,praças_type:v,pracas_type:v}));}}>
+                      <option value="">Selecione...</option>
+                      <option value="Brasil">Brasil</option>
+                      <option value="Estado">Estado</option>
+                      <option value="Cidade">Cidade</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </CF>
+                  {(editData.praças_type||editData.pracas_type)==="Estado"&&(
+                    <CF l="Estados (separe por vírgula, ex: SP, RJ, MG)">
+                      <input className="fi" value={(editData.praças_states||[]).join(", ")} onChange={e=>{const arr=e.target.value.split(",").map(s=>s.trim().toUpperCase()).filter(Boolean);setEditData(p=>({...p,praças_states:arr,pracas_detail:arr.join(", ")}));}}/>
+                    </CF>
+                  )}
+                  {(editData.praças_type||editData.pracas_type)==="Cidade"&&(
+                    <CF l="Cidades (separe por vírgula, ex: São Paulo (SP), Rio de Janeiro (RJ))">
+                      <input className="fi" value={(editData.praças_cities||[]).join(", ")} onChange={e=>{const arr=e.target.value.split(",").map(s=>s.trim()).filter(Boolean);setEditData(p=>({...p,praças_cities:arr,pracas_detail:arr.join(", ")}));}}/>
+                    </CF>
+                  )}
+                  {(editData.praças_type||editData.pracas_type)==="Outro"&&(
+                    <CF l="Descreva">
+                      <input className="fi" value={editData.praças_other||editData.pracas_detail||""} onChange={e=>{const v=e.target.value;setEditData(p=>({...p,praças_other:v,pracas_detail:v}));}}/>
+                    </CF>
+                  )}
+
                   {/* Editable volumetries */}
                   {(editData.products||[]).map(prod=>(
                     <div key={prod} className="g2" style={{gap:12}}>
