@@ -1677,12 +1677,44 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
   const [editing,setEditing]=useState(false);
   const [editData,setEditData]=useState(null);
   const [search,setSearch]=useState("");
+  const [filterMonth,setFilterMonth]=useState("");
+  const [filterYear,setFilterYear]=useState("");
   const toast=useToast();
+
+  // Extract date string (YYYY-MM-DD or {value}) → {y, m}
+  const parseDate=(v)=>{
+    if(!v) return null;
+    const s=typeof v==="object"&&v.value?v.value:String(v);
+    const m=s.match(/(\d{4})-(\d{2})/);
+    return m?{y:m[1],m:m[2]}:null;
+  };
+
+  // Available years in the data (sorted desc)
+  const availableYears=useMemo(()=>{
+    const ys=new Set();
+    checklists.forEach(c=>{const p=parseDate(c.created_at);if(p)ys.add(p.y);});
+    return [...ys].sort((a,b)=>b.localeCompare(a));
+  },[checklists]);
+
+  const MONTHS=[
+    {v:"01",l:"Janeiro"},{v:"02",l:"Fevereiro"},{v:"03",l:"Março"},{v:"04",l:"Abril"},
+    {v:"05",l:"Maio"},{v:"06",l:"Junho"},{v:"07",l:"Julho"},{v:"08",l:"Agosto"},
+    {v:"09",l:"Setembro"},{v:"10",l:"Outubro"},{v:"11",l:"Novembro"},{v:"12",l:"Dezembro"},
+  ];
 
   const filtered=useMemo(()=>{
     const q=search.toLowerCase();
-    return checklists.filter(c=>!q||c.client?.toLowerCase().includes(q)||c.campaign_name?.toLowerCase().includes(q)||c.agency?.toLowerCase().includes(q));
-  },[checklists,search]);
+    return checklists.filter(c=>{
+      if(q&&!(c.client?.toLowerCase().includes(q)||c.campaign_name?.toLowerCase().includes(q)||c.agency?.toLowerCase().includes(q))) return false;
+      if(filterYear||filterMonth){
+        const p=parseDate(c.created_at);
+        if(!p) return false;
+        if(filterYear&&p.y!==filterYear) return false;
+        if(filterMonth&&p.m!==filterMonth) return false;
+      }
+      return true;
+    });
+  },[checklists,search,filterYear,filterMonth]);
 
   const handleEdit=(c)=>{setEditData({...c});setEditing(true)};
   const handleSave=async()=>{
@@ -1727,14 +1759,29 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
     <div className="page-enter">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24,flexWrap:"wrap",gap:12}}>
         <h2 style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:700}}>Checklists Enviados</h2>
-        <div style={{position:"relative",minWidth:200,maxWidth:300}}>
-          <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}} c="var(--t3)"/>
-          <input className="fi" style={{paddingLeft:32}} placeholder="Buscar cliente ou campanha..." value={search} onChange={e=>setSearch(e.target.value)}/>
+        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+          <select className="fs" style={{minWidth:130,fontSize:12}} value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}>
+            <option value="">Todos os meses</option>
+            {MONTHS.map(m=><option key={m.v} value={m.v}>{m.l}</option>)}
+          </select>
+          <select className="fs" style={{minWidth:100,fontSize:12}} value={filterYear} onChange={e=>setFilterYear(e.target.value)}>
+            <option value="">Todos os anos</option>
+            {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
+          </select>
+          {(filterMonth||filterYear)&&(
+            <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{setFilterMonth("");setFilterYear("");}} title="Limpar filtros de data">
+              <I n="x" s={12}/>Limpar
+            </button>
+          )}
+          <div style={{position:"relative",minWidth:200,maxWidth:300}}>
+            <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}} c="var(--t3)"/>
+            <input className="fi" style={{paddingLeft:32}} placeholder="Buscar cliente ou campanha..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          </div>
         </div>
       </div>
 
       {filtered.length===0?(
-        <div className="card"><div className="empty"><I n="clipboard" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhum checklist enviado ainda</h3></div></div>
+        <div className="card"><div className="empty"><I n="clipboard" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>{(search||filterMonth||filterYear)?"Nenhum checklist encontrado com esses filtros":"Nenhum checklist enviado ainda"}</h3></div></div>
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:16}}>
           {filtered.map(c=>(
