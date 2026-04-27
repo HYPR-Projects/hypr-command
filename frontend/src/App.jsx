@@ -203,6 +203,22 @@ function rawStatus(t) {
   return "aberta";
 }
 
+// ─── HYPR Logo ───────────────────────────────────────────────────────────────
+// Reproduz a logo "HYPR°" oficial usando texto SVG (Urbanist) + um pequeno
+// quadrado preenchido no canto superior direito do R. Aceita a prop `color`
+// para se adaptar a fundos claros e escuros.
+function HyprLogo({color="#FFFFFF",height=28,style}) {
+  // viewBox dimensionado para caber "HYPR" em peso 200 + o quadrado degree.
+  // Proporção ~5.4:1 (largura:altura).
+  return (
+    <svg viewBox="0 0 540 100" style={{height,width:"auto",display:"block",...style}} xmlns="http://www.w3.org/2000/svg">
+      <text x="0" y="82" fontFamily="Urbanist, sans-serif" fontWeight="200" fontSize="100" letterSpacing="2" fill={color}>HYPR</text>
+      {/* Quadradinho ° no canto superior direito */}
+      <rect x="500" y="14" width="22" height="22" fill={color}/>
+    </svg>
+  );
+}
+
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap');
@@ -3626,8 +3642,9 @@ function LoginScreen() {
     <div style={{minHeight:"100vh",background:"#1C262F",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Urbanist',sans-serif"}}>
       <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800;900&display=swap"/>
       <div style={{textAlign:"center",padding:40}}>
-        <div style={{fontFamily:"'Urbanist',sans-serif",fontSize:36,fontWeight:800,color:"#fff",marginBottom:4}}>
-          HYPR <span style={{color:"#3397B9",fontSize:20,fontWeight:400,letterSpacing:"0.08em"}}>Command</span>
+        <div style={{display:"flex",alignItems:"baseline",justifyContent:"center",gap:14,marginBottom:8}}>
+          <HyprLogo color="#FFFFFF" height={48}/>
+          <span style={{color:"#3397B9",fontSize:22,fontWeight:300,letterSpacing:"0.08em",fontFamily:"'Urbanist',sans-serif"}}>Command</span>
         </div>
         <div style={{color:"#8DA0AE",fontSize:14,marginBottom:40}}>Plataforma integrada Sales & CS</div>
         <div style={{display:"flex",justifyContent:"center",marginBottom:16}} ref={divRef} />
@@ -3813,8 +3830,17 @@ export default function App() {
         {/* SIDEBAR */}
         <aside className={`sb${collapsed?" col":""}${mobileOpen?" mob":""}`}>
           <div className="sb-logo">
-            {collapsed?<svg viewBox="0 0 28 32" style={{height:28,width:28}}><text x="1" y="26" fontFamily="Arial Black,sans-serif" fontWeight="900" fontSize="26" fill="#FFFFFF">H</text></svg>
-            :<div style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:800,color:"#fff",letterSpacing:"-0.5px"}}>HYPR <span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em"}}>Command</span></div>}
+            {collapsed?(
+              <svg viewBox="0 0 110 100" style={{height:28,width:"auto",display:"block"}} xmlns="http://www.w3.org/2000/svg">
+                <text x="0" y="82" fontFamily="Urbanist, sans-serif" fontWeight="200" fontSize="100" letterSpacing="2" fill="#FFFFFF">H</text>
+                <rect x="80" y="14" width="22" height="22" fill="#FFFFFF"/>
+              </svg>
+            ):(
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <HyprLogo color="#FFFFFF" height={22}/>
+                <span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em",fontFamily:"var(--fd)"}}>Command</span>
+              </div>
+            )}
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
