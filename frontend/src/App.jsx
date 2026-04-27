@@ -1685,11 +1685,15 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
   },[checklists,search]);
 
   const handleEdit=(c)=>{setEditData({...c});setEditing(true)};
-  const handleSave=()=>{
+  const handleSave=async()=>{
     setChecklists(prev=>prev.map(c=>c.id===editData.id?editData:c));
     setSelected(editData);
     setEditing(false);
     toast("Checklist atualizado!");
+    // Persist to backend
+    try{
+      await fetch(`${BACKEND_URL}/checklists/${editData.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(editData)});
+    }catch(err){console.error("Backend checklist PUT error:",err)}
   };
 
   // Detail row helper
