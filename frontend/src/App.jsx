@@ -1741,7 +1741,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
             <div key={c.id} className="card" style={{padding:"18px 20px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10}} onClick={()=>{setSelected(c);setEditing(false)}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span style={{fontSize:15,fontWeight:700,fontFamily:"var(--fd)",color:"var(--t1)"}}>{c.client}</span>
-                <span style={{fontSize:11,color:"var(--t3)"}}>{c.created_at?new Date(c.created_at).toLocaleDateString("pt-BR"):"—"}</span>
+                <span style={{fontSize:11,color:"var(--t3)"}}>{fmtDate(c.created_at)}</span>
               </div>
               <div style={{fontSize:13,color:"var(--t2)"}}>{c.campaign_name||"—"}</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -2049,7 +2049,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   <div style={{paddingTop:12,borderTop:"1px solid var(--bdr)",fontSize:12,color:"var(--t3)"}}>
                     Enviado por: <strong style={{color:"var(--t1)"}}>{selected.submittedBy||selected.submitted_by||"—"}</strong>
                     {(selected.submittedByEmail||selected.submitted_by_email)&&<span> ({selected.submittedByEmail||selected.submitted_by_email})</span>}
-                    {selected.created_at&&<span> — {new Date(selected.created_at).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>}
+                    {selected.created_at&&<span> — {(()=>{const v=typeof selected.created_at==="object"&&selected.created_at.value?selected.created_at.value:selected.created_at;const d=new Date(v);return isNaN(d.getTime())?"—":d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})})()}</span>}
                   </div>
                 </div>
               )}
