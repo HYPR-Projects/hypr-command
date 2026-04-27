@@ -176,13 +176,25 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
     "award":<><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></>,
     "inbox":<><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></>,
     "external":<><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>,
+    "list":<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>,
+    "layout":<><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></>,
+    "lock":<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>,
   };
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,...st}} {...r}>{p[n]}</svg>;
 };
 
 function getTaskStatus(t) {
-  if (t.status === "completed") return "Concluída";
+  const s = (t.status || '').toLowerCase();
+  if (s === "entregue" || s === "completed") return "Concluída";
+  if (s === "iniciada") return "Iniciada";
   return new Date() > new Date(t.deadline) ? "Atrasada" : "Dentro do SLA";
+}
+// Raw status used by the kanban (aberta / iniciada / entregue)
+function rawStatus(t) {
+  const s = (t.status || '').toLowerCase();
+  if (s === "entregue" || s === "completed") return "entregue";
+  if (s === "iniciada") return "iniciada";
+  return "aberta";
 }
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────
@@ -233,7 +245,7 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;border:1px solid var(--bdr);background:var(--bg-input);color:var(--t2);font-size:12px;font-weight:500;cursor:pointer;transition:all var(--tr);user-select:none}
 .chip:hover{border-color:var(--teal);color:var(--teal)}.chip.sel{background:var(--teal-dim);border-color:var(--teal);color:var(--teal-l)}
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600}
-.b-grn{background:var(--green-bg);color:var(--green)}.b-red{background:var(--red-bg);color:var(--red)}.b-ylw{background:var(--yellow-s-bg);color:var(--yellow-s)}.b-teal{background:var(--teal-dim);color:var(--teal-l)}
+.b-grn{background:var(--green-bg);color:var(--green)}.b-red{background:var(--red-bg);color:var(--red)}.b-ylw{background:var(--yellow-s-bg);color:var(--yellow-s)}.b-teal{background:var(--teal-dim);color:var(--teal-l)}.b-blue{background:rgba(51,151,185,0.15);color:var(--teal)}
 .pbar{height:6px;background:var(--bg3);border-radius:99px;overflow:hidden}
 .pfill{height:100%;border-radius:99px;transition:width .6s ease}
 .pfill.good{background:var(--green)}.pfill.warn{background:var(--yellow-s)}.pfill.danger{background:var(--red)}
@@ -773,8 +785,15 @@ function TaskCenter({tasks,setTasks}) {
   const [search,setSearch]=useState("");
   const [filterStatus,setFilterStatus]=useState("all");
   const [filterCS,setFilterCS]=useState("");
+  const [viewMode,setViewMode]=useState(()=>localStorage.getItem("hypr_task_view")||"list");
+  const [startModal,setStartModal]=useState(null); // {task, message}
+  const [permError,setPermError]=useState("");
+  const [dragOverCol,setDragOverCol]=useState(null);
   const toast = useToast();
   const gfIdx = useRef(0);
+  const user = window.__hyprUser;
+
+  const setView=(v)=>{setViewMode(v);try{localStorage.setItem("hypr_task_view",v);}catch{}};
 
   const filtered = useMemo(()=>{
     return tasks.filter(t=>{
@@ -782,36 +801,57 @@ function TaskCenter({tasks,setTasks}) {
       const mQ=!q||t.client.toLowerCase().includes(q)||t.type.toLowerCase().includes(q)||t.cs.toLowerCase().includes(q);
       const mCS=!filterCS||t.cs===filterCS;
       const st=getTaskStatus(t);
-      const mSt=filterStatus==="all"||(filterStatus==="open"&&st==="Dentro do SLA")||(filterStatus==="overdue"&&st==="Atrasada")||(filterStatus==="done"&&st==="Concluída");
+      const mSt=filterStatus==="all"||(filterStatus==="open"&&(st==="Dentro do SLA"||st==="Iniciada"))||(filterStatus==="overdue"&&st==="Atrasada")||(filterStatus==="done"&&st==="Concluída");
       return mQ&&mCS&&mSt;
     });
   },[tasks,search,filterStatus,filterCS]);
 
   const counts=useMemo(()=>({
     all:tasks.length,
-    open:tasks.filter(t=>getTaskStatus(t)==="Dentro do SLA").length,
+    open:tasks.filter(t=>{const s=getTaskStatus(t);return s==="Dentro do SLA"||s==="Iniciada";}).length,
     overdue:tasks.filter(t=>getTaskStatus(t)==="Atrasada").length,
     done:tasks.filter(t=>getTaskStatus(t)==="Concluída").length,
   }),[tasks]);
 
   const handleSubmit=async(data)=>{
-    const newTask={...data,id:Date.now(),requestedBy:data.requestedBy||"Você"};
+    const newTask={...data,id:Date.now(),status:"aberta",requestedBy:data.requestedBy||"Você"};
     setTasks(t=>[newTask,...t]);
     setShowNew(false);
     toast("Task criada com sucesso!");
-    // POST to backend (saves to BQ + sends emails)
     try{
       await fetch(`${BACKEND_URL}/tasks`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
     }catch(err){console.error("Backend task POST error:",err)}
   };
+
+  // Permission helper: only the CS who owns the task can change its status
+  const canChangeStatus=(task)=>{
+    if(!user||!task) return false;
+    const owner=(task.csEmail||task.cs_email||"").toLowerCase();
+    const me=(user.email||"").toLowerCase();
+    return !owner||owner===me;
+  };
+
+  const handleStart=(task,message)=>{
+    if(!canChangeStatus(task)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}
+    setTasks(ts=>ts.map(t=>t.id===task.id?{...t,status:"iniciada"}:t));
+    toast("Task iniciada!");
+    fetch(`${BACKEND_URL}/tasks/${task.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"iniciada",task,message,changedByEmail:user?.email})})
+      .then(r=>{if(!r.ok&&r.status===403){setPermError("Apenas o CS responsável pode iniciar esta task.");setTasks(ts=>ts.map(t=>t.id===task.id?{...t,status:"aberta"}:t));}})
+      .catch(err=>console.error("Backend task START error:",err));
+    setStartModal(null);
+  };
+
   const handleComplete=async(id)=>{
     const task=tasks.find(t=>t.id===id);
-    setTasks(ts=>ts.map(t=>t.id===id?{...t,status:"completed"}:t));
+    if(!canChangeStatus(task)){setPermError("Apenas o CS responsável pode concluir esta task.");return;}
+    setTasks(ts=>ts.map(t=>t.id===id?{...t,status:"entregue"}:t));
     toast("Task concluída!");
     try{
-      await fetch(`${BACKEND_URL}/tasks/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"completed",task})});
+      const r=await fetch(`${BACKEND_URL}/tasks/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"entregue",task,changedByEmail:user?.email})});
+      if(!r.ok&&r.status===403){setPermError("Apenas o CS responsável pode concluir esta task.");setTasks(ts=>ts.map(t=>t.id===id?task:t));}
     }catch(err){console.error("Backend task PUT error:",err)}
   };
+
   const handleSaveLink=async(link)=>{
     const id=linkModal.id;
     setTasks(ts=>ts.map(t=>t.id===id?{...t,docLink:link}:t));
@@ -822,7 +862,17 @@ function TaskCenter({tasks,setTasks}) {
     }catch(err){console.error("Backend link PUT error:",err)}
   };
 
-  const tabs=[{key:"all",label:"Todas",count:counts.all},{key:"open",label:"No SLA",count:counts.open},{key:"overdue",label:"Atrasadas",count:counts.overdue},{key:"done",label:"Concluídas",count:counts.done}];
+  const handleDrop=(task,targetCol)=>{
+    setDragOverCol(null);
+    const current=rawStatus(task);
+    if(current===targetCol) return;
+    if(!canChangeStatus(task)){setPermError("Apenas o CS responsável pode alterar o status desta task.");return;}
+    if(targetCol==="iniciada") setStartModal({task,message:""});
+    else if(targetCol==="entregue") handleComplete(task.id);
+    // Note: we don't allow dragging back to "aberta" — that would be undoing work.
+  };
+
+  const tabs=[{key:"all",label:"Todas",count:counts.all},{key:"open",label:"Em aberto",count:counts.open},{key:"overdue",label:"Atrasadas",count:counts.overdue},{key:"done",label:"Concluídas",count:counts.done}];
 
   return (
     <div className="page-enter">
@@ -834,7 +884,13 @@ function TaskCenter({tasks,setTasks}) {
             </button>
           ))}
         </div>
-        <button className="btn bp" onClick={()=>setShowNew(true)}><I n="plus" s={14} /> Nova Task</button>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          <div style={{display:"flex",border:"1px solid var(--bdr)",borderRadius:"var(--r)",overflow:"hidden"}}>
+            <button onClick={()=>setView("list")} title="Visualização em lista" style={{padding:"6px 12px",border:"none",background:viewMode==="list"?"var(--teal)":"transparent",color:viewMode==="list"?"#fff":"var(--t2)",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4}}><I n="list" s={13}/>Lista</button>
+            <button onClick={()=>setView("kanban")} title="Visualização kanban" style={{padding:"6px 12px",border:"none",background:viewMode==="kanban"?"var(--teal)":"transparent",color:viewMode==="kanban"?"#fff":"var(--t2)",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4}}><I n="layout" s={13}/>Kanban</button>
+          </div>
+          <button className="btn bp" onClick={()=>setShowNew(true)}><I n="plus" s={14} /> Nova Task</button>
+        </div>
       </div>
 
       <div className="card" style={{padding:"12px 16px",marginBottom:20}}>
@@ -852,29 +908,35 @@ function TaskCenter({tasks,setTasks}) {
 
       {filtered.length===0?(
         <div className="card"><div className="empty"><I n="check-circle" s={40} c="var(--t3)" /><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhuma task encontrada</h3></div></div>
+      ):viewMode==="kanban"?(
+        <KanbanBoard tasks={filtered} canChangeStatus={canChangeStatus} onOpen={setSelected} onAddLink={setLinkModal} onStart={(t)=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onDrop={handleDrop} dragOverCol={dragOverCol} setDragOverCol={setDragOverCol}/>
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:16}}>
-          {filtered.map(t=><TaskCard key={t.id} task={t} onComplete={handleComplete} onAddLink={setLinkModal} onOpen={setSelected} />)}
+          {filtered.map(t=><TaskCard key={t.id} task={t} canChangeStatus={canChangeStatus(t)} onStart={()=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onAddLink={setLinkModal} onOpen={setSelected} />)}
         </div>
       )}
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
-      {selected && <TaskDetailModal task={selected} onClose={()=>setSelected(null)} onComplete={(id)=>{handleComplete(id);setSelected(null);}} onAddLink={(t)=>{setLinkModal(t);setSelected(null);}} />}
+      {selected && <TaskDetailModal task={selected} onClose={()=>setSelected(null)} onComplete={(id)=>{handleComplete(id);setSelected(null);}} onStart={(t)=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});setSelected(null);}} canStart={selected&&rawStatus(selected)==="aberta"&&canChangeStatus(selected)} onAddLink={(t)=>{setLinkModal(t);setSelected(null);}} />}
+      {startModal && <StartTaskModal task={startModal.task} onClose={()=>setStartModal(null)} onConfirm={(msg)=>handleStart(startModal.task,msg)} />}
+      {permError && <PermErrorModal msg={permError} onClose={()=>setPermError("")} />}
     </div>
   );
 }
 
-function TaskCard({task,onComplete,onAddLink,onOpen}) {
+function TaskCard({task,onStart,onComplete,onAddLink,onOpen,canChangeStatus=true}) {
   const st=getTaskStatus(task);
-  const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":"b-grn";
+  const raw=rawStatus(task);
+  const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":st==="Iniciada"?"b-blue":"b-grn";
+  const stIcon=st==="Atrasada"?"alert-circle":st==="Iniciada"?"play":"check-circle";
   const stop=e=>e.stopPropagation();
   return (
     <div className="card" style={{padding:"18px 20px",display:"flex",flexDirection:"column",gap:12,cursor:"pointer"}} onClick={()=>onOpen&&onOpen(task)}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <span style={{padding:"3px 10px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:11,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
-          <span className={`badge ${stCls}`}><I n={st==="Atrasada"?"alert-circle":"check-circle"} s={10} /> {st}</span>
+          <span className={`badge ${stCls}`}><I n={stIcon} s={10} /> {st}</span>
         </div>
         <span style={{fontSize:11,color:"var(--t3)"}}>#{task.id}</span>
       </div>
@@ -897,7 +959,8 @@ function TaskCard({task,onComplete,onAddLink,onOpen}) {
         <div style={{display:"flex",gap:6}} onClick={stop}>
           {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:11,padding:"5px 10px",textDecoration:"none"}} onClick={stop}><I n="external" s={12} />Doc</a>}
           <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={e=>{stop(e);onAddLink(task);}} title={task.docLink?"Editar link":"Adicionar link"}><I n="link" s={12} />{task.docLink?"Editar":"Link"}</button>
-          {task.status!=="completed"&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} onClick={e=>{stop(e);onComplete(task.id);}}><I n="check" s={12} />Concluir</button>}
+          {raw==="aberta"&&onStart&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável pode iniciar":""} onClick={e=>{stop(e);onStart();}}><I n="play" s={12} />Iniciar</button>}
+          {raw==="iniciada"&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável pode concluir":""} onClick={e=>{stop(e);onComplete(task.id);}}><I n="check" s={12} />Concluir</button>}
         </div>
       </div>
     </div>
@@ -905,10 +968,11 @@ function TaskCard({task,onComplete,onAddLink,onOpen}) {
 }
 
 // ── Task Detail Modal ──────────────────────────────────────────────────────
-function TaskDetailModal({task,onClose,onComplete,onAddLink}) {
+function TaskDetailModal({task,onClose,onComplete,onAddLink,onStart,canStart}) {
   useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
   const st=getTaskStatus(task);
-  const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":"b-grn";
+  const raw=rawStatus(task);
+  const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":st==="Iniciada"?"b-blue":"b-grn";
   const D=({l,v,wide})=>{
     if(!v||v==="—") return null;
     const isUrl=typeof v==="string"&&(v.startsWith("http://")||v.startsWith("https://"));
@@ -983,8 +1047,129 @@ function TaskDetailModal({task,onClose,onComplete,onAddLink}) {
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid var(--bdr)"}}>
             {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{textDecoration:"none"}}><I n="external" s={14}/>Abrir Doc</a>}
             <button className="btn bs" onClick={()=>onAddLink(task)}><I n="link" s={14}/>{task.docLink?"Editar Link":"Adicionar Link"}</button>
-            {task.status!=="completed"&&<button className="btn bp" onClick={()=>onComplete(task.id)}><I n="check" s={14}/>Concluir Task</button>}
+            {raw==="aberta"&&onStart&&<button className="btn bp" disabled={!canStart} onClick={()=>onStart(task)} title={!canStart?"Apenas o CS responsável pode iniciar":""}><I n="play" s={14}/>Iniciar Task</button>}
+            {raw==="iniciada"&&<button className="btn bp" onClick={()=>onComplete(task.id)}><I n="check" s={14}/>Concluir Task</button>}
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Kanban Board ───────────────────────────────────────────────────────────
+function KanbanBoard({tasks,canChangeStatus,onOpen,onAddLink,onStart,onComplete,onDrop,dragOverCol,setDragOverCol}) {
+  const COLS=[
+    {key:"aberta",title:"Aberta",icon:"clipboard",accent:"var(--t3)"},
+    {key:"iniciada",title:"Iniciada",icon:"play",accent:"var(--teal)"},
+    {key:"entregue",title:"Entregue",icon:"check-circle",accent:"var(--green)"},
+  ];
+  const grouped=COLS.map(c=>({...c,items:tasks.filter(t=>rawStatus(t)===c.key)}));
+  return(
+    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,minHeight:400}}>
+      {grouped.map(col=>(
+        <div key={col.key}
+          onDragOver={e=>{e.preventDefault();setDragOverCol(col.key);}}
+          onDragLeave={()=>setDragOverCol(null)}
+          onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("text/plain");const t=tasks.find(x=>String(x.id)===String(id));if(t)onDrop(t,col.key);}}
+          style={{background:dragOverCol===col.key?"var(--teal-dim)":"var(--bg3)",borderRadius:"var(--r)",padding:12,border:dragOverCol===col.key?"2px dashed var(--teal)":"2px dashed transparent",transition:"all .15s"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,padding:"4px 8px"}}>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <I n={col.icon} s={14} c={col.accent}/>
+              <span style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)"}}>{col.title}</span>
+            </div>
+            <span style={{fontSize:11,fontWeight:700,color:"var(--t2)",background:"var(--bg2)",borderRadius:99,padding:"2px 8px"}}>{col.items.length}</span>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {col.items.length===0?(
+              <div style={{padding:"24px 12px",textAlign:"center",fontSize:12,color:"var(--t3)",fontStyle:"italic"}}>Nenhuma task</div>
+            ):col.items.map(t=>{
+              const canDrag=canChangeStatus(t)&&col.key!=="entregue";
+              return <KanbanCard key={t.id} task={t} canDrag={canDrag} canChangeStatus={canChangeStatus(t)} onOpen={onOpen} onAddLink={onAddLink} onStart={onStart} onComplete={onComplete}/>;
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function KanbanCard({task,canDrag,canChangeStatus,onOpen,onAddLink,onStart,onComplete}) {
+  const raw=rawStatus(task);
+  const overdue=raw!=="entregue"&&new Date()>new Date(task.deadline);
+  const stop=e=>e.stopPropagation();
+  return(
+    <div
+      draggable={canDrag}
+      onDragStart={e=>{e.dataTransfer.setData("text/plain",String(task.id));e.dataTransfer.effectAllowed="move";}}
+      onClick={()=>onOpen&&onOpen(task)}
+      style={{background:"var(--bg2)",border:`1px solid ${overdue?"var(--red)":"var(--bdr)"}`,borderLeft:overdue?"3px solid var(--red)":undefined,borderRadius:"var(--r)",padding:"12px 14px",cursor:canDrag?"grab":"pointer",boxShadow:"var(--sh-sm)",display:"flex",flexDirection:"column",gap:8}}
+    >
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span style={{padding:"2px 8px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:10,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
+        <span style={{fontSize:10,color:"var(--t3)"}}>#{String(task.id).slice(-6)}</span>
+      </div>
+      <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",fontFamily:"var(--fd)"}}>{task.client}</div>
+      <div style={{fontSize:11,color:"var(--t2)",lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{task.briefing}</div>
+      <div style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:"var(--t3)"}}>
+        <span style={{display:"flex",alignItems:"center",gap:3}}><I n="user" s={10}/>{(task.cs||"").split(" ")[0]}</span>
+        <span style={{display:"flex",alignItems:"center",gap:3,color:overdue?"var(--red)":"var(--t3)"}}><I n="calendar" s={10}/>{fmtDate(task.deadline)}</span>
+      </div>
+      {(raw==="aberta"||raw==="iniciada")&&(
+        <div onClick={stop} style={{display:"flex",gap:6,paddingTop:6,borderTop:"1px solid var(--bdr)"}}>
+          {raw==="aberta"&&<button className="btn bp" disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável":""} style={{fontSize:10,padding:"4px 8px",flex:1}} onClick={()=>onStart(task)}><I n="play" s={11}/>Iniciar</button>}
+          {raw==="iniciada"&&<button className="btn bp" disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável":""} style={{fontSize:10,padding:"4px 8px",flex:1}} onClick={()=>onComplete(task.id)}><I n="check" s={11}/>Concluir</button>}
+          <button className="btn bg" style={{fontSize:10,padding:"4px 8px"}} onClick={()=>onAddLink(task)} title="Link"><I n="link" s={11}/></button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Start Task Modal ───────────────────────────────────────────────────────
+function StartTaskModal({task,onClose,onConfirm}) {
+  const [msg,setMsg]=useState("");
+  useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
+  return(
+    <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="ml" style={{maxWidth:480}}>
+        <div className="mh">
+          <div>
+            <div className="mt"><I n="play" s={18} c="var(--teal)" style={{verticalAlign:"middle",marginRight:8}}/>Iniciar Task</div>
+            <div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>#{task.id} — {task.type} · {task.client}</div>
+          </div>
+          <button className="btn bg" onClick={onClose}><I n="x" s={18}/></button>
+        </div>
+        <div className="mb">
+          <div style={{padding:14,background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)",marginBottom:16,fontSize:13,color:"var(--t1)",lineHeight:1.5}}>
+            <I n="bell" s={14} c="var(--teal)" style={{verticalAlign:"middle",marginRight:6}}/>
+            <strong>{task.requestedBy||"O solicitante"}</strong> será notificado por e-mail que você iniciou esta task.
+          </div>
+          <div className="fg">
+            <label className="fl">Comentário (opcional)</label>
+            <textarea className="ft" rows={4} placeholder="Ex: Tô levantando os dados, entrego até quinta." value={msg} onChange={e=>setMsg(e.target.value)} autoFocus/>
+            <div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>Esta mensagem aparecerá no e-mail enviado ao solicitante.</div>
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:20}}>
+            <button className="btn bg" onClick={onClose}>Cancelar</button>
+            <button className="btn bp" onClick={()=>onConfirm(msg)}><I n="play" s={14}/>Iniciar e Notificar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Permission Error Modal ─────────────────────────────────────────────────
+function PermErrorModal({msg,onClose}) {
+  useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
+  return(
+    <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="ml" style={{maxWidth:380}}>
+        <div className="mb" style={{textAlign:"center",padding:"30px 20px"}}>
+          <I n="lock" s={36} c="var(--yellow-s)" style={{marginBottom:12}}/>
+          <div style={{fontFamily:"var(--fd)",fontSize:16,fontWeight:700,marginBottom:8}}>Ação não permitida</div>
+          <div style={{fontSize:13,color:"var(--t2)",lineHeight:1.5,marginBottom:20}}>{msg}</div>
+          <button className="btn bp" onClick={onClose}>Entendi</button>
         </div>
       </div>
     </div>
@@ -3459,7 +3644,7 @@ export default function App() {
     const n=[];
     const now=new Date();
     tasks.forEach(t=>{
-      if(t.status==="completed") {
+      if(t.status==="entregue"||t.status==="completed") {
         n.push({id:`done-${t.id}`,type:"task",msg:`${t.client} — ${t.type} concluída`,time:"Concluída",read:true});
         return;
       }
