@@ -1306,7 +1306,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
   const availableStudies = useStudies();
-  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:""};
+  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:"",observations:""};
   const [f,sF]=useState(()=>{
     if(!initialData) return INIT;
     const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
@@ -1711,6 +1711,13 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
         </div>
       </Sec>
 
+      {/* Observações para o CS */}
+      <div className="card" style={{padding:"16px 20px",marginBottom:12}}>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--t2)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Observações</div>
+        <div style={{fontSize:12,color:"var(--t3)",marginBottom:10,lineHeight:1.5}}>Inclua qualquer informação adicional necessária para o CS configurar a campanha (instruções, alertas, requisitos especiais, etc.).</div>
+        <textarea className="ft" rows={4} placeholder="Ex: Cliente prefere criativo no formato vertical · Flight obrigatório aos sábados · Necessário aprovação prévia da agência antes do go-live..." value={f.observations||""} onChange={e=>set("observations",e.target.value)}/>
+      </div>
+
       {/* Email summary + Submit */}
       <div className="card" style={{padding:"16px 20px",marginBottom:12}}>
         <div style={{fontSize:12,fontWeight:700,color:"var(--t2)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12}}>Notificações por e-mail</div>
@@ -2028,8 +2035,8 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                     <CF l="Tipo"><input className="fi" value={editData.campaign_type||""} onChange={e=>setEditData(p=>({...p,campaign_type:e.target.value}))}/></CF>
                     <CF l="Investimento (R$)"><input type="number" className="fi" value={editData.investment||""} onChange={e=>setEditData(p=>({...p,investment:e.target.value}))}/></CF>
                     <CF l="Indústria"><input className="fi" value={editData.industry||""} onChange={e=>setEditData(p=>({...p,industry:e.target.value}))}/></CF>
-                    <CF l="Data Início"><input type="date" className="fi" value={editData.start_date||""} onChange={e=>setEditData(p=>({...p,start_date:e.target.value}))}/></CF>
-                    <CF l="Data Final"><input type="date" className="fi" value={editData.end_date||""} onChange={e=>setEditData(p=>({...p,end_date:e.target.value}))}/></CF>
+                    <CF l="Data Início"><input type="date" className="fi" value={(typeof editData.start_date==="object"&&editData.start_date?.value)||editData.start_date||""} onChange={e=>setEditData(p=>({...p,start_date:e.target.value}))}/></CF>
+                    <CF l="Data Final"><input type="date" className="fi" value={(typeof editData.end_date==="object"&&editData.end_date?.value)||editData.end_date||""} onChange={e=>setEditData(p=>({...p,end_date:e.target.value}))}/></CF>
                   </div>
                   <CF l="Audiências"><textarea className="ft" rows={3} value={editData.audiences||""} onChange={e=>setEditData(p=>({...p,audiences:e.target.value}))}/></CF>
 
@@ -2108,6 +2115,12 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                       <CF l={`${prod} — Views 100%`}><input type="number" className="fi" value={editData[`${prod}_views`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_views`]:e.target.value}))}/></CF>
                     </div>
                   ))}
+
+                  {/* Editable Observations */}
+                  <CF l="Observações">
+                    <textarea className="ft" rows={4} placeholder="Observações para o CS sobre a campanha..." value={editData.observations||""} onChange={e=>setEditData(p=>({...p,observations:e.target.value}))}/>
+                  </CF>
+
                   <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
                     <button className="btn bs" onClick={()=>setEditing(false)}>Cancelar</button>
                     <button className="btn bp" onClick={handleSave}><I n="check" s={14}/>Salvar Alterações</button>
@@ -2310,6 +2323,16 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                     })()}/>
                     <D l="Reunião pré-campanha com CS" v={selected.had_cs_meeting==="Sim"||selected.had_cs_meeting===true?"Sim":"Não"}/>
                   </div>
+
+                  {/* Observações do CP */}
+                  {selected.observations&&(
+                    <div style={{padding:16,background:"var(--yellow-dim)",border:"1px solid rgba(237,217,0,0.4)",borderRadius:"var(--r)"}}>
+                      <div style={{fontSize:11,color:"#a07a00",textTransform:"uppercase",fontWeight:700,marginBottom:8,letterSpacing:".06em",display:"flex",alignItems:"center",gap:6}}>
+                        <I n="alert-triangle" s={13} c="#a07a00"/>Observações do CP
+                      </div>
+                      <div style={{fontSize:13,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{selected.observations}</div>
+                    </div>
+                  )}
 
                   {/* Section 5: Links */}
                   <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>5. Links e Documentos</div>
