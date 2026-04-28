@@ -89,6 +89,31 @@ const ClientsCtx = createContext([]);
 const useClients = () => useContext(ClientsCtx);
 const StudiesCtx = createContext([]);
 const useStudies = () => useContext(StudiesCtx);
+const TeamCtx = createContext({members:[],reload:()=>{}});
+const useTeam = () => useContext(TeamCtx);
+// Helpers derived from team members (with hardcoded fallback for first load)
+const teamCS = (team) => {
+  const list = team.filter(m=>m.role==='cs'||m.role==='admin').map(m=>m.name);
+  return list.length>0 ? [...list, "Greenfield"] : CS_LIST;
+};
+const teamCSEmails = (team) => {
+  const map = {};
+  team.forEach(m => { if (m.role==='cs'||m.role==='admin') map[m.name] = m.email; });
+  return Object.keys(map).length>0 ? map : CS_EMAILS;
+};
+const teamHasProposalAccess = (team, email) => {
+  if (!email) return false;
+  const e = email.toLowerCase();
+  const m = team.find(x => x.email.toLowerCase() === e);
+  if (!m) return false;
+  return m.role === 'admin' || m.role === 'sales';
+};
+const teamIsAdmin = (team, email) => {
+  if (!email) return false;
+  const e = email.toLowerCase();
+  const m = team.find(x => x.email.toLowerCase() === e);
+  return !!m && m.role === 'admin';
+};
 
 
 function generateShortToken() {
@@ -164,6 +189,7 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
     "send":<><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
     "link":<><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></>,
     "user":<><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
+    "users":<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></>,
     "calendar":<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
     "zap":<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
     "trending-up":<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
@@ -186,6 +212,8 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
     "list":<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>,
     "layout":<><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></>,
     "lock":<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>,
+    "trash":<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/></>,
+    "edit":<><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
   };
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,...st}} {...r}>{p[n]}</svg>;
 };
@@ -1907,7 +1935,50 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
   const [search,setSearch]=useState("");
   const [filterMonth,setFilterMonth]=useState("");
   const [filterYear,setFilterYear]=useState("");
+  const [confirmDelete,setConfirmDelete]=useState(null); // checklist a ser excluído
+  const [permError,setPermError]=useState("");
   const toast=useToast();
+  const user=window.__hyprUser;
+
+  const SUPERUSER="matheus.machado@hypr.mobi";
+  const canDelete=(c)=>{
+    if(!user) return false;
+    const me=(user.email||"").toLowerCase();
+    if(me===SUPERUSER) return true;
+    const allowed=[c.cp_email,c.submitted_by_email,c.cs_email].filter(Boolean).map(e=>e.toLowerCase());
+    return allowed.includes(me);
+  };
+
+  const handleDelete=async(c)=>{
+    setConfirmDelete(null);
+    // Optimistic update — remove imediatamente da lista
+    setChecklists(prev=>prev.filter(x=>x.id!==c.id));
+    if(selected&&selected.id===c.id){setSelected(null);setEditing(false);}
+    toast("Excluindo checklist...");
+    try{
+      const r=await fetch(`${BACKEND_URL}/checklists/${c.id}`,{
+        method:"DELETE",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({requesterEmail:user?.email}),
+      });
+      if(!r.ok){
+        // Reverte se backend recusou
+        setChecklists(prev=>[c,...prev]);
+        if(r.status===403){
+          setPermError("Apenas o CP, o CS responsável ou o admin podem excluir este checklist.");
+        }else{
+          toast(`Erro ao excluir (${r.status}).`);
+        }
+        return;
+      }
+      toast("Checklist excluído com sucesso!");
+    }catch(err){
+      console.error("DELETE checklist error:",err);
+      // Reverte em caso de erro de rede
+      setChecklists(prev=>[c,...prev]);
+      toast("Erro de rede ao excluir.");
+    }
+  };
 
   // Extract date string (YYYY-MM-DD or {value}) → {y, m}
   const parseDate=(v)=>{
@@ -2013,10 +2084,23 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:16}}>
           {filtered.map(c=>(
-            <div key={c.id} className="card" style={{padding:"18px 20px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10}} onClick={()=>{setSelected(c);setEditing(false)}}>
+            <div key={c.id} className="card" style={{padding:"18px 20px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10,position:"relative"}} onClick={()=>{setSelected(c);setEditing(false)}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span style={{fontSize:15,fontWeight:700,fontFamily:"var(--fd)",color:"var(--t1)"}}>{c.client}</span>
-                <span style={{fontSize:11,color:"var(--t3)"}}>{fmtDate(c.created_at)}</span>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:11,color:"var(--t3)"}}>{fmtDate(c.created_at)}</span>
+                  {canDelete(c)&&(
+                    <button
+                      onClick={e=>{e.stopPropagation();setConfirmDelete(c);}}
+                      title="Excluir checklist"
+                      style={{background:"transparent",border:"none",padding:4,cursor:"pointer",borderRadius:6,color:"var(--t3)",display:"flex",alignItems:"center"}}
+                      onMouseEnter={e=>{e.currentTarget.style.background="var(--red-bg)";e.currentTarget.style.color="var(--red)";}}
+                      onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="var(--t3)";}}
+                    >
+                      <I n="trash" s={14}/>
+                    </button>
+                  )}
+                </div>
               </div>
               <div style={{fontSize:13,color:"var(--t2)"}}>{c.campaign_name||"—"}</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -2425,6 +2509,45 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
           </div>
         </div>
       )}
+
+      {/* Confirmação de exclusão */}
+      {confirmDelete&&(
+        <div className="mo" onClick={e=>e.target===e.currentTarget&&setConfirmDelete(null)}>
+          <div className="ml" style={{maxWidth:440}}>
+            <div className="mb" style={{padding:"28px 24px"}}>
+              <div style={{textAlign:"center",marginBottom:18}}>
+                <div style={{width:54,height:54,borderRadius:"50%",background:"var(--red-bg)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
+                  <I n="trash" s={24} c="var(--red)"/>
+                </div>
+                <div style={{fontFamily:"var(--fd)",fontSize:17,fontWeight:700,marginBottom:6}}>Excluir Checklist?</div>
+                <div style={{fontSize:13,color:"var(--t2)",lineHeight:1.5}}>
+                  Esta ação é <strong>permanente</strong> e remove o checklist <strong>{confirmDelete.client} — {confirmDelete.campaign_name}</strong> tanto do HYPR Command quanto do Report Hub.
+                </div>
+              </div>
+              <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+                <button className="btn bg" onClick={()=>setConfirmDelete(null)}>Cancelar</button>
+                <button className="btn" style={{background:"var(--red)",color:"#fff"}} onClick={()=>handleDelete(confirmDelete)}>
+                  <I n="trash" s={14}/>Excluir Definitivamente
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Erro de permissão */}
+      {permError&&(
+        <div className="mo" onClick={e=>e.target===e.currentTarget&&setPermError("")}>
+          <div className="ml" style={{maxWidth:380}}>
+            <div className="mb" style={{textAlign:"center",padding:"30px 20px"}}>
+              <I n="lock" s={36} c="var(--yellow-s)" style={{marginBottom:12}}/>
+              <div style={{fontFamily:"var(--fd)",fontSize:16,fontWeight:700,marginBottom:8}}>Ação não permitida</div>
+              <div style={{fontSize:13,color:"var(--t2)",lineHeight:1.5,marginBottom:20}}>{permError}</div>
+              <button className="btn bp" onClick={()=>setPermError("")}>Entendi</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2467,6 +2590,235 @@ const CPM_TABLE = {
   'RMNF': { Display: 35, Video: 0 },
   'RMND': { Display: 30, Video: 0.28 },
 };
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN CENTER — Gerenciar membros do time
+// ══════════════════════════════════════════════════════════════════════════════
+function AdminCenter() {
+  const { members, reload } = useTeam();
+  const user = window.__hyprUser;
+  const toast = useToast();
+  const [showAdd, setShowAdd] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(null);
+  const [editing, setEditing] = useState(null); // member being edited
+  const [search, setSearch] = useState("");
+  const [filterRole, setFilterRole] = useState("all");
+
+  const ROLE_LABELS = { admin: "Admin", sales: "Sales", cs: "CS", none: "Nenhum" };
+  const ROLE_COLORS = { admin: "var(--red)", sales: "var(--teal)", cs: "var(--green)", none: "var(--t3)" };
+  const ROLE_BG     = { admin: "var(--red-bg)", sales: "var(--teal-dim)", cs: "var(--green-bg)", none: "var(--bg3)" };
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return members.filter(m => {
+      if (filterRole !== "all" && m.role !== filterRole) return false;
+      if (q && !(m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q))) return false;
+      return true;
+    }).sort((a,b) => {
+      const order = { admin:0, sales:1, cs:2, none:3 };
+      const ra = order[a.role]??99, rb = order[b.role]??99;
+      if (ra !== rb) return ra - rb;
+      return (a.name||'').localeCompare(b.name||'');
+    });
+  }, [members, search, filterRole]);
+
+  const counts = useMemo(()=>({
+    all: members.length,
+    admin: members.filter(m=>m.role==='admin').length,
+    sales: members.filter(m=>m.role==='sales').length,
+    cs: members.filter(m=>m.role==='cs').length,
+    none: members.filter(m=>m.role==='none').length,
+  }), [members]);
+
+  const fmtAddedAt = (v) => {
+    if (!v) return "—";
+    const s = typeof v === "object" && v.value ? v.value : String(v);
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric" });
+  };
+
+  const handleSave = async (data) => {
+    try {
+      const r = await fetch(`${BACKEND_URL}/team`, {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ ...data, requesterEmail: user?.email })
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(()=>({}));
+        toast(err.error || `Erro ao salvar (${r.status}).`);
+        return;
+      }
+      toast(editing ? "Membro atualizado!" : "Membro adicionado!");
+      setShowAdd(false); setEditing(null);
+      reload();
+    } catch (err) {
+      console.error(err);
+      toast("Erro de rede ao salvar.");
+    }
+  };
+
+  const handleRemove = async (m) => {
+    setConfirmRemove(null);
+    try {
+      const r = await fetch(`${BACKEND_URL}/team/${encodeURIComponent(m.email)}`, {
+        method:"DELETE",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ requesterEmail: user?.email })
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(()=>({}));
+        toast(err.error || `Erro ao remover (${r.status}).`);
+        return;
+      }
+      toast("Membro removido!");
+      reload();
+    } catch (err) {
+      console.error(err);
+      toast("Erro de rede ao remover.");
+    }
+  };
+
+  const tabs = [
+    {key:"all",   label:"Todos",  count:counts.all},
+    {key:"admin", label:"Admins", count:counts.admin},
+    {key:"sales", label:"Sales",  count:counts.sales},
+    {key:"cs",    label:"CS",     count:counts.cs},
+    {key:"none",  label:"Sem acesso",  count:counts.none},
+  ];
+
+  return (
+    <div className="page-enter">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
+        <div>
+          <h2 style={{fontFamily:"var(--fd)",fontSize:20,fontWeight:800}}>Admin — Gerenciamento de Time</h2>
+          <div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>Adicione, edite ou remova membros e seus acessos</div>
+        </div>
+        <button className="btn bp" onClick={()=>{setEditing(null);setShowAdd(true);}}>
+          <I n="plus" s={14}/>Adicionar Membro
+        </button>
+      </div>
+
+      <div className="card" style={{padding:"12px 16px",marginBottom:16}}>
+        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+          {tabs.map(t=>(
+            <button key={t.key} className={`btn ${filterRole===t.key?"bp":"bs"}`} style={{fontSize:12,padding:"5px 12px",gap:6}} onClick={()=>setFilterRole(t.key)}>
+              {t.label}<span style={{background:filterRole===t.key?"rgba(255,255,255,0.25)":"var(--bg3)",borderRadius:99,padding:"1px 7px",fontSize:11,fontWeight:700}}>{t.count}</span>
+            </button>
+          ))}
+          <div style={{position:"relative",flex:1,minWidth:200,maxWidth:280,marginLeft:"auto"}}>
+            <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}} c="var(--t3)"/>
+            <input className="fi" style={{paddingLeft:32}} placeholder="Buscar nome ou e-mail..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          </div>
+        </div>
+      </div>
+
+      {filtered.length===0?(
+        <div className="card"><div className="empty"><I n="users" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhum membro encontrado</h3></div></div>
+      ):(
+        <div className="card" style={{padding:0,overflow:"hidden"}}>
+          <div style={{display:"grid",gridTemplateColumns:"1.4fr 1.6fr 0.7fr 1.6fr 0.5fr",alignItems:"center",padding:"10px 16px",background:"var(--bg3)",borderBottom:"1px solid var(--bdr)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)"}}>
+            <div>Nome</div><div>E-mail</div><div>Papel</div><div>Adicionado por</div><div></div>
+          </div>
+          {filtered.map(m=>(
+            <div key={m.email} style={{display:"grid",gridTemplateColumns:"1.4fr 1.6fr 0.7fr 1.6fr 0.5fr",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid var(--bdr)",fontSize:13}}>
+              <div style={{fontWeight:600,color:"var(--t1)"}}>{m.name}</div>
+              <div style={{color:"var(--t2)",fontSize:12,wordBreak:"break-all"}}>{m.email}</div>
+              <div>
+                <span style={{padding:"3px 10px",borderRadius:99,background:ROLE_BG[m.role]||"var(--bg3)",color:ROLE_COLORS[m.role]||"var(--t2)",fontSize:11,fontWeight:700,fontFamily:"var(--fd)"}}>
+                  {ROLE_LABELS[m.role]||m.role}
+                </span>
+              </div>
+              <div style={{fontSize:11,color:"var(--t3)"}}>
+                {m.added_by==='system-seed'?<em>Sistema</em>:<>{m.added_by||"—"}</>}
+                <div style={{fontSize:10,color:"var(--t3)",opacity:0.7}}>em {fmtAddedAt(m.added_at)}</div>
+              </div>
+              <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
+                <button className="btn bs" style={{fontSize:11,padding:"4px 10px"}} onClick={()=>{setEditing(m);setShowAdd(true);}} title="Editar"><I n="edit" s={12}/></button>
+                <button className="btn bg" style={{fontSize:11,padding:"4px 10px",color:"var(--red)"}} onClick={()=>setConfirmRemove(m)} title="Remover"><I n="trash" s={12} c="var(--red)"/></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showAdd && <AdminMemberModal initial={editing} onClose={()=>{setShowAdd(false);setEditing(null);}} onSave={handleSave}/>}
+      {confirmRemove && (
+        <div className="mo" onClick={e=>e.target===e.currentTarget&&setConfirmRemove(null)}>
+          <div className="ml" style={{maxWidth:440}}>
+            <div className="mb" style={{padding:"28px 24px"}}>
+              <div style={{textAlign:"center",marginBottom:18}}>
+                <div style={{width:54,height:54,borderRadius:"50%",background:"var(--red-bg)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
+                  <I n="trash" s={24} c="var(--red)"/>
+                </div>
+                <div style={{fontFamily:"var(--fd)",fontSize:17,fontWeight:700,marginBottom:6}}>Remover membro?</div>
+                <div style={{fontSize:13,color:"var(--t2)",lineHeight:1.5}}>
+                  <strong>{confirmRemove.name}</strong> ({confirmRemove.email}) perderá acesso aos recursos restritos.
+                </div>
+              </div>
+              <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+                <button className="btn bg" onClick={()=>setConfirmRemove(null)}>Cancelar</button>
+                <button className="btn" style={{background:"var(--red)",color:"#fff"}} onClick={()=>handleRemove(confirmRemove)}>
+                  <I n="trash" s={14}/>Remover
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminMemberModal({initial, onClose, onSave}) {
+  const [email, setEmail] = useState(initial?.email||"");
+  const [name,  setName ] = useState(initial?.name ||"");
+  const [role,  setRole ] = useState(initial?.role ||"cs");
+  const [error, setError] = useState("");
+  useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
+
+  const submit = () => {
+    setError("");
+    if (!email.trim() || !name.trim()) { setError("Nome e e-mail são obrigatórios."); return; }
+    if (!email.toLowerCase().endsWith("@hypr.mobi")) { setError("Apenas e-mails @hypr.mobi."); return; }
+    onSave({ email: email.trim().toLowerCase(), name: name.trim(), role });
+  };
+
+  return (
+    <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="ml" style={{maxWidth:480}}>
+        <div className="mh">
+          <div>
+            <div className="mt"><I n="user" s={18} c="var(--teal)" style={{verticalAlign:"middle",marginRight:8}}/>{initial?"Editar Membro":"Novo Membro"}</div>
+            {initial && <div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>Atualize o papel ou nome do membro</div>}
+          </div>
+          <button className="btn bg" onClick={onClose}><I n="x" s={18}/></button>
+        </div>
+        <div className="mb">
+          <div className="fg"><label className="fl">Nome completo *</label><input className="fi" placeholder="Ex: Maria Silva" value={name} onChange={e=>setName(e.target.value)} autoFocus/></div>
+          <div className="fg"><label className="fl">E-mail @hypr.mobi *</label><input className="fi" placeholder="maria.silva@hypr.mobi" type="email" value={email} disabled={!!initial} onChange={e=>setEmail(e.target.value)}/></div>
+          <div className="fg">
+            <label className="fl">Papel</label>
+            <select className="fs" value={role} onChange={e=>setRole(e.target.value)}>
+              <option value="admin">Admin (acesso total — pode gerenciar membros)</option>
+              <option value="sales">Sales (acesso ao Proposal Builder)</option>
+              <option value="cs">CS (aparece como CS responsável)</option>
+              <option value="none">Sem acesso especial</option>
+            </select>
+            <div style={{fontSize:11,color:"var(--t3)",marginTop:6,lineHeight:1.5}}>
+              <strong>Admin</strong> também tem acesso a Sales e CS. Cada papel é cumulativo de cima para baixo.
+            </div>
+          </div>
+          {error && <div style={{padding:"10px 14px",background:"var(--red-bg)",border:"1px solid var(--red)",borderRadius:"var(--r)",color:"var(--red)",fontSize:12,marginBottom:12}}>{error}</div>}
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
+            <button className="btn bg" onClick={onClose}>Cancelar</button>
+            <button className="btn bp" onClick={submit}><I n="check" s={14}/>{initial?"Salvar":"Adicionar"}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ProposalBuilder() {
   const user = useAuth();
@@ -3606,6 +3958,7 @@ const NAV=[
   {key:"checklist",icon:"clipboard",label:"Checklist"},
   {key:"checklist-center",icon:"inbox",label:"Checklist Center"},
   {key:"proposals",icon:"file-text",label:"Proposal Builder"},
+  {key:"admin",icon:"users",label:"Admin"},
 ];
 
 // ─── AUTH CONTEXT ────────────────────────────────────────────────────────────
@@ -3694,6 +4047,13 @@ export default function App() {
   const [submittedChecklists,setSubmittedChecklists]=useState([]);
   const [duplicateData,setDuplicateData]=useState(null);
   const [studies,setStudies]=useState([]);
+  const [team,setTeam]=useState([]);
+  const loadTeam=useCallback(()=>{
+    fetch(`${BACKEND_URL}/team`).then(r=>r.json()).then(d=>{
+      if(Array.isArray(d)) setTeam(d);
+    }).catch(err=>console.error("Error fetching team:",err));
+  },[]);
+  useEffect(()=>{loadTeam();},[loadTeam]);
   const [notifs,setNotifs]=useState(INITIAL_NOTIFS);
   const [showNotifs,setShowNotifs]=useState(false);
   const notifRef=useRef();
@@ -3828,6 +4188,7 @@ export default function App() {
     <AuthCtx.Provider value={user}>
     <ClientsCtx.Provider value={clients}>
     <StudiesCtx.Provider value={studies}>
+    <TeamCtx.Provider value={{members:team,reload:loadTeam}}>
     <ThemeCtx.Provider value={{theme,setTheme}}>
     <ToastProvider>
       <style>{CSS}</style>
@@ -3851,7 +4212,11 @@ export default function App() {
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
-            {NAV.filter(n => n.key !== 'proposals' || hasProposalAccess(user?.email)).map(n=>(
+            {NAV.filter(n => {
+              if(n.key==='proposals') return teamHasProposalAccess(team, user?.email) || hasProposalAccess(user?.email);
+              if(n.key==='admin')     return teamIsAdmin(team, user?.email)         || isAdmin(user?.email);
+              return true;
+            }).map(n=>(
               <button key={n.key} className={`ni${page===n.key?" act":""}`}
                 style={{justifyContent:collapsed?"center":"flex-start",padding:collapsed?10:"10px 12px"}}
                 title={collapsed?n.label:undefined}
@@ -3959,12 +4324,14 @@ export default function App() {
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
             {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} />}
-            {page==="proposals"&&hasProposalAccess(user?.email)&&<ProposalBuilder />}
+            {page==="proposals"&&(teamHasProposalAccess(team,user?.email)||hasProposalAccess(user?.email))&&<ProposalBuilder />}
+            {page==="admin"&&(teamIsAdmin(team,user?.email)||isAdmin(user?.email))&&<AdminCenter />}
           </div>
         </div>
       </div>
     </ToastProvider>
     </ThemeCtx.Provider>
+    </TeamCtx.Provider>
     </StudiesCtx.Provider>
     </ClientsCtx.Provider>
     </AuthCtx.Provider>
