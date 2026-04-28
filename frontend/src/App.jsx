@@ -434,7 +434,9 @@ function Dashboard({checklists, tasks, onNav}) {
     return checklists.filter(c => {
       const sd = c.start_date?.value || c.start_date;
       if (!sd) return false;
-      const d = new Date(sd);
+      // Parse YYYY-MM-DD localmente (sem TZ shift)
+      const m = String(sd).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      const d = m ? new Date(parseInt(m[1]),parseInt(m[2])-1,parseInt(m[3])) : new Date(sd);
       return d >= from && d <= to;
     });
   }, [checklists, getDateRange]);
@@ -450,11 +452,19 @@ function Dashboard({checklists, tasks, onNav}) {
 
   // Active campaigns = checklists where today is between start_date and end_date
   const active = useMemo(() => {
+    const parseDateLocal = (v) => {
+      if (!v) return null;
+      const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return m ? new Date(parseInt(m[1]),parseInt(m[2])-1,parseInt(m[3])) : new Date(v);
+    };
+    const today = new Date(); today.setHours(0,0,0,0);
     return filteredChecklists.filter(c => {
-      const s = c.start_date?.value || c.start_date;
-      const e = c.end_date?.value || c.end_date;
+      const s = parseDateLocal(c.start_date?.value || c.start_date);
+      const e = parseDateLocal(c.end_date?.value || c.end_date);
       if (!s || !e) return false;
-      return now >= new Date(s) && now <= new Date(e);
+      // end_date inclusive: considera campanha ativa até o final do dia de end_date
+      e.setHours(23,59,59,999);
+      return today >= s && today <= e;
     });
   }, [filteredChecklists]);
 
@@ -468,10 +478,18 @@ function Dashboard({checklists, tasks, onNav}) {
     filteredChecklists.forEach(c => {
       const sd = c.start_date?.value || c.start_date;
       if (!sd) return;
-      const mo = MONTHS_PT[new Date(sd).getMonth()].substring(0,3);
+      // Parse YYYY-MM-DD localmente (sem deixar TZ converter de UTC pra local)
+      const match = String(sd).match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (!match) return;
+      const monthIdx = parseInt(match[2],10) - 1;
+      const mo = MONTHS_PT[monthIdx].substring(0,3);
       m[mo] = (m[mo]||0) + (parseFloat(c.investment)||0);
     });
-    return Object.entries(m).map(([name,value]) => ({name,value}));
+    // Ordena cronologicamente
+    return Object.entries(m)
+      .map(([name,value]) => ({name,value,_idx:MONTHS_PT.findIndex(x=>x.substring(0,3)===name)}))
+      .sort((a,b)=>a._idx-b._idx)
+      .map(({name,value})=>({name,value}));
   }, [filteredChecklists]);
 
   // Task by CS (filtered period)
