@@ -1308,12 +1308,13 @@ function NewTaskModal({onClose,onSubmit,gfIdx,initialData}) {
         briefing: initialData.briefing || "",
         cs: initialData.cs || "",
         csEmail: initialData.csEmail || initialData.cs_email || "",
+        isSA: typeof initialData.isSA === "boolean" ? initialData.isSA : (typeof initialData.is_sa === "boolean" ? initialData.is_sa : null),
         customDeadline: initialData.deadline || null,
         slaDate: initialData.deadline || null,
         autoCS: false,
       };
     }
-    return {type:"",client:"",agency:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false};
+    return {type:"",client:"",agency:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",isSA:null,customDeadline:null,slaDate:null,autoCS:false};
   });
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
   const tog=(k,v)=>sF(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
@@ -1334,7 +1335,7 @@ function NewTaskModal({onClose,onSubmit,gfIdx,initialData}) {
   };
   const handleCS=cs=>{if(cs===""){sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));return;}if(cs==="Greenfield"){const next=GREENFIELD_QUEUE[gfIdx.current%GREENFIELD_QUEUE.length];gfIdx.current++;sF(p=>({...p,cs:next,csEmail:CS_EMAILS[next]||"",autoCS:false}));}else sF(p=>({...p,cs:cs,csEmail:CS_EMAILS[cs]||"",autoCS:false}));};
   const sla=f.customDeadline||f.slaDate;
-  const valid=f.type&&f.client&&f.cs&&f.briefing;
+  const valid=f.type&&f.client&&f.cs&&f.briefing&&typeof f.isSA==="boolean";
 
   const handleConfirm=()=>{
     const payload={...f,deadline:sla,sla:SLA_DAYS[f.type]?`${SLA_DAYS[f.type]} dias úteis`:"—"};
@@ -1379,6 +1380,16 @@ function NewTaskModal({onClose,onSubmit,gfIdx,initialData}) {
               {f.cs&&<div style={{fontSize:11,color:"var(--teal)",marginTop:4,display:"flex",alignItems:"center",gap:4}}><I n="user" s={10}/>Atribuído: <strong>{f.cs}</strong></div>}
             </div>
           )}
+
+          {/* Solutions Architect (SA) toggle — Gian recebe email em CC se "Sim" */}
+          <div className="fg">
+            <label className="fl">Solutions Architect (SA)? *</label>
+            <div style={{display:"flex",gap:8}}>
+              <button type="button" onClick={()=>set("isSA",true)} className={`chip${f.isSA===true?" sel":""}`} style={{padding:"8px 20px",fontSize:13,cursor:"pointer"}}>Sim</button>
+              <button type="button" onClick={()=>set("isSA",false)} className={`chip${f.isSA===false?" sel":""}`} style={{padding:"8px 20px",fontSize:13,cursor:"pointer"}}>Não</button>
+            </div>
+            {f.isSA===true&&<div style={{fontSize:11,color:"var(--teal)",marginTop:6,display:"flex",alignItems:"center",gap:4}}><I n="check-circle" s={10}/>Gian Nardo (SA) será incluído em cópia no e-mail da task</div>}
+          </div>
 
           <div className="fg"><label className="fl">Produto Core</label><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CORE_PRODUCTS.map(p=><span key={p} className={`chip${f.products.includes(p)?" sel":""}`} onClick={()=>tog("products",p)}>{p}</span>)}</div></div>
           <div className="fg"><label className="fl">Features</label><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{FEATURES.map(x=><span key={x} className={`chip${f.features.includes(x)?" sel":""}`} style={{fontSize:11}} onClick={()=>tog("features",x)}>{x}</span>)}</div></div>
