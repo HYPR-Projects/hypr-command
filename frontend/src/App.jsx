@@ -1414,11 +1414,20 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     const short_token = generateShortToken();
     const payload={...f,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email,short_token};
     if(onChecklistSubmit)onChecklistSubmit(payload);
-    sSub(true);
-    toast("Checklist enviado com sucesso!");
     try{
-      await fetch(`${BACKEND_URL}/checklists`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    }catch(err){console.error("Backend checklist POST error:",err)}
+      const r = await fetch(`${BACKEND_URL}/checklists`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      if(!r.ok){
+        const errBody = await r.text().catch(()=>"");
+        console.error("Backend checklist POST failed:",r.status,errBody);
+        toast(`Erro ao enviar (${r.status}). Tente novamente.`);
+        return;
+      }
+      sSub(true);
+      toast("Checklist enviado com sucesso!");
+    }catch(err){
+      console.error("Backend checklist POST error:",err);
+      toast("Erro de rede ao enviar. Tente novamente.");
+    }
   };
 
   if(submitted) return(
