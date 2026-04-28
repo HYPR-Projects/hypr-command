@@ -846,6 +846,7 @@ function CampaignDetail({camp,onClose}) {
 // ══════════════════════════════════════════════════════════════════════════════
 function TaskCenter({tasks,setTasks}) {
   const [showNew,setShowNew]=useState(false);
+  const [editingTask,setEditingTask]=useState(null);
   const [linkModal,setLinkModal]=useState(null);
   const [selected,setSelected]=useState(null);
   const [search,setSearch]=useState("");
@@ -895,6 +896,53 @@ function TaskCenter({tasks,setTasks}) {
     const owner=(task.csEmail||task.cs_email||"").toLowerCase();
     const me=(user.email||"").toLowerCase();
     return !owner||owner===me;
+  };
+
+  // Edit permission: superuser, CP (requester) or CS responsible
+  const SUPERUSER_TASK="matheus.machado@hypr.mobi";
+  const canEdit=(task)=>{
+    if(!user||!task) return false;
+    const me=(user.email||"").toLowerCase();
+    if(me===SUPERUSER_TASK) return true;
+    const allowed=[task.csEmail||task.cs_email,task.requesterEmail||task.requester_email]
+      .filter(Boolean).map(e=>e.toLowerCase());
+    return allowed.includes(me);
+  };
+
+  const handleEdit=async(updatedData)=>{
+    if(!canEdit(updatedData)){setPermError("Apenas o solicitante, o CS responsável ou o admin podem editar esta task.");return;}
+    // Optimistic update
+    const prevTask=tasks.find(t=>t.id===updatedData.id);
+    setTasks(ts=>ts.map(t=>t.id===updatedData.id?{...t,...updatedData}:t));
+    setEditingTask(null);
+    toast("Salvando alterações...");
+    try{
+      const r=await fetch(`${BACKEND_URL}/tasks/${updatedData.id}`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          edit:true,
+          task:updatedData,
+          editedBy:user?.name,
+          editedByEmail:user?.email,
+        }),
+      });
+      if(!r.ok){
+        // Revert
+        if(prevTask) setTasks(ts=>ts.map(t=>t.id===updatedData.id?prevTask:t));
+        if(r.status===403){
+          setPermError("Apenas o solicitante, o CS responsável ou o admin podem editar esta task.");
+        }else{
+          toast(`Erro ao salvar (${r.status}).`);
+        }
+        return;
+      }
+      toast("Task atualizada! E-mails enviados aos envolvidos.");
+    }catch(err){
+      console.error("Backend task EDIT error:",err);
+      if(prevTask) setTasks(ts=>ts.map(t=>t.id===updatedData.id?prevTask:t));
+      toast("Erro de rede ao editar.");
+    }
   };
 
   const handleStart=(task,message)=>{
@@ -975,16 +1023,17 @@ function TaskCenter({tasks,setTasks}) {
       {filtered.length===0?(
         <div className="card"><div className="empty"><I n="check-circle" s={40} c="var(--t3)" /><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhuma task encontrada</h3></div></div>
       ):viewMode==="kanban"?(
-        <KanbanBoard tasks={filtered} canChangeStatus={canChangeStatus} onOpen={setSelected} onAddLink={setLinkModal} onStart={(t)=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onDrop={handleDrop} dragOverCol={dragOverCol} setDragOverCol={setDragOverCol}/>
+        <KanbanBoard tasks={filtered} canChangeStatus={canChangeStatus} canEdit={canEdit} onEdit={setEditingTask} onOpen={setSelected} onAddLink={setLinkModal} onStart={(t)=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onDrop={handleDrop} dragOverCol={dragOverCol} setDragOverCol={setDragOverCol}/>
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:16}}>
-          {filtered.map(t=><TaskCard key={t.id} task={t} canChangeStatus={canChangeStatus(t)} onStart={()=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onAddLink={setLinkModal} onOpen={setSelected} />)}
+          {filtered.map(t=><TaskCard key={t.id} task={t} canChangeStatus={canChangeStatus(t)} canEdit={canEdit(t)} onEdit={()=>setEditingTask(t)} onStart={()=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onAddLink={setLinkModal} onOpen={setSelected} />)}
         </div>
       )}
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
+      {editingTask && <NewTaskModal onClose={()=>setEditingTask(null)} onSubmit={handleEdit} gfIdx={gfIdx} initialData={editingTask} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
-      {selected && <TaskDetailModal task={selected} onClose={()=>setSelected(null)} onComplete={(id)=>{handleComplete(id);setSelected(null);}} onStart={(t)=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});setSelected(null);}} canStart={selected&&rawStatus(selected)==="aberta"&&canChangeStatus(selected)} onAddLink={(t)=>{setLinkModal(t);setSelected(null);}} />}
+      {selected && <TaskDetailModal task={selected} onClose={()=>setSelected(null)} canEdit={canEdit(selected)} onEdit={()=>{setEditingTask(selected);setSelected(null);}} onComplete={(id)=>{handleComplete(id);setSelected(null);}} onStart={(t)=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});setSelected(null);}} canStart={selected&&rawStatus(selected)==="aberta"&&canChangeStatus(selected)} onAddLink={(t)=>{setLinkModal(t);setSelected(null);}} />}
       {startModal && <StartTaskModal task={startModal.task} onClose={()=>setStartModal(null)} onConfirm={(msg)=>handleStart(startModal.task,msg)} />}
       {permError && <PermErrorModal msg={permError} onClose={()=>setPermError("")} />}
     </div>
@@ -1034,7 +1083,7 @@ function TaskCard({task,onStart,onComplete,onAddLink,onOpen,canChangeStatus=true
 }
 
 // ── Task Detail Modal ──────────────────────────────────────────────────────
-function TaskDetailModal({task,onClose,onComplete,onAddLink,onStart,canStart}) {
+function TaskDetailModal({task,onClose,onComplete,onAddLink,onStart,canStart,canEdit,onEdit}) {
   useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
   const st=getTaskStatus(task);
   const raw=rawStatus(task);
@@ -1113,6 +1162,7 @@ function TaskDetailModal({task,onClose,onComplete,onAddLink,onStart,canStart}) {
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid var(--bdr)"}}>
             {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{textDecoration:"none"}}><I n="external" s={14}/>Abrir Doc</a>}
             <button className="btn bs" onClick={()=>onAddLink(task)}><I n="link" s={14}/>{task.docLink?"Editar Link":"Adicionar Link"}</button>
+            {canEdit&&onEdit&&<button className="btn bs" onClick={onEdit} title="Editar task"><I n="file-text" s={14}/>Editar</button>}
             {raw==="aberta"&&onStart&&<button className="btn bp" disabled={!canStart} onClick={()=>onStart(task)} title={!canStart?"Apenas o CS responsável pode iniciar":""}><I n="play" s={14}/>Iniciar Task</button>}
             {raw==="iniciada"&&<button className="btn bp" onClick={()=>onComplete(task.id)}><I n="check" s={14}/>Concluir Task</button>}
           </div>
@@ -1242,28 +1292,63 @@ function PermErrorModal({msg,onClose}) {
   );
 }
 
-function NewTaskModal({onClose,onSubmit,gfIdx}) {
+function NewTaskModal({onClose,onSubmit,gfIdx,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
-  const [f,sF]=useState({type:"",client:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false});
+  const isEdit = !!initialData;
+  const [f,sF]=useState(()=>{
+    if (initialData) {
+      return {
+        type: initialData.type || "",
+        client: initialData.client || "",
+        agency: initialData.agency || "",
+        products: initialData.products || [],
+        features: initialData.features || [],
+        budget: initialData.budget != null ? String(initialData.budget) : "",
+        briefing: initialData.briefing || "",
+        cs: initialData.cs || "",
+        csEmail: initialData.csEmail || initialData.cs_email || "",
+        customDeadline: initialData.deadline || null,
+        slaDate: initialData.deadline || null,
+        autoCS: false,
+      };
+    }
+    return {type:"",client:"",agency:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false};
+  });
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
   const tog=(k,v)=>sF(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
-  useEffect(()=>{if(f.type&&SLA_DAYS[f.type]){const d=addBusinessDays(new Date(),SLA_DAYS[f.type]);set("slaDate",d.toISOString().split("T")[0]);set("customDeadline",null);}},[f.type]);
+  // Recalcula SLA padrão quando o tipo muda — mas em modo edit não sobrescreve customDeadline já existente
+  useEffect(()=>{
+    if(f.type&&SLA_DAYS[f.type]){
+      const d=addBusinessDays(new Date(),SLA_DAYS[f.type]);
+      set("slaDate",d.toISOString().split("T")[0]);
+      if(!isEdit) set("customDeadline",null);
+    }
+  },[f.type]);
   useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
 
   const handleClientSelect=(entry)=>{
     if(!entry){sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));return;}
-    if(entry.cs&&entry.csEmail){sF(p=>({...p,cs:entry.cs,csEmail:entry.csEmail,autoCS:true}));}
-    else{sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));}
+    if(entry.cs&&entry.csEmail){sF(p=>({...p,cs:entry.cs,csEmail:entry.csEmail,autoCS:true,agency:entry.agency||p.agency}));}
+    else{sF(p=>({...p,cs:"",csEmail:"",autoCS:false,agency:entry.agency||p.agency}));}
   };
   const handleCS=cs=>{if(cs===""){sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));return;}if(cs==="Greenfield"){const next=GREENFIELD_QUEUE[gfIdx.current%GREENFIELD_QUEUE.length];gfIdx.current++;sF(p=>({...p,cs:next,csEmail:CS_EMAILS[next]||"",autoCS:false}));}else sF(p=>({...p,cs:cs,csEmail:CS_EMAILS[cs]||"",autoCS:false}));};
   const sla=f.customDeadline||f.slaDate;
   const valid=f.type&&f.client&&f.cs&&f.briefing;
 
+  const handleConfirm=()=>{
+    const payload={...f,deadline:sla,sla:SLA_DAYS[f.type]?`${SLA_DAYS[f.type]} dias úteis`:"—"};
+    if(isEdit){
+      onSubmit({...payload,id:initialData.id,requesterEmail:initialData.requesterEmail||initialData.requester_email,requestedBy:initialData.requestedBy||initialData.requested_by,createdAt:initialData.createdAt||initialData.created_at,status:initialData.status||"open"});
+    }else{
+      onSubmit({...payload,requesterEmail:user?.email,requestedBy:user?.name,status:"open",createdAt:new Date().toISOString().split("T")[0]});
+    }
+  };
+
   return (
     <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
       <div className="ml ml-lg">
-        <div className="mh"><div><div className="mt">Nova Solicitação de Task</div><div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>Preencha as informações para abrir a task</div></div><button className="btn bg" onClick={onClose}><I n="x" s={18}/></button></div>
+        <div className="mh"><div><div className="mt">{isEdit?"Editar Task":"Nova Solicitação de Task"}</div><div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>{isEdit?"Atualize as informações da task":"Preencha as informações para abrir a task"}</div></div><button className="btn bg" onClick={onClose}><I n="x" s={18}/></button></div>
         <div className="mb">
           <div className="g2">
             <div className="fg"><label className="fl">Tipo de Task *</label><select className="fs" value={f.type} onChange={e=>set("type",e.target.value)}><option value="">Selecione...</option>{TASK_TYPES.map(t=><option key={t}>{t}</option>)}</select></div>
@@ -1300,17 +1385,25 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
           <div className="fg"><label className="fl">Investimento previsto</label><NumInput decimal placeholder="R$ 150000" value={f.budget} onChange={v=>set("budget",v)}/></div>
           <div className="fg"><label className="fl">Briefing *</label><textarea className="ft" rows={4} placeholder="Descreva objetivos, contexto e necessidades..." value={f.briefing} onChange={e=>set("briefing",e.target.value)}/></div>
           {/* Logged-in user info */}
-          <div style={{padding:"10px 14px",borderRadius:"var(--r)",background:"var(--bg3)",border:"1px solid var(--bdr)",display:"flex",alignItems:"center",gap:10}}>
+          {!isEdit&&<div style={{padding:"10px 14px",borderRadius:"var(--r)",background:"var(--bg3)",border:"1px solid var(--bdr)",display:"flex",alignItems:"center",gap:10}}>
             <I n="user" s={14} c="var(--teal)"/>
             <div style={{flex:1}}>
               <div style={{fontSize:11,color:"var(--t3)"}}>Solicitante (logado)</div>
               <div style={{fontSize:13,fontWeight:600,color:"var(--t1)"}}>{user?.name} <span style={{fontWeight:400,color:"var(--t3)"}}>({user?.email})</span></div>
             </div>
-          </div>
+          </div>}
+          {isEdit&&(initialData.requestedBy||initialData.requested_by)&&<div style={{padding:"10px 14px",borderRadius:"var(--r)",background:"var(--bg3)",border:"1px solid var(--bdr)",display:"flex",alignItems:"center",gap:10}}>
+            <I n="user" s={14} c="var(--t3)"/>
+            <div style={{flex:1}}>
+              <div style={{fontSize:11,color:"var(--t3)"}}>Solicitante (original — não muda na edição)</div>
+              <div style={{fontSize:13,fontWeight:600,color:"var(--t2)"}}>{initialData.requestedBy||initialData.requested_by} <span style={{fontWeight:400,color:"var(--t3)"}}>({initialData.requesterEmail||initialData.requester_email||"—"})</span></div>
+            </div>
+          </div>}
           {f.slaDate&&(<div><div style={{height:1,background:"var(--bdr)",margin:"8px 0 16px"}}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div><div style={{fontSize:13,fontWeight:600}}>Data prevista</div><div style={{fontSize:12,color:"var(--t3)"}}>SLA: {SLA_DAYS[f.type]} dias úteis</div></div><div style={{padding:"8px 16px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)",fontSize:14,fontWeight:700,color:"var(--teal-l)",fontFamily:"var(--fd)"}}>{fmtDate(sla)}</div></div><div style={{fontSize:12,color:"var(--t3)",marginBottom:8}}>SLA personalizado?</div><input type="date" className="fi" style={{width:200}} value={f.customDeadline||f.slaDate} min={new Date().toISOString().split("T")[0]} onChange={e=>set("customDeadline",e.target.value)}/>{f.customDeadline&&f.customDeadline!==f.slaDate&&<div className="disc" style={{marginTop:10}}><I n="alert-triangle" s={14} c="var(--yellow)"/><span>Data fora do SLA padrão. Alinhe com o CS.</span></div>}</div>)}
+          {isEdit&&<div className="disc" style={{marginTop:12}}><I n="alert-circle" s={14} c="var(--teal)"/><span>Ao salvar, um e-mail de notificação será enviado ao CS responsável e ao solicitante.</span></div>}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
             <button className="btn bs" onClick={onClose}>Cancelar</button>
-            <button className="btn bp" disabled={!valid} onClick={()=>onSubmit({...f,requesterEmail:user?.email,requestedBy:user?.name,deadline:sla,status:"open",createdAt:new Date().toISOString().split("T")[0]})}><I n="send" s={14}/>Abrir Task</button>
+            <button className="btn bp" disabled={!valid} onClick={handleConfirm}><I n={isEdit?"check":"send"} s={14}/>{isEdit?"Salvar Alterações":"Abrir Task"}</button>
           </div>
         </div>
       </div>
