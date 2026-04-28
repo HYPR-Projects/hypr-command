@@ -1025,6 +1025,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     return d;
   });
   const [submitted,sSub]=useState(false);
+  const [submitting,sSubmitting]=useState(false);
   const toast=useToast();
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
   const tog=(k,v)=>sF(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
@@ -1101,6 +1102,9 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
 
   const handleReset=()=>{sF(INIT);sSub(false);setValidationError(null)};
   const handleSubmit=async()=>{
+    // Prevent double-submission
+    if (submitting) return;
+    
     // Validate investment
     const error = validateInvestment();
     if (error) {
@@ -1108,14 +1112,22 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
       return;
     }
 
+    sSubmitting(true);
     const short_token = generateShortToken();
     const payload={...f,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email,short_token};
-    if(onChecklistSubmit)onChecklistSubmit(payload);
-    sSub(true);
-    toast("Checklist enviado com sucesso!");
     try{
-      await fetch(`${BACKEND_URL}/checklists`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    }catch(err){console.error("Backend checklist POST error:",err)}
+      const res = await fetch(`${BACKEND_URL}/checklists`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+      const data = await res.json().catch(()=>({}));
+      // Use backend-generated id if available, otherwise fall back to local generation
+      const finalPayload = {...payload, id: data.id || crypto.randomUUID()};
+      if(onChecklistSubmit)onChecklistSubmit(finalPayload);
+      sSub(true);
+      toast("Checklist enviado com sucesso!");
+    }catch(err){
+      console.error("Backend checklist POST error:",err);
+      toast("Erro ao enviar checklist. Tente novamente.","error");
+      sSubmitting(false);
+    }
   };
 
   if(submitted) return(
@@ -1433,8 +1445,11 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
       <div className="card" style={{padding:20,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
         <span style={{fontSize:12,color:"var(--t3)"}}>Verifique todas as informações antes de enviar.</span>
         <div style={{display:"flex",gap:8}}>
-          <button className="btn bs" onClick={handleReset}><I n="rotate" s={14}/>Limpar</button>
-          <button className="btn bp" onClick={handleSubmit}><I n="send" s={14}/>Enviar Checklist</button>
+          <button className="btn bs" onClick={handleReset} disabled={submitting}><I n="rotate" s={14}/>Limpar</button>
+          <button className="btn bp" onClick={handleSubmit} disabled={submitting} style={submitting?{opacity:0.6,cursor:"wait"}:{}}>
+            <I n={submitting?"loader":"send"} s={14}/>
+            {submitting?"Enviando...":"Enviar Checklist"}
+          </button>
         </div>
       </div>
 
@@ -1657,7 +1672,43 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
   const [editing,setEditing]=useState(false);
   const [editData,setEditData]=useState(null);
   const [search,setSearch]=useState("");
+  const [confirmDelete,setConfirmDelete]=useState(null);
+  const [deleting,setDeleting]=useState(false);
   const toast=useToast();
+  const user=useAuth();
+
+  const canDelete=(c)=>{
+    if(!user?.email) return false;
+    const email=user.email.toLowerCase();
+    // Mirror backend permissions: superuser (matheus.machado) OR cp_email OR submitted_by_email OR cs_email
+    if(email==="matheus.machado@hypr.mobi") return true;
+    const allowed=[c.cp_email,c.submitted_by_email,c.cs_email]
+      .filter(Boolean).map(x=>x.toLowerCase());
+    return allowed.includes(email);
+  };
+
+  const handleDelete=async(c)=>{
+    if(!c?.id){toast("ID do checklist inválido","error");return;}
+    setDeleting(true);
+    try{
+      const res=await fetch(`${BACKEND_URL}/checklists/${encodeURIComponent(c.id)}`,{
+        method:"DELETE",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({requesterEmail:user?.email||""}),
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!res.ok) throw new Error(data?.error||"Backend error");
+      setChecklists(prev=>prev.filter(x=>x.id!==c.id));
+      toast("Checklist excluído com sucesso");
+      setConfirmDelete(null);
+      if(selected?.id===c.id) setSelected(null);
+    }catch(err){
+      console.error("Delete error:",err);
+      toast(err?.message||"Erro ao excluir checklist","error");
+    }finally{
+      setDeleting(false);
+    }
+  };
 
   const filtered=useMemo(()=>{
     const q=search.toLowerCase();
@@ -1714,8 +1765,18 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:16}}>
           {filtered.map(c=>(
-            <div key={c.id} className="card" style={{padding:"18px 20px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10}} onClick={()=>{setSelected(c);setEditing(false)}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div key={c.id} className="card" style={{padding:"18px 20px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10,position:"relative"}} onClick={()=>{setSelected(c);setEditing(false)}}>
+              {canDelete(c)&&(
+                <button
+                  className="btn bg"
+                  style={{position:"absolute",top:10,right:10,padding:"4px 6px",fontSize:11,opacity:0.7,zIndex:2}}
+                  title="Excluir checklist"
+                  onClick={(e)=>{e.stopPropagation();setConfirmDelete(c)}}
+                >
+                  <I n="trash" s={13} c="var(--red)"/>
+                </button>
+              )}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingRight:canDelete(c)?32:0}}>
                 <span style={{fontSize:15,fontWeight:700,fontFamily:"var(--fd)",color:"var(--t1)"}}>{c.client}</span>
                 <span style={{fontSize:11,color:"var(--t3)"}}>{c.created_at?new Date(c.created_at).toLocaleDateString("pt-BR"):"—"}</span>
               </div>
@@ -1745,6 +1806,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
               <div style={{display:"flex",gap:6}}>
                 {!editing&&<button className="btn bp" style={{fontSize:12}} onClick={()=>{setSelected(null);if(onDuplicate)onDuplicate(selected)}}><I n="rotate" s={14}/>Duplicar</button>}
                 {!editing&&<button className="btn bs" style={{fontSize:12}} onClick={()=>handleEdit(selected)}><I n="file-text" s={14}/>Editar</button>}
+                {!editing&&canDelete(selected)&&<button className="btn bg" style={{fontSize:12,color:"var(--red)",borderColor:"var(--red)"}} onClick={()=>setConfirmDelete(selected)}><I n="trash" s={14} c="var(--red)"/>Excluir</button>}
                 <button className="btn bg" onClick={()=>{setSelected(null);setEditing(false)}}><I n="x" s={18}/></button>
               </div>
             </div>
@@ -1957,6 +2019,40 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {confirmDelete&&(
+        <div className="mo" onClick={e=>e.target===e.currentTarget&&!deleting&&setConfirmDelete(null)}>
+          <div className="ml" style={{maxWidth:440}}>
+            <div className="mh">
+              <div>
+                <div className="mt" style={{color:"var(--red)"}}>Excluir Checklist</div>
+                <div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>Esta ação não pode ser desfeita</div>
+              </div>
+              {!deleting&&<button className="btn bg" onClick={()=>setConfirmDelete(null)}><I n="x" s={18}/></button>}
+            </div>
+            <div className="mb">
+              <div style={{padding:"14px 16px",background:"rgba(239,68,68,0.06)",border:"1px solid rgba(239,68,68,0.2)",borderRadius:"var(--r)",marginBottom:16}}>
+                <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,marginBottom:6}}>{confirmDelete.client} — {confirmDelete.campaign_name}</div>
+                <div style={{fontSize:12,color:"var(--t3)"}}>
+                  {confirmDelete.investment?`R$ ${Number(confirmDelete.investment).toLocaleString("pt-BR")}`:"—"}
+                  {confirmDelete.created_at&&<span> · {new Date(confirmDelete.created_at).toLocaleDateString("pt-BR")}</span>}
+                </div>
+              </div>
+              <div style={{fontSize:13,color:"var(--t2)",marginBottom:16}}>
+                Tem certeza que deseja excluir este checklist? Os dados serão removidos permanentemente do BigQuery.
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                <button className="btn bs" onClick={()=>setConfirmDelete(null)} disabled={deleting}>Cancelar</button>
+                <button className="btn bp" style={{background:"var(--red)",borderColor:"var(--red)"}} onClick={()=>handleDelete(confirmDelete)} disabled={deleting}>
+                  <I n={deleting?"loader":"trash"} s={14}/>
+                  {deleting?"Excluindo...":"Excluir definitivamente"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
