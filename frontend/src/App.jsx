@@ -3,21 +3,12 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const CS_LIST = ["Beatriz Severine","Isaac Agiman","João Armelin","João Buzolin","Mariana Lewinski","Thiago Nascimento","Greenfield"];
-const CS_EMAILS = {
-  "Beatriz Severine":"beatriz.severine@hypr.mobi",
-  "Isaac Agiman":"isaac.lobo@hypr.mobi",
-  "João Armelin":"joao.armelin@hypr.mobi",
-  "João Buzolin":"joao.buzolin@hypr.mobi",
-  "Mariana Lewinski":"mariana.lewinski@hypr.mobi",
-  "Thiago Nascimento":"thiago.nascimento@hypr.mobi",
-};
 const GREENFIELD_QUEUE = CS_LIST.filter(c => c !== "Greenfield");
 const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","Pós-Venda","Dados RMNF"];
 const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados RMNF": 3 };
-const HYPR_LOGO = "data:image/png;base64,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";
 const CORE_PRODUCTS = ["O2O","OOH","RMN Digital","RMN Físico"];
 const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","RMNF","RMND"];
-const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Survey","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context"];
+const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context"];
 const FEATURES_WITH_VOLUMETRIA = ["P-DOOH","Tap to Go","Tap To Scratch","Weather","Topics","Click to Calendar","Downloaded Apps"];
 const MARKETPLACES = ["VTEX","Amazon"];
 
@@ -44,12 +35,6 @@ const FEAT_NO_VOL = ["HYPR Pass","Tap To Chat","Tap To Hotspot","Attention Ad","
 
 // Features with text box
 const FEAT_TEXT = ["Survey","Video Survey"];
-
-// Features that ALSO need an extra text input (asked alongside volumetry)
-const FEAT_EXTRA_TEXT = {
-  "Topics": { label: "Categorias / Keywords do Topics", placeholder: "Ex: Categoria de eletrodomésticos; keywords: geladeira, fogão, lava-louças..." },
-  "Downloaded Apps": { label: "Apps a serem incluídos no setup", placeholder: "Liste os apps (um por linha ou separados por vírgula). Ex: iFood, Rappi, Uber Eats..." },
-};
 
 // All checklist features
 const ALL_CL_FEATURES = [...FEAT_VOL_NAMES, ...FEAT_NO_VOL, ...FEAT_TEXT];
@@ -89,31 +74,6 @@ const ClientsCtx = createContext([]);
 const useClients = () => useContext(ClientsCtx);
 const StudiesCtx = createContext([]);
 const useStudies = () => useContext(StudiesCtx);
-const TeamCtx = createContext({members:[],reload:()=>{}});
-const useTeam = () => useContext(TeamCtx);
-// Helpers derived from team members (with hardcoded fallback for first load)
-const teamCS = (team) => {
-  const list = team.filter(m=>m.role==='cs'||m.role==='admin').map(m=>m.name);
-  return list.length>0 ? [...list, "Greenfield"] : CS_LIST;
-};
-const teamCSEmails = (team) => {
-  const map = {};
-  team.forEach(m => { if (m.role==='cs'||m.role==='admin') map[m.name] = m.email; });
-  return Object.keys(map).length>0 ? map : CS_EMAILS;
-};
-const teamHasProposalAccess = (team, email) => {
-  if (!email) return false;
-  const e = email.toLowerCase();
-  const m = team.find(x => x.email.toLowerCase() === e);
-  if (!m) return false;
-  return m.role === 'admin' || m.role === 'sales';
-};
-const teamIsAdmin = (team, email) => {
-  if (!email) return false;
-  const e = email.toLowerCase();
-  const m = team.find(x => x.email.toLowerCase() === e);
-  return !!m && m.role === 'admin';
-};
 
 
 function generateShortToken() {
@@ -189,7 +149,6 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
     "send":<><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></>,
     "link":<><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></>,
     "user":<><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
-    "users":<><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></>,
     "calendar":<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
     "zap":<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
     "trending-up":<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
@@ -209,46 +168,19 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
     "award":<><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></>,
     "inbox":<><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></>,
     "external":<><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>,
-    "list":<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>,
-    "layout":<><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></>,
-    "lock":<><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></>,
-    "trash":<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/></>,
-    "edit":<><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 113 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
   };
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,...st}} {...r}>{p[n]}</svg>;
 };
 
 function getTaskStatus(t) {
-  const s = (t.status || '').toLowerCase();
-  if (s === "entregue" || s === "completed") return "Concluída";
-  if (s === "iniciada") return "Iniciada";
+  if (t.status === "completed") return "Concluída";
   return new Date() > new Date(t.deadline) ? "Atrasada" : "Dentro do SLA";
-}
-// Raw status used by the kanban (aberta / iniciada / entregue)
-function rawStatus(t) {
-  const s = (t.status || '').toLowerCase();
-  if (s === "entregue" || s === "completed") return "entregue";
-  if (s === "iniciada") return "iniciada";
-  return "aberta";
-}
-
-// ─── HYPR Logo ───────────────────────────────────────────────────────────────
-// Reproduz a logo "HYPR°" oficial usando texto SVG (Urbanist) + um pequeno
-// quadrado preenchido no canto superior direito do R. Aceita a prop `color`
-// para se adaptar a fundos claros e escuros.
-function HyprLogo({color="#FFFFFF",height=28,style}) {
-  // Logo HYPR oficial (PNG branco embedado em base64). O parâmetro `color` é
-  // mantido por compatibilidade com chamadas existentes mas não é mais usado —
-  // o asset é fixo branco. Para dark backgrounds (sidebar/login) renderiza ideal.
-  return (
-    <img src={HYPR_LOGO} alt="HYPR" style={{height,width:"auto",display:"block",...style}}/>
-  );
 }
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap');
-:root{--navy:#1C262F;--teal:#3397B9;--teal-l:#4ab3d6;--teal-dim:rgba(51,151,185,0.12);--yellow:#EDD900;--yellow-dim:rgba(237,217,0,0.10);--bg1:#F4F6F8;--bg2:#FFFFFF;--bg3:#EEF1F4;--bg-card:#FFFFFF;--bg-sidebar:#1C262F;--bg-input:#FFFFFF;--t1:#1C262F;--t2:#4A6070;--t3:#8DA0AE;--bdr:#DDE3E8;--bdr-focus:#3397B9;--bdr-card:#E8ECF0;--sh-sm:0 1px 3px rgba(28,38,47,0.06);--sh-md:0 4px 12px rgba(28,38,47,0.08);--sh-lg:0 8px 24px rgba(28,38,47,0.10);--green:#22C55E;--green-bg:rgba(34,197,94,0.10);--red:#EF4444;--red-bg:rgba(239,68,68,0.10);--yellow-s:#F59E0B;--yellow-s-bg:rgba(245,158,11,0.10);--r:10px;--ff:'Urbanist',sans-serif;--fd:'Urbanist',sans-serif;--tr:0.18s ease}
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300&display=swap');
+:root{--navy:#1C262F;--teal:#3397B9;--teal-l:#4ab3d6;--teal-dim:rgba(51,151,185,0.12);--yellow:#EDD900;--yellow-dim:rgba(237,217,0,0.10);--bg1:#F4F6F8;--bg2:#FFFFFF;--bg3:#EEF1F4;--bg-card:#FFFFFF;--bg-sidebar:#1C262F;--bg-input:#FFFFFF;--t1:#1C262F;--t2:#4A6070;--t3:#8DA0AE;--bdr:#DDE3E8;--bdr-focus:#3397B9;--bdr-card:#E8ECF0;--sh-sm:0 1px 3px rgba(28,38,47,0.06);--sh-md:0 4px 12px rgba(28,38,47,0.08);--sh-lg:0 8px 24px rgba(28,38,47,0.10);--green:#22C55E;--green-bg:rgba(34,197,94,0.10);--red:#EF4444;--red-bg:rgba(239,68,68,0.10);--yellow-s:#F59E0B;--yellow-s-bg:rgba(245,158,11,0.10);--r:10px;--ff:'DM Sans',sans-serif;--fd:'Syne',sans-serif;--tr:0.18s ease}
 [data-theme="dark"]{--bg1:#111820;--bg2:#1C262F;--bg3:#141D25;--bg-card:#1C262F;--bg-sidebar:#0E151C;--bg-input:#253340;--t1:#E8EDF1;--t2:#94A9B8;--t3:#5A7080;--bdr:#2A3845;--bdr-card:#253340;--sh-sm:0 1px 3px rgba(0,0,0,0.25);--sh-md:0 4px 12px rgba(0,0,0,0.3);--sh-lg:0 8px 24px rgba(0,0,0,0.35)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:14px;-webkit-font-smoothing:antialiased}
@@ -293,7 +225,7 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;border:1px solid var(--bdr);background:var(--bg-input);color:var(--t2);font-size:12px;font-weight:500;cursor:pointer;transition:all var(--tr);user-select:none}
 .chip:hover{border-color:var(--teal);color:var(--teal)}.chip.sel{background:var(--teal-dim);border-color:var(--teal);color:var(--teal-l)}
 .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600}
-.b-grn{background:var(--green-bg);color:var(--green)}.b-red{background:var(--red-bg);color:var(--red)}.b-ylw{background:var(--yellow-s-bg);color:var(--yellow-s)}.b-teal{background:var(--teal-dim);color:var(--teal-l)}.b-blue{background:rgba(51,151,185,0.15);color:var(--teal)}
+.b-grn{background:var(--green-bg);color:var(--green)}.b-red{background:var(--red-bg);color:var(--red)}.b-ylw{background:var(--yellow-s-bg);color:var(--yellow-s)}.b-teal{background:var(--teal-dim);color:var(--teal-l)}
 .pbar{height:6px;background:var(--bg3);border-radius:99px;overflow:hidden}
 .pfill{height:100%;border-radius:99px;transition:width .6s ease}
 .pfill.good{background:var(--green)}.pfill.warn{background:var(--yellow-s)}.pfill.danger{background:var(--red)}
@@ -434,9 +366,7 @@ function Dashboard({checklists, tasks, onNav}) {
     return checklists.filter(c => {
       const sd = c.start_date?.value || c.start_date;
       if (!sd) return false;
-      // Parse YYYY-MM-DD localmente (sem TZ shift)
-      const m = String(sd).match(/^(\d{4})-(\d{2})-(\d{2})/);
-      const d = m ? new Date(parseInt(m[1]),parseInt(m[2])-1,parseInt(m[3])) : new Date(sd);
+      const d = new Date(sd);
       return d >= from && d <= to;
     });
   }, [checklists, getDateRange]);
@@ -452,19 +382,11 @@ function Dashboard({checklists, tasks, onNav}) {
 
   // Active campaigns = checklists where today is between start_date and end_date
   const active = useMemo(() => {
-    const parseDateLocal = (v) => {
-      if (!v) return null;
-      const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
-      return m ? new Date(parseInt(m[1]),parseInt(m[2])-1,parseInt(m[3])) : new Date(v);
-    };
-    const today = new Date(); today.setHours(0,0,0,0);
     return filteredChecklists.filter(c => {
-      const s = parseDateLocal(c.start_date?.value || c.start_date);
-      const e = parseDateLocal(c.end_date?.value || c.end_date);
+      const s = c.start_date?.value || c.start_date;
+      const e = c.end_date?.value || c.end_date;
       if (!s || !e) return false;
-      // end_date inclusive: considera campanha ativa até o final do dia de end_date
-      e.setHours(23,59,59,999);
-      return today >= s && today <= e;
+      return now >= new Date(s) && now <= new Date(e);
     });
   }, [filteredChecklists]);
 
@@ -478,18 +400,10 @@ function Dashboard({checklists, tasks, onNav}) {
     filteredChecklists.forEach(c => {
       const sd = c.start_date?.value || c.start_date;
       if (!sd) return;
-      // Parse YYYY-MM-DD localmente (sem deixar TZ converter de UTC pra local)
-      const match = String(sd).match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (!match) return;
-      const monthIdx = parseInt(match[2],10) - 1;
-      const mo = MONTHS_PT[monthIdx].substring(0,3);
+      const mo = MONTHS_PT[new Date(sd).getMonth()].substring(0,3);
       m[mo] = (m[mo]||0) + (parseFloat(c.investment)||0);
     });
-    // Ordena cronologicamente
-    return Object.entries(m)
-      .map(([name,value]) => ({name,value,_idx:MONTHS_PT.findIndex(x=>x.substring(0,3)===name)}))
-      .sort((a,b)=>a._idx-b._idx)
-      .map(({name,value})=>({name,value}));
+    return Object.entries(m).map(([name,value]) => ({name,value}));
   }, [filteredChecklists]);
 
   // Task by CS (filtered period)
@@ -847,19 +761,11 @@ function CampaignDetail({camp,onClose}) {
 function TaskCenter({tasks,setTasks}) {
   const [showNew,setShowNew]=useState(false);
   const [linkModal,setLinkModal]=useState(null);
-  const [selected,setSelected]=useState(null);
   const [search,setSearch]=useState("");
   const [filterStatus,setFilterStatus]=useState("all");
   const [filterCS,setFilterCS]=useState("");
-  const [viewMode,setViewMode]=useState(()=>localStorage.getItem("hypr_task_view")||"list");
-  const [startModal,setStartModal]=useState(null); // {task, message}
-  const [permError,setPermError]=useState("");
-  const [dragOverCol,setDragOverCol]=useState(null);
   const toast = useToast();
   const gfIdx = useRef(0);
-  const user = window.__hyprUser;
-
-  const setView=(v)=>{setViewMode(v);try{localStorage.setItem("hypr_task_view",v);}catch{}};
 
   const filtered = useMemo(()=>{
     return tasks.filter(t=>{
@@ -867,57 +773,36 @@ function TaskCenter({tasks,setTasks}) {
       const mQ=!q||t.client.toLowerCase().includes(q)||t.type.toLowerCase().includes(q)||t.cs.toLowerCase().includes(q);
       const mCS=!filterCS||t.cs===filterCS;
       const st=getTaskStatus(t);
-      const mSt=filterStatus==="all"||(filterStatus==="open"&&(st==="Dentro do SLA"||st==="Iniciada"))||(filterStatus==="overdue"&&st==="Atrasada")||(filterStatus==="done"&&st==="Concluída");
+      const mSt=filterStatus==="all"||(filterStatus==="open"&&st==="Dentro do SLA")||(filterStatus==="overdue"&&st==="Atrasada")||(filterStatus==="done"&&st==="Concluída");
       return mQ&&mCS&&mSt;
     });
   },[tasks,search,filterStatus,filterCS]);
 
   const counts=useMemo(()=>({
     all:tasks.length,
-    open:tasks.filter(t=>{const s=getTaskStatus(t);return s==="Dentro do SLA"||s==="Iniciada";}).length,
+    open:tasks.filter(t=>getTaskStatus(t)==="Dentro do SLA").length,
     overdue:tasks.filter(t=>getTaskStatus(t)==="Atrasada").length,
     done:tasks.filter(t=>getTaskStatus(t)==="Concluída").length,
   }),[tasks]);
 
   const handleSubmit=async(data)=>{
-    const newTask={...data,id:Date.now(),status:"aberta",requestedBy:data.requestedBy||"Você"};
+    const newTask={...data,id:Date.now(),requestedBy:data.requestedBy||"Você"};
     setTasks(t=>[newTask,...t]);
     setShowNew(false);
     toast("Task criada com sucesso!");
+    // POST to backend (saves to BQ + sends emails)
     try{
       await fetch(`${BACKEND_URL}/tasks`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
     }catch(err){console.error("Backend task POST error:",err)}
   };
-
-  // Permission helper: only the CS who owns the task can change its status
-  const canChangeStatus=(task)=>{
-    if(!user||!task) return false;
-    const owner=(task.csEmail||task.cs_email||"").toLowerCase();
-    const me=(user.email||"").toLowerCase();
-    return !owner||owner===me;
-  };
-
-  const handleStart=(task,message)=>{
-    if(!canChangeStatus(task)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}
-    setTasks(ts=>ts.map(t=>t.id===task.id?{...t,status:"iniciada"}:t));
-    toast("Task iniciada!");
-    fetch(`${BACKEND_URL}/tasks/${task.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"iniciada",task,message,changedByEmail:user?.email})})
-      .then(r=>{if(!r.ok&&r.status===403){setPermError("Apenas o CS responsável pode iniciar esta task.");setTasks(ts=>ts.map(t=>t.id===task.id?{...t,status:"aberta"}:t));}})
-      .catch(err=>console.error("Backend task START error:",err));
-    setStartModal(null);
-  };
-
   const handleComplete=async(id)=>{
     const task=tasks.find(t=>t.id===id);
-    if(!canChangeStatus(task)){setPermError("Apenas o CS responsável pode concluir esta task.");return;}
-    setTasks(ts=>ts.map(t=>t.id===id?{...t,status:"entregue"}:t));
+    setTasks(ts=>ts.map(t=>t.id===id?{...t,status:"completed"}:t));
     toast("Task concluída!");
     try{
-      const r=await fetch(`${BACKEND_URL}/tasks/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"entregue",task,changedByEmail:user?.email})});
-      if(!r.ok&&r.status===403){setPermError("Apenas o CS responsável pode concluir esta task.");setTasks(ts=>ts.map(t=>t.id===id?task:t));}
+      await fetch(`${BACKEND_URL}/tasks/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:"completed",task})});
     }catch(err){console.error("Backend task PUT error:",err)}
   };
-
   const handleSaveLink=async(link)=>{
     const id=linkModal.id;
     setTasks(ts=>ts.map(t=>t.id===id?{...t,docLink:link}:t));
@@ -928,17 +813,7 @@ function TaskCenter({tasks,setTasks}) {
     }catch(err){console.error("Backend link PUT error:",err)}
   };
 
-  const handleDrop=(task,targetCol)=>{
-    setDragOverCol(null);
-    const current=rawStatus(task);
-    if(current===targetCol) return;
-    if(!canChangeStatus(task)){setPermError("Apenas o CS responsável pode alterar o status desta task.");return;}
-    if(targetCol==="iniciada") setStartModal({task,message:""});
-    else if(targetCol==="entregue") handleComplete(task.id);
-    // Note: we don't allow dragging back to "aberta" — that would be undoing work.
-  };
-
-  const tabs=[{key:"all",label:"Todas",count:counts.all},{key:"open",label:"Em aberto",count:counts.open},{key:"overdue",label:"Atrasadas",count:counts.overdue},{key:"done",label:"Concluídas",count:counts.done}];
+  const tabs=[{key:"all",label:"Todas",count:counts.all},{key:"open",label:"No SLA",count:counts.open},{key:"overdue",label:"Atrasadas",count:counts.overdue},{key:"done",label:"Concluídas",count:counts.done}];
 
   return (
     <div className="page-enter">
@@ -950,13 +825,7 @@ function TaskCenter({tasks,setTasks}) {
             </button>
           ))}
         </div>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <div style={{display:"flex",border:"1px solid var(--bdr)",borderRadius:"var(--r)",overflow:"hidden"}}>
-            <button onClick={()=>setView("list")} title="Visualização em lista" style={{padding:"6px 12px",border:"none",background:viewMode==="list"?"var(--teal)":"transparent",color:viewMode==="list"?"#fff":"var(--t2)",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4}}><I n="list" s={13}/>Lista</button>
-            <button onClick={()=>setView("kanban")} title="Visualização kanban" style={{padding:"6px 12px",border:"none",background:viewMode==="kanban"?"var(--teal)":"transparent",color:viewMode==="kanban"?"#fff":"var(--t2)",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:4}}><I n="layout" s={13}/>Kanban</button>
-          </div>
-          <button className="btn bp" onClick={()=>setShowNew(true)}><I n="plus" s={14} /> Nova Task</button>
-        </div>
+        <button className="btn bp" onClick={()=>setShowNew(true)}><I n="plus" s={14} /> Nova Task</button>
       </div>
 
       <div className="card" style={{padding:"12px 16px",marginBottom:20}}>
@@ -974,41 +843,33 @@ function TaskCenter({tasks,setTasks}) {
 
       {filtered.length===0?(
         <div className="card"><div className="empty"><I n="check-circle" s={40} c="var(--t3)" /><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhuma task encontrada</h3></div></div>
-      ):viewMode==="kanban"?(
-        <KanbanBoard tasks={filtered} canChangeStatus={canChangeStatus} onOpen={setSelected} onAddLink={setLinkModal} onStart={(t)=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onDrop={handleDrop} dragOverCol={dragOverCol} setDragOverCol={setDragOverCol}/>
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:16}}>
-          {filtered.map(t=><TaskCard key={t.id} task={t} canChangeStatus={canChangeStatus(t)} onStart={()=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onAddLink={setLinkModal} onOpen={setSelected} />)}
+          {filtered.map(t=><TaskCard key={t.id} task={t} onComplete={handleComplete} onAddLink={setLinkModal} />)}
         </div>
       )}
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
-      {selected && <TaskDetailModal task={selected} onClose={()=>setSelected(null)} onComplete={(id)=>{handleComplete(id);setSelected(null);}} onStart={(t)=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});setSelected(null);}} canStart={selected&&rawStatus(selected)==="aberta"&&canChangeStatus(selected)} onAddLink={(t)=>{setLinkModal(t);setSelected(null);}} />}
-      {startModal && <StartTaskModal task={startModal.task} onClose={()=>setStartModal(null)} onConfirm={(msg)=>handleStart(startModal.task,msg)} />}
-      {permError && <PermErrorModal msg={permError} onClose={()=>setPermError("")} />}
     </div>
   );
 }
 
-function TaskCard({task,onStart,onComplete,onAddLink,onOpen,canChangeStatus=true}) {
+function TaskCard({task,onComplete,onAddLink}) {
   const st=getTaskStatus(task);
-  const raw=rawStatus(task);
-  const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":st==="Iniciada"?"b-blue":"b-grn";
-  const stIcon=st==="Atrasada"?"alert-circle":st==="Iniciada"?"play":"check-circle";
-  const stop=e=>e.stopPropagation();
+  const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":"b-grn";
   return (
-    <div className="card" style={{padding:"18px 20px",display:"flex",flexDirection:"column",gap:12,cursor:"pointer"}} onClick={()=>onOpen&&onOpen(task)}>
+    <div className="card" style={{padding:"18px 20px",display:"flex",flexDirection:"column",gap:12}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <span style={{padding:"3px 10px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:11,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
-          <span className={`badge ${stCls}`}><I n={stIcon} s={10} /> {st}</span>
+          <span className={`badge ${stCls}`}><I n={st==="Atrasada"?"alert-circle":"check-circle"} s={10} /> {st}</span>
         </div>
         <span style={{fontSize:11,color:"var(--t3)"}}>#{task.id}</span>
       </div>
       <div>
         <div style={{fontSize:15,fontWeight:700,fontFamily:"var(--fd)",marginBottom:2}}>{task.client}</div>
-        <div style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{task.briefing}</div>
+        <div style={{fontSize:12,color:"var(--t2)",lineHeight:1.5,display:"-webkit-box",WebkitLineClamp:3,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{task.briefing}</div>
       </div>
       {task.budget>0 && <div style={{fontSize:12,color:"var(--teal)",fontWeight:600}}><I n="dollar" s={12} c="var(--teal)" style={{verticalAlign:"middle",marginRight:4}} />{fmtCurrency(task.budget)}</div>}
       {(task.products?.length>0||task.features?.length>0)&&(
@@ -1022,220 +883,10 @@ function TaskCard({task,onStart,onComplete,onAddLink,onOpen,canChangeStatus=true
           <div style={{display:"flex",alignItems:"center",gap:4}}><I n="user" s={12} c="var(--t3)" /><span style={{fontSize:12,color:"var(--t2)",fontWeight:600}}>{task.cs}</span></div>
           <div style={{display:"flex",alignItems:"center",gap:4}}><I n="calendar" s={12} c="var(--t3)" /><span style={{fontSize:12,color:st==="Atrasada"?"var(--red)":"var(--t2)"}}>{fmtDate(task.deadline)}</span></div>
         </div>
-        <div style={{display:"flex",gap:6}} onClick={stop}>
-          {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:11,padding:"5px 10px",textDecoration:"none"}} onClick={stop}><I n="external" s={12} />Doc</a>}
-          <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={e=>{stop(e);onAddLink(task);}} title={task.docLink?"Editar link":"Adicionar link"}><I n="link" s={12} />{task.docLink?"Editar":"Link"}</button>
-          {raw==="aberta"&&onStart&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável pode iniciar":""} onClick={e=>{stop(e);onStart();}}><I n="play" s={12} />Iniciar</button>}
-          {raw==="iniciada"&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável pode concluir":""} onClick={e=>{stop(e);onComplete(task.id);}}><I n="check" s={12} />Concluir</button>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Task Detail Modal ──────────────────────────────────────────────────────
-function TaskDetailModal({task,onClose,onComplete,onAddLink,onStart,canStart}) {
-  useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
-  const st=getTaskStatus(task);
-  const raw=rawStatus(task);
-  const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":st==="Iniciada"?"b-blue":"b-grn";
-  const D=({l,v,wide})=>{
-    if(!v||v==="—") return null;
-    const isUrl=typeof v==="string"&&(v.startsWith("http://")||v.startsWith("https://"));
-    return(
-      <div style={{padding:12,background:"var(--bg3)",borderRadius:"var(--r)",gridColumn:wide?"1/-1":"auto"}}>
-        <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{l}</div>
-        {isUrl?(
-          <a href={v} target="_blank" rel="noreferrer" style={{fontSize:13,color:"var(--teal)",fontWeight:600,wordBreak:"break-all",display:"flex",alignItems:"center",gap:6}}>
-            <I n="external" s={12}/>{v}
-          </a>
-        ):(
-          <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,whiteSpace:"pre-wrap"}}>{v}</div>
-        )}
-      </div>
-    );
-  };
-  const Tags=({items,color})=>(items||[]).length>0?(
-    <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
-      {items.map(p=><span key={p} style={{padding:"3px 10px",background:color==="teal"?"var(--teal-dim)":"var(--bg3)",color:color==="teal"?"var(--teal-l)":"var(--t2)",borderRadius:99,fontSize:12,fontWeight:600,border:color==="teal"?"1px solid var(--teal)":"1px solid var(--bdr)"}}>{p}</span>)}
-    </div>
-  ):null;
-  return(
-    <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="ml ml-lg" style={{maxWidth:760}}>
-        <div className="mh">
-          <div>
-            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-              <span style={{padding:"3px 10px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:11,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
-              <span className={`badge ${stCls}`}><I n={st==="Atrasada"?"alert-circle":"check-circle"} s={10}/> {st}</span>
-              <span style={{fontSize:11,color:"var(--t3)"}}>#{task.id}</span>
-            </div>
-            <div className="mt">{task.client}</div>
-            {task.agency&&<div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>{task.agency}</div>}
-          </div>
-          <button className="btn bg" onClick={onClose}><I n="x" s={18}/></button>
-        </div>
-        <div className="mb">
-          {/* Briefing - destaque */}
-          <div style={{padding:16,background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)",marginBottom:16}}>
-            <div style={{fontSize:11,color:"var(--teal-l)",textTransform:"uppercase",fontWeight:700,marginBottom:8,letterSpacing:"0.06em"}}>Briefing</div>
-            <div style={{fontSize:14,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{task.briefing||"—"}</div>
-          </div>
-
-          {/* Detalhes em grid */}
-          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10,marginBottom:16}}>
-            <D l="CS Responsável" v={task.cs}/>
-            <D l="E-mail do CS" v={task.csEmail||task.cs_email}/>
-            <D l="Solicitante" v={task.requestedBy}/>
-            <D l="E-mail Solicitante" v={task.requesterEmail||task.requester_email}/>
-            <D l="Prazo" v={fmtDate(task.deadline)}/>
-            <D l="Criada em" v={fmtDate(task.createdAt||task.created_at)}/>
-            {task.budget>0&&<D l="Investimento" v={fmtCurrency(task.budget)}/>}
-            {task.sla&&<D l="SLA" v={task.sla}/>}
-            {task.docLink&&<D l="Documento" v={task.docLink} wide/>}
-          </div>
-
-          {/* Produtos & Features */}
-          {(task.products?.length>0||task.features?.length>0)&&(
-            <div style={{padding:16,background:"var(--bg3)",borderRadius:"var(--r)",marginBottom:16}}>
-              {task.products?.length>0&&<div style={{marginBottom:task.features?.length>0?12:0}}>
-                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:8,letterSpacing:"0.06em"}}>Produtos</div>
-                <Tags items={task.products} color="teal"/>
-              </div>}
-              {task.features?.length>0&&<div>
-                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:8,letterSpacing:"0.06em"}}>Features</div>
-                <Tags items={task.features}/>
-              </div>}
-            </div>
-          )}
-
-          {/* Ações */}
-          <div style={{display:"flex",gap:10,justifyContent:"flex-end",paddingTop:8,borderTop:"1px solid var(--bdr)"}}>
-            {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{textDecoration:"none"}}><I n="external" s={14}/>Abrir Doc</a>}
-            <button className="btn bs" onClick={()=>onAddLink(task)}><I n="link" s={14}/>{task.docLink?"Editar Link":"Adicionar Link"}</button>
-            {raw==="aberta"&&onStart&&<button className="btn bp" disabled={!canStart} onClick={()=>onStart(task)} title={!canStart?"Apenas o CS responsável pode iniciar":""}><I n="play" s={14}/>Iniciar Task</button>}
-            {raw==="iniciada"&&<button className="btn bp" onClick={()=>onComplete(task.id)}><I n="check" s={14}/>Concluir Task</button>}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Kanban Board ───────────────────────────────────────────────────────────
-function KanbanBoard({tasks,canChangeStatus,onOpen,onAddLink,onStart,onComplete,onDrop,dragOverCol,setDragOverCol}) {
-  const COLS=[
-    {key:"aberta",title:"Aberta",icon:"clipboard",accent:"var(--t3)"},
-    {key:"iniciada",title:"Iniciada",icon:"play",accent:"var(--teal)"},
-    {key:"entregue",title:"Entregue",icon:"check-circle",accent:"var(--green)"},
-  ];
-  const grouped=COLS.map(c=>({...c,items:tasks.filter(t=>rawStatus(t)===c.key)}));
-  return(
-    <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:16,minHeight:400}}>
-      {grouped.map(col=>(
-        <div key={col.key}
-          onDragOver={e=>{e.preventDefault();setDragOverCol(col.key);}}
-          onDragLeave={()=>setDragOverCol(null)}
-          onDrop={e=>{e.preventDefault();const id=e.dataTransfer.getData("text/plain");const t=tasks.find(x=>String(x.id)===String(id));if(t)onDrop(t,col.key);}}
-          style={{background:dragOverCol===col.key?"var(--teal-dim)":"var(--bg3)",borderRadius:"var(--r)",padding:12,border:dragOverCol===col.key?"2px dashed var(--teal)":"2px dashed transparent",transition:"all .15s"}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12,padding:"4px 8px"}}>
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <I n={col.icon} s={14} c={col.accent}/>
-              <span style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)"}}>{col.title}</span>
-            </div>
-            <span style={{fontSize:11,fontWeight:700,color:"var(--t2)",background:"var(--bg2)",borderRadius:99,padding:"2px 8px"}}>{col.items.length}</span>
-          </div>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {col.items.length===0?(
-              <div style={{padding:"24px 12px",textAlign:"center",fontSize:12,color:"var(--t3)",fontStyle:"italic"}}>Nenhuma task</div>
-            ):col.items.map(t=>{
-              const canDrag=canChangeStatus(t)&&col.key!=="entregue";
-              return <KanbanCard key={t.id} task={t} canDrag={canDrag} canChangeStatus={canChangeStatus(t)} onOpen={onOpen} onAddLink={onAddLink} onStart={onStart} onComplete={onComplete}/>;
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function KanbanCard({task,canDrag,canChangeStatus,onOpen,onAddLink,onStart,onComplete}) {
-  const raw=rawStatus(task);
-  const overdue=raw!=="entregue"&&new Date()>new Date(task.deadline);
-  const stop=e=>e.stopPropagation();
-  return(
-    <div
-      draggable={canDrag}
-      onDragStart={e=>{e.dataTransfer.setData("text/plain",String(task.id));e.dataTransfer.effectAllowed="move";}}
-      onClick={()=>onOpen&&onOpen(task)}
-      style={{background:"var(--bg2)",border:`1px solid ${overdue?"var(--red)":"var(--bdr)"}`,borderLeft:overdue?"3px solid var(--red)":undefined,borderRadius:"var(--r)",padding:"12px 14px",cursor:canDrag?"grab":"pointer",boxShadow:"var(--sh-sm)",display:"flex",flexDirection:"column",gap:8}}
-    >
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <span style={{padding:"2px 8px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:10,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
-        <span style={{fontSize:10,color:"var(--t3)"}}>#{String(task.id).slice(-6)}</span>
-      </div>
-      <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",fontFamily:"var(--fd)"}}>{task.client}</div>
-      <div style={{fontSize:11,color:"var(--t2)",lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{task.briefing}</div>
-      <div style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:"var(--t3)"}}>
-        <span style={{display:"flex",alignItems:"center",gap:3}}><I n="user" s={10}/>{(task.cs||"").split(" ")[0]}</span>
-        <span style={{display:"flex",alignItems:"center",gap:3,color:overdue?"var(--red)":"var(--t3)"}}><I n="calendar" s={10}/>{fmtDate(task.deadline)}</span>
-      </div>
-      {(raw==="aberta"||raw==="iniciada")&&(
-        <div onClick={stop} style={{display:"flex",gap:6,paddingTop:6,borderTop:"1px solid var(--bdr)"}}>
-          {raw==="aberta"&&<button className="btn bp" disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável":""} style={{fontSize:10,padding:"4px 8px",flex:1}} onClick={()=>onStart(task)}><I n="play" s={11}/>Iniciar</button>}
-          {raw==="iniciada"&&<button className="btn bp" disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável":""} style={{fontSize:10,padding:"4px 8px",flex:1}} onClick={()=>onComplete(task.id)}><I n="check" s={11}/>Concluir</button>}
-          <button className="btn bg" style={{fontSize:10,padding:"4px 8px"}} onClick={()=>onAddLink(task)} title="Link"><I n="link" s={11}/></button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Start Task Modal ───────────────────────────────────────────────────────
-function StartTaskModal({task,onClose,onConfirm}) {
-  const [msg,setMsg]=useState("");
-  useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
-  return(
-    <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="ml" style={{maxWidth:480}}>
-        <div className="mh">
-          <div>
-            <div className="mt"><I n="play" s={18} c="var(--teal)" style={{verticalAlign:"middle",marginRight:8}}/>Iniciar Task</div>
-            <div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>#{task.id} — {task.type} · {task.client}</div>
-          </div>
-          <button className="btn bg" onClick={onClose}><I n="x" s={18}/></button>
-        </div>
-        <div className="mb">
-          <div style={{padding:14,background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)",marginBottom:16,fontSize:13,color:"var(--t1)",lineHeight:1.5}}>
-            <I n="bell" s={14} c="var(--teal)" style={{verticalAlign:"middle",marginRight:6}}/>
-            <strong>{task.requestedBy||"O solicitante"}</strong> será notificado por e-mail que você iniciou esta task.
-          </div>
-          <div className="fg">
-            <label className="fl">Comentário (opcional)</label>
-            <textarea className="ft" rows={4} placeholder="Ex: Tô levantando os dados, entrego até quinta." value={msg} onChange={e=>setMsg(e.target.value)} autoFocus/>
-            <div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>Esta mensagem aparecerá no e-mail enviado ao solicitante.</div>
-          </div>
-          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:20}}>
-            <button className="btn bg" onClick={onClose}>Cancelar</button>
-            <button className="btn bp" onClick={()=>onConfirm(msg)}><I n="play" s={14}/>Iniciar e Notificar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Permission Error Modal ─────────────────────────────────────────────────
-function PermErrorModal({msg,onClose}) {
-  useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
-  return(
-    <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="ml" style={{maxWidth:380}}>
-        <div className="mb" style={{textAlign:"center",padding:"30px 20px"}}>
-          <I n="lock" s={36} c="var(--yellow-s)" style={{marginBottom:12}}/>
-          <div style={{fontFamily:"var(--fd)",fontSize:16,fontWeight:700,marginBottom:8}}>Ação não permitida</div>
-          <div style={{fontSize:13,color:"var(--t2)",lineHeight:1.5,marginBottom:20}}>{msg}</div>
-          <button className="btn bp" onClick={onClose}>Entendi</button>
+        <div style={{display:"flex",gap:6}}>
+          {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:11,padding:"5px 10px",textDecoration:"none"}}><I n="external" s={12} />Doc</a>}
+          <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>onAddLink(task)} title={task.docLink?"Editar link":"Adicionar link"}><I n="link" s={12} />{task.docLink?"Editar":"Link"}</button>
+          {task.status!=="completed"&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onComplete(task.id)}><I n="check" s={12} />Concluir</button>}
         </div>
       </div>
     </div>
@@ -1256,7 +907,7 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
     if(entry.cs&&entry.csEmail){sF(p=>({...p,cs:entry.cs,csEmail:entry.csEmail,autoCS:true}));}
     else{sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));}
   };
-  const handleCS=cs=>{if(cs===""){sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));return;}if(cs==="Greenfield"){const next=GREENFIELD_QUEUE[gfIdx.current%GREENFIELD_QUEUE.length];gfIdx.current++;sF(p=>({...p,cs:next,csEmail:CS_EMAILS[next]||"",autoCS:false}));}else sF(p=>({...p,cs:cs,csEmail:CS_EMAILS[cs]||"",autoCS:false}));};
+  const handleCS=cs=>{if(cs==="Greenfield"){const next=GREENFIELD_QUEUE[gfIdx.current%GREENFIELD_QUEUE.length];gfIdx.current++;sF(p=>({...p,cs:next,autoCS:false}));}else sF(p=>({...p,cs:cs,autoCS:false}));};
   const sla=f.customDeadline||f.slaDate;
   const valid=f.type&&f.client&&f.cs&&f.briefing;
 
@@ -1297,7 +948,7 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
 
           <div className="fg"><label className="fl">Produto Core</label><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CORE_PRODUCTS.map(p=><span key={p} className={`chip${f.products.includes(p)?" sel":""}`} onClick={()=>tog("products",p)}>{p}</span>)}</div></div>
           <div className="fg"><label className="fl">Features</label><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{FEATURES.map(x=><span key={x} className={`chip${f.features.includes(x)?" sel":""}`} style={{fontSize:11}} onClick={()=>tog("features",x)}>{x}</span>)}</div></div>
-          <div className="fg"><label className="fl">Investimento previsto</label><input className="fi" type="number" placeholder="R$ 150.000" value={f.budget} onChange={e=>set("budget",e.target.value)}/></div>
+          <div className="fg"><label className="fl">Investimento previsto</label><NumInput decimal placeholder="R$ 150000" value={f.budget} onChange={v=>set("budget",v)}/></div>
           <div className="fg"><label className="fl">Briefing *</label><textarea className="ft" rows={4} placeholder="Descreva objetivos, contexto e necessidades..." value={f.briefing} onChange={e=>set("briefing",e.target.value)}/></div>
           {/* Logged-in user info */}
           <div style={{padding:"10px 14px",borderRadius:"var(--r)",background:"var(--bg3)",border:"1px solid var(--bdr)",display:"flex",alignItems:"center",gap:10}}>
@@ -1366,7 +1017,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
   const availableStudies = useStudies();
-  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:"",observations:""};
+  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:""};
   const [f,sF]=useState(()=>{
     if(!initialData) return INIT;
     const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
@@ -1460,20 +1111,11 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     const short_token = generateShortToken();
     const payload={...f,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email,short_token};
     if(onChecklistSubmit)onChecklistSubmit(payload);
+    sSub(true);
+    toast("Checklist enviado com sucesso!");
     try{
-      const r = await fetch(`${BACKEND_URL}/checklists`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-      if(!r.ok){
-        const errBody = await r.text().catch(()=>"");
-        console.error("Backend checklist POST failed:",r.status,errBody);
-        toast(`Erro ao enviar (${r.status}). Tente novamente.`);
-        return;
-      }
-      sSub(true);
-      toast("Checklist enviado com sucesso!");
-    }catch(err){
-      console.error("Backend checklist POST error:",err);
-      toast("Erro de rede ao enviar. Tente novamente.");
-    }
+      await fetch(`${BACKEND_URL}/checklists`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+    }catch(err){console.error("Backend checklist POST error:",err)}
   };
 
   if(submitted) return(
@@ -1521,29 +1163,17 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           <CF l="Tipo de Campanha" req><select className="fs" value={f.campaign_type} onChange={e=>set("campaign_type",e.target.value)}><option value="">Selecione...</option>{CAMPAIGN_TYPES.map(c=><option key={c}>{c}</option>)}</select></CF>
           <CF l="Data Início" req><input type="date" className="fi" value={f.start_date} onChange={e=>set("start_date",e.target.value)}/></CF>
           <CF l="Data Final" req><input type="date" className="fi" value={f.end_date} onChange={e=>set("end_date",e.target.value)}/></CF>
-          <CF l="Investimento (R$)" req><input type="number" className="fi" placeholder="0,00" value={f.investment} onChange={e=>set("investment",e.target.value)}/></CF>
+          <CF l="Investimento (R$)" req><NumInput decimal placeholder="0,00" value={f.investment} onChange={v=>set("investment",v)}/></CF>
           <CF l="Deal DV360?" req><RG row opts={["Sim","Não"]} val={f.deal_dv360} onChange={v=>set("deal_dv360",v)}/></CF>
         </div>
-        {f.cs_name&&f.cs_email&&(()=>{
-          const dbEntry=CLIENT_DB.find(c=>c.client===f.client);
-          const isAuto=dbEntry&&dbEntry.cs===f.cs_name;
-          return (
-            <div style={{marginTop:16,padding:"12px 16px",borderRadius:"var(--r)",background:"var(--green-bg)",border:"1px solid var(--green)",display:"flex",alignItems:"center",gap:10}}>
-              <I n="check-circle" s={16} c="var(--green)"/>
-              <div style={{flex:1}}><div style={{fontSize:12,fontWeight:700,color:"var(--green)"}}>{isAuto?"CS identificado automaticamente":"CS selecionado manualmente"}</div><div style={{fontSize:13,color:"var(--t1)",fontWeight:600,marginTop:2}}>{f.cs_name} <span style={{fontWeight:400,color:"var(--t3)"}}>({f.cs_email})</span></div></div>
-              {!isAuto&&<button className="btn bg" style={{fontSize:11,padding:"4px 8px"}} onClick={()=>sF(p=>({...p,cs_name:"",cs_email:""}))}>Alterar</button>}
-            </div>
-          );
-        })()}
-        {f.client&&!f.cs_name&&CLIENT_DB.find(c=>c.client===f.client)&&(
-          <div className="fg" style={{marginTop:16}}>
-            <div className="disc" style={{marginBottom:8}}><I n="alert-triangle" s={14} c="var(--yellow-s)"/><span>Cliente sem CS encarteirado. Selecione o CS responsável para receber a notificação.</span></div>
-            <label className="fl">CS Responsável *</label>
-            <select className="fs" value={f.cs_name} onChange={e=>{const cs=e.target.value;sF(p=>({...p,cs_name:cs,cs_email:CS_EMAILS[cs]||""}));}}>
-              <option value="">Selecione...</option>
-              {CS_LIST.filter(c=>c!=="Greenfield").map(cs=><option key={cs}>{cs}</option>)}
-            </select>
+        {f.cs_name&&f.cs_email&&(
+          <div style={{marginTop:16,padding:"12px 16px",borderRadius:"var(--r)",background:"var(--green-bg)",border:"1px solid var(--green)",display:"flex",alignItems:"center",gap:10}}>
+            <I n="check-circle" s={16} c="var(--green)"/>
+            <div><div style={{fontSize:12,fontWeight:700,color:"var(--green)"}}>CS identificado automaticamente</div><div style={{fontSize:13,color:"var(--t1)",fontWeight:600,marginTop:2}}>{f.cs_name} <span style={{fontWeight:400,color:"var(--t3)"}}>({f.cs_email})</span></div></div>
           </div>
+        )}
+        {f.client&&!f.cs_name&&CLIENT_DB.find(c=>c.client===f.client)&&(
+          <div className="disc" style={{marginTop:16}}><I n="alert-triangle" s={14} c="var(--yellow-s)"/><span>Cliente sem CS encarteirado. O checklist será enviado apenas para o seu e-mail.</span></div>
         )}
       </Sec>
 
@@ -1596,8 +1226,8 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
             <div key={prod} style={{padding:16,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
               <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:12,textTransform:"uppercase",letterSpacing:".06em"}}>{prod} — Volumetria Contratada</div>
               <div className="g2" style={{gap:12}}>
-                <CF l="Impressões Visíveis"><input type="number" className="fi" placeholder="Ex: 1.000.000" value={f[`${prod}_imp`]||""} onChange={e=>set(`${prod}_imp`,e.target.value)}/></CF>
-                <CF l="Views 100%"><input type="number" className="fi" placeholder="Ex: 500.000" value={f[`${prod}_views`]||""} onChange={e=>set(`${prod}_views`,e.target.value)}/></CF>
+                <CF l="Impressões Visíveis"><NumInput placeholder="Ex: 1000000" value={f[`${prod}_imp`]||""} onChange={v=>set(`${prod}_imp`,v)}/></CF>
+                <CF l="Views 100%"><NumInput placeholder="Ex: 500000" value={f[`${prod}_views`]||""} onChange={v=>set(`${prod}_views`,v)}/></CF>
               </div>
               {prod==="OOH"&&<div style={{marginTop:12}}><CF l="Link dos endereços OOH"><input className="fi" placeholder="https://..." value={f.ooh_link} onChange={e=>set("ooh_link",e.target.value)}/></CF></div>}
               {prod==="RMND"&&<div style={{marginTop:12}}><CF l="Marketplaces"><div style={{display:"flex",gap:8}}>{MARKETPLACES.map(m=><span key={m} className={`chip${f.marketplaces.includes(m)?" sel":""}`} onClick={()=>tog("marketplaces",m)}>{m}</span>)}</div></CF></div>}
@@ -1610,8 +1240,8 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
             <div key={prod+"_b"} style={{padding:14,background:"var(--yellow-dim)",borderRadius:"var(--r)",border:"1px solid rgba(237,217,0,0.3)"}}>
               <div style={{fontSize:12,fontWeight:700,color:"#a07a00",marginBottom:10,textTransform:"uppercase"}}>{prod} — Bonificação</div>
               <div className="g2" style={{gap:12}}>
-                <CF l="Impressões Visíveis Bonif."><input type="number" className="fi" value={f[`${prod}_bonus_imp`]||""} onChange={e=>set(`${prod}_bonus_imp`,e.target.value)}/></CF>
-                <CF l="Views 100% Bonif."><input type="number" className="fi" value={f[`${prod}_bonus_views`]||""} onChange={e=>set(`${prod}_bonus_views`,e.target.value)}/></CF>
+                <CF l="Impressões Visíveis Bonif."><NumInput value={f[`${prod}_bonus_imp`]||""} onChange={v=>set(`${prod}_bonus_imp`,v)}/></CF>
+                <CF l="Views 100% Bonif."><NumInput value={f[`${prod}_bonus_views`]||""} onChange={v=>set(`${prod}_bonus_views`,v)}/></CF>
               </div>
             </div>
           ))}
@@ -1698,16 +1328,9 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
                     {volType==="contratada"&&<div className="disc" style={{marginBottom:10,fontSize:10}}><I n="alert-circle" s={12} c="var(--teal)"/>Volume entregue dentro da volumetria contratada nos produtos core.</div>}
                     <div className="g2" style={{gap:10}}>
                       {cfg.fields.map(field=>(
-                        <CF key={field} l={field}><input type="number" className="fi" placeholder={feat==="P-DOOH"?"Obrigatório":"Opcional"} value={f[`fv_${feat}_${field}`]||""} onChange={e=>set(`fv_${feat}_${field}`,e.target.value)}/></CF>
+                        <CF key={field} l={field}><NumInput placeholder={feat==="P-DOOH"?"Obrigatório":"Opcional"} value={f[`fv_${feat}_${field}`]||""} onChange={v=>set(`fv_${feat}_${field}`,v)}/></CF>
                       ))}
                     </div>
-                    {FEAT_EXTRA_TEXT[feat]&&(
-                      <div style={{marginTop:10}}>
-                        <CF l={FEAT_EXTRA_TEXT[feat].label} req>
-                          <textarea className="ft" rows={3} placeholder={FEAT_EXTRA_TEXT[feat].placeholder} value={f[`fextra_${feat}`]||""} onChange={e=>set(`fextra_${feat}`,e.target.value)}/>
-                        </CF>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -1779,13 +1402,6 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           <CF l="Link da Proposta"><input className="fi" value={f.proposta_link} onChange={e=>set("proposta_link",e.target.value)}/></CF>
         </div>
       </Sec>
-
-      {/* Observações para o CS */}
-      <div className="card" style={{padding:"16px 20px",marginBottom:12}}>
-        <div style={{fontSize:12,fontWeight:700,color:"var(--t2)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Observações</div>
-        <div style={{fontSize:12,color:"var(--t3)",marginBottom:10,lineHeight:1.5}}>Inclua qualquer informação adicional necessária para o CS configurar a campanha (instruções, alertas, requisitos especiais, etc.).</div>
-        <textarea className="ft" rows={4} placeholder="Ex: Cliente prefere criativo no formato vertical · Flight obrigatório aos sábados · Necessário aprovação prévia da agência antes do go-live..." value={f.observations||""} onChange={e=>set("observations",e.target.value)}/>
-      </div>
 
       {/* Email summary + Submit */}
       <div className="card" style={{padding:"16px 20px",marginBottom:12}}>
@@ -1934,6 +1550,96 @@ function Sec({title,children,defaultOpen=true}) {
   return(<div className="card" style={{marginBottom:16,overflow:"hidden"}}><div style={{padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",cursor:"pointer",borderBottom:open?"1px solid var(--bdr)":"none",background:open?"transparent":"var(--bg3)",transition:"background .15s"}} onClick={()=>sO(o=>!o)}><span style={{fontFamily:"var(--fd)",fontWeight:700,fontSize:13,color:"var(--t1)"}}>{title}</span><I n="chevron-down" s={16} c="var(--t3)" style={{transform:open?"rotate(180deg)":"rotate(0)",transition:"transform .2s"}}/></div>{open&&<div style={{padding:20}}>{children}</div>}</div>);
 }
 function CF({l,req,children}) { return(<div className="fg"><label className="fl">{l}{req&&<span style={{color:"var(--red)",marginLeft:3}}>*</span>}</label>{children}</div>); }
+
+// ── NumInput: numeric input that blocks "." (BR thousand separator) to prevent
+// formatting bugs like "300.000" being parsed as 300. Allows "," only when decimal=true.
+function NumInput({ value, onChange, decimal = false, placeholder, className = "fi", style }) {
+  const [warn, setWarn] = useState("");
+  const warnTimer = useRef(null);
+
+  const showWarn = (msg) => {
+    setWarn(msg);
+    if (warnTimer.current) clearTimeout(warnTimer.current);
+    warnTimer.current = setTimeout(() => setWarn(""), 2500);
+  };
+
+  // Sanitize: remove invalid chars
+  const sanitize = (raw) => {
+    if (!raw) return "";
+    let s = String(raw);
+    // Always block "." (BR thousand separator confusion)
+    if (s.includes(".")) {
+      s = s.replace(/\./g, "");
+      showWarn("Não use ponto (.) — apenas dígitos" + (decimal ? " e vírgula para decimais" : ""));
+    }
+    if (decimal) {
+      // Keep digits and at most one comma
+      s = s.replace(/[^\d,]/g, "");
+      const firstComma = s.indexOf(",");
+      if (firstComma !== -1) {
+        s = s.slice(0, firstComma + 1) + s.slice(firstComma + 1).replace(/,/g, "");
+      }
+    } else {
+      // Integer mode: digits only
+      const before = s;
+      s = s.replace(/[^\d]/g, "");
+      if (before !== s && !before.includes(".")) {
+        showWarn("Apenas números inteiros");
+      }
+    }
+    return s;
+  };
+
+  const handleKeyDown = (e) => {
+    // Block "." always; "," only when not decimal
+    if (e.key === ".") {
+      e.preventDefault();
+      showWarn("Não use ponto (.) — apenas dígitos" + (decimal ? " e vírgula para decimais" : ""));
+    } else if (e.key === "," && !decimal) {
+      e.preventDefault();
+      showWarn("Apenas números inteiros");
+    } else if (e.key === "e" || e.key === "E" || e.key === "+" || e.key === "-") {
+      e.preventDefault();
+    }
+  };
+
+  const handleChange = (e) => {
+    const cleaned = sanitize(e.target.value);
+    // Convert internal storage to dot-decimal so parseFloat works
+    const stored = decimal ? cleaned.replace(",", ".") : cleaned;
+    onChange(stored);
+  };
+
+  // Display: convert dot back to comma for decimal mode
+  const displayValue = decimal && value ? String(value).replace(".", ",") : (value ?? "");
+
+  return (
+    <div style={{ position: "relative" }}>
+      <input
+        type="text"
+        inputMode={decimal ? "decimal" : "numeric"}
+        className={className}
+        placeholder={placeholder}
+        value={displayValue}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        style={{ ...(style || {}), borderColor: warn ? "var(--red)" : undefined }}
+      />
+      {warn && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, marginTop: 4,
+          padding: "6px 10px", background: "rgba(239,68,68,0.08)",
+          border: "1px solid var(--red)", borderRadius: 6,
+          fontSize: 11, color: "var(--red)", fontWeight: 600,
+          display: "flex", alignItems: "center", gap: 6, zIndex: 10,
+        }}>
+          <I n="alert-circle" s={12} c="var(--red)" />{warn}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RG({opts,val,onChange,row}) {
   return(<div style={{display:"flex",gap:10,flexWrap:"wrap",flexDirection:row?"row":"column"}}>{opts.map(o=>(<label key={o} style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:13}} onClick={()=>onChange(o)}><div style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${val===o?"var(--teal)":"var(--bdr)"}`,background:val===o?"var(--teal)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .15s",flexShrink:0}}>{val===o&&<div style={{width:6,height:6,borderRadius:"50%",background:"#fff"}}/>}</div><span>{o}</span></label>))}</div>);
 }
@@ -1951,98 +1657,19 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
   const [editing,setEditing]=useState(false);
   const [editData,setEditData]=useState(null);
   const [search,setSearch]=useState("");
-  const [filterMonth,setFilterMonth]=useState("");
-  const [filterYear,setFilterYear]=useState("");
-  const [confirmDelete,setConfirmDelete]=useState(null); // checklist a ser excluído
-  const [permError,setPermError]=useState("");
   const toast=useToast();
-  const user=window.__hyprUser;
-
-  const SUPERUSER="matheus.machado@hypr.mobi";
-  const canDelete=(c)=>{
-    if(!user) return false;
-    const me=(user.email||"").toLowerCase();
-    if(me===SUPERUSER) return true;
-    const allowed=[c.cp_email,c.submitted_by_email,c.cs_email].filter(Boolean).map(e=>e.toLowerCase());
-    return allowed.includes(me);
-  };
-
-  const handleDelete=async(c)=>{
-    setConfirmDelete(null);
-    // Optimistic update — remove imediatamente da lista
-    setChecklists(prev=>prev.filter(x=>x.id!==c.id));
-    if(selected&&selected.id===c.id){setSelected(null);setEditing(false);}
-    toast("Excluindo checklist...");
-    try{
-      const r=await fetch(`${BACKEND_URL}/checklists/${c.id}`,{
-        method:"DELETE",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({requesterEmail:user?.email}),
-      });
-      if(!r.ok){
-        // Reverte se backend recusou
-        setChecklists(prev=>[c,...prev]);
-        if(r.status===403){
-          setPermError("Apenas o CP, o CS responsável ou o admin podem excluir este checklist.");
-        }else{
-          toast(`Erro ao excluir (${r.status}).`);
-        }
-        return;
-      }
-      toast("Checklist excluído com sucesso!");
-    }catch(err){
-      console.error("DELETE checklist error:",err);
-      // Reverte em caso de erro de rede
-      setChecklists(prev=>[c,...prev]);
-      toast("Erro de rede ao excluir.");
-    }
-  };
-
-  // Extract date string (YYYY-MM-DD or {value}) → {y, m}
-  const parseDate=(v)=>{
-    if(!v) return null;
-    const s=typeof v==="object"&&v.value?v.value:String(v);
-    const m=s.match(/(\d{4})-(\d{2})/);
-    return m?{y:m[1],m:m[2]}:null;
-  };
-
-  // Available years in the data (sorted desc)
-  const availableYears=useMemo(()=>{
-    const ys=new Set();
-    checklists.forEach(c=>{const p=parseDate(c.created_at);if(p)ys.add(p.y);});
-    return [...ys].sort((a,b)=>b.localeCompare(a));
-  },[checklists]);
-
-  const MONTHS=[
-    {v:"01",l:"Janeiro"},{v:"02",l:"Fevereiro"},{v:"03",l:"Março"},{v:"04",l:"Abril"},
-    {v:"05",l:"Maio"},{v:"06",l:"Junho"},{v:"07",l:"Julho"},{v:"08",l:"Agosto"},
-    {v:"09",l:"Setembro"},{v:"10",l:"Outubro"},{v:"11",l:"Novembro"},{v:"12",l:"Dezembro"},
-  ];
 
   const filtered=useMemo(()=>{
     const q=search.toLowerCase();
-    return checklists.filter(c=>{
-      if(q&&!(c.client?.toLowerCase().includes(q)||c.campaign_name?.toLowerCase().includes(q)||c.agency?.toLowerCase().includes(q))) return false;
-      if(filterYear||filterMonth){
-        const p=parseDate(c.created_at);
-        if(!p) return false;
-        if(filterYear&&p.y!==filterYear) return false;
-        if(filterMonth&&p.m!==filterMonth) return false;
-      }
-      return true;
-    });
-  },[checklists,search,filterYear,filterMonth]);
+    return checklists.filter(c=>!q||c.client?.toLowerCase().includes(q)||c.campaign_name?.toLowerCase().includes(q)||c.agency?.toLowerCase().includes(q));
+  },[checklists,search]);
 
   const handleEdit=(c)=>{setEditData({...c});setEditing(true)};
-  const handleSave=async()=>{
+  const handleSave=()=>{
     setChecklists(prev=>prev.map(c=>c.id===editData.id?editData:c));
     setSelected(editData);
     setEditing(false);
     toast("Checklist atualizado!");
-    // Persist to backend
-    try{
-      await fetch(`${BACKEND_URL}/checklists/${editData.id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(editData)});
-    }catch(err){console.error("Backend checklist PUT error:",err)}
   };
 
   // Detail row helper
@@ -2076,49 +1703,21 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
     <div className="page-enter">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24,flexWrap:"wrap",gap:12}}>
         <h2 style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:700}}>Checklists Enviados</h2>
-        <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-          <select className="fs" style={{minWidth:130,fontSize:12}} value={filterMonth} onChange={e=>setFilterMonth(e.target.value)}>
-            <option value="">Todos os meses</option>
-            {MONTHS.map(m=><option key={m.v} value={m.v}>{m.l}</option>)}
-          </select>
-          <select className="fs" style={{minWidth:100,fontSize:12}} value={filterYear} onChange={e=>setFilterYear(e.target.value)}>
-            <option value="">Todos os anos</option>
-            {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
-          </select>
-          {(filterMonth||filterYear)&&(
-            <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>{setFilterMonth("");setFilterYear("");}} title="Limpar filtros de data">
-              <I n="x" s={12}/>Limpar
-            </button>
-          )}
-          <div style={{position:"relative",minWidth:200,maxWidth:300}}>
-            <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}} c="var(--t3)"/>
-            <input className="fi" style={{paddingLeft:32}} placeholder="Buscar cliente ou campanha..." value={search} onChange={e=>setSearch(e.target.value)}/>
-          </div>
+        <div style={{position:"relative",minWidth:200,maxWidth:300}}>
+          <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}} c="var(--t3)"/>
+          <input className="fi" style={{paddingLeft:32}} placeholder="Buscar cliente ou campanha..." value={search} onChange={e=>setSearch(e.target.value)}/>
         </div>
       </div>
 
       {filtered.length===0?(
-        <div className="card"><div className="empty"><I n="clipboard" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>{(search||filterMonth||filterYear)?"Nenhum checklist encontrado com esses filtros":"Nenhum checklist enviado ainda"}</h3></div></div>
+        <div className="card"><div className="empty"><I n="clipboard" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhum checklist enviado ainda</h3></div></div>
       ):(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:16}}>
           {filtered.map(c=>(
-            <div key={c.id} className="card" style={{padding:"18px 20px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10,position:"relative"}} onClick={()=>{setSelected(c);setEditing(false)}}>
+            <div key={c.id} className="card" style={{padding:"18px 20px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10}} onClick={()=>{setSelected(c);setEditing(false)}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <span style={{fontSize:15,fontWeight:700,fontFamily:"var(--fd)",color:"var(--t1)"}}>{c.client}</span>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontSize:11,color:"var(--t3)"}}>{fmtDate(c.created_at)}</span>
-                  {canDelete(c)&&(
-                    <button
-                      onClick={e=>{e.stopPropagation();setConfirmDelete(c);}}
-                      title="Excluir checklist"
-                      style={{background:"transparent",border:"none",padding:4,cursor:"pointer",borderRadius:6,color:"var(--t3)",display:"flex",alignItems:"center"}}
-                      onMouseEnter={e=>{e.currentTarget.style.background="var(--red-bg)";e.currentTarget.style.color="var(--red)";}}
-                      onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="var(--t3)";}}
-                    >
-                      <I n="trash" s={14}/>
-                    </button>
-                  )}
-                </div>
+                <span style={{fontSize:11,color:"var(--t3)"}}>{c.created_at?new Date(c.created_at).toLocaleDateString("pt-BR"):"—"}</span>
               </div>
               <div style={{fontSize:13,color:"var(--t2)"}}>{c.campaign_name||"—"}</div>
               <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
@@ -2158,123 +1757,19 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                     <CF l="Campanha"><input className="fi" value={editData.campaign_name||""} onChange={e=>setEditData(p=>({...p,campaign_name:e.target.value}))}/></CF>
                     <CF l="Agência"><input className="fi" value={editData.agency||""} onChange={e=>setEditData(p=>({...p,agency:e.target.value}))}/></CF>
                     <CF l="Tipo"><input className="fi" value={editData.campaign_type||""} onChange={e=>setEditData(p=>({...p,campaign_type:e.target.value}))}/></CF>
-                    <CF l="Investimento (R$)"><input type="number" className="fi" value={editData.investment||""} onChange={e=>setEditData(p=>({...p,investment:e.target.value}))}/></CF>
+                    <CF l="Investimento (R$)"><NumInput decimal value={editData.investment||""} onChange={v=>setEditData(p=>({...p,investment:v}))}/></CF>
                     <CF l="Indústria"><input className="fi" value={editData.industry||""} onChange={e=>setEditData(p=>({...p,industry:e.target.value}))}/></CF>
-                    <CF l="Data Início"><input type="date" className="fi" value={(typeof editData.start_date==="object"&&editData.start_date?.value)||editData.start_date||""} onChange={e=>setEditData(p=>({...p,start_date:e.target.value}))}/></CF>
-                    <CF l="Data Final"><input type="date" className="fi" value={(typeof editData.end_date==="object"&&editData.end_date?.value)||editData.end_date||""} onChange={e=>setEditData(p=>({...p,end_date:e.target.value}))}/></CF>
+                    <CF l="Data Início"><input type="date" className="fi" value={editData.start_date||""} onChange={e=>setEditData(p=>({...p,start_date:e.target.value}))}/></CF>
+                    <CF l="Data Final"><input type="date" className="fi" value={editData.end_date||""} onChange={e=>setEditData(p=>({...p,end_date:e.target.value}))}/></CF>
                   </div>
                   <CF l="Audiências"><textarea className="ft" rows={3} value={editData.audiences||""} onChange={e=>setEditData(p=>({...p,audiences:e.target.value}))}/></CF>
-
-                  {/* Editable Praças */}
-                  <CF l="Praças — Tipo">
-                    <select className="fs" value={editData.praças_type||editData.pracas_type||""} onChange={e=>{const v=e.target.value;setEditData(p=>({...p,praças_type:v,pracas_type:v}));}}>
-                      <option value="">Selecione...</option>
-                      <option value="Brasil">Brasil</option>
-                      <option value="Estado">Estado</option>
-                      <option value="Cidade">Cidade</option>
-                      <option value="Outro">Outro</option>
-                    </select>
-                  </CF>
-                  {(editData.praças_type||editData.pracas_type)==="Estado"&&(
-                    <div style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
-                      <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:8,letterSpacing:".06em"}}>Estados</div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
-                        {Object.entries(BRAZIL_REGIONS).map(([region,states])=>(
-                          <button key={region} className="btn bs" style={{fontSize:10,padding:"3px 10px"}} onClick={()=>setEditData(p=>{const current=p.praças_states||[];const allSelected=states.every(s=>current.includes(s));const next=allSelected?current.filter(s=>!states.includes(s)):[...new Set([...current,...states])];return{...p,praças_states:next,pracas_detail:next.join(", ")};})}>{region}</button>
-                        ))}
-                        <button className="btn bs" style={{fontSize:10,padding:"3px 10px"}} onClick={()=>setEditData(p=>({...p,praças_states:[...BRAZIL_STATES],pracas_detail:BRAZIL_STATES.join(", ")}))}>Todos</button>
-                        <button className="btn bg" style={{fontSize:10,padding:"3px 10px"}} onClick={()=>setEditData(p=>({...p,praças_states:[],pracas_detail:""}))}>Limpar</button>
-                      </div>
-                      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                        {BRAZIL_STATES.map(s=>(
-                          <span key={s} className={`chip${(editData.praças_states||[]).includes(s)?" sel":""}`} style={{fontSize:11,padding:"3px 10px",cursor:"pointer"}} onClick={()=>setEditData(p=>{const current=p.praças_states||[];const next=current.includes(s)?current.filter(x=>x!==s):[...current,s];return{...p,praças_states:next,pracas_detail:next.join(", ")};})}>{s}</span>
-                        ))}
-                      </div>
-                      {(editData.praças_states||[]).length>0&&<div style={{fontSize:11,color:"var(--teal)",marginTop:8}}>{(editData.praças_states||[]).length} estado{(editData.praças_states||[]).length>1?"s":""} selecionado{(editData.praças_states||[]).length>1?"s":""}</div>}
-                    </div>
-                  )}
-                  {(editData.praças_type||editData.pracas_type)==="Cidade"&&(
-                    <div style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)",display:"flex",flexDirection:"column",gap:10}}>
-                      <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,letterSpacing:".06em"}}>Cidades</div>
-                      <button className="btn bs" style={{fontSize:11,alignSelf:"flex-start"}} onClick={()=>setEditData(p=>{const next=[...new Set([...(p.praças_cities||[]),...BRAZIL_CAPITALS])];return{...p,praças_cities:next,pracas_detail:next.join(", ")};})}>
-                        <I n="plus" s={12}/>Adicionar Capitais (27)
-                      </button>
-                      <div style={{display:"grid",gridTemplateColumns:"120px 1fr",gap:8,alignItems:"start"}}>
-                        <select className="fs" value={editData.praças_city_state||""} onChange={e=>setEditData(p=>({...p,praças_city_state:e.target.value}))}>
-                          <option value="">Estado...</option>
-                          {BRAZIL_STATES.map(s=><option key={s}>{s}</option>)}
-                        </select>
-                        <div style={{display:"flex",gap:6}}>
-                          <input className="fi" placeholder="Nome da cidade" value={editData.praças_city_input||""} onChange={e=>setEditData(p=>({...p,praças_city_input:e.target.value}))} onKeyDown={e=>{if(e.key==="Enter"&&editData.praças_city_input&&editData.praças_city_state){e.preventDefault();const city=`${editData.praças_city_input} (${editData.praças_city_state})`;setEditData(p=>{const next=[...(p.praças_cities||[]),city];return{...p,praças_cities:next,praças_city_input:"",pracas_detail:next.join(", ")};});}}}/>
-                          <button className="btn bs" style={{fontSize:11,whiteSpace:"nowrap"}} onClick={()=>{if(editData.praças_city_input&&editData.praças_city_state){const city=`${editData.praças_city_input} (${editData.praças_city_state})`;setEditData(p=>{const next=[...(p.praças_cities||[]),city];return{...p,praças_cities:next,praças_city_input:"",pracas_detail:next.join(", ")};});}}}><I n="plus" s={12}/>Adicionar</button>
-                        </div>
-                      </div>
-                      {(editData.praças_cities||[]).length>0&&(
-                        <div>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                            <span style={{fontSize:11,color:"var(--teal)"}}>{(editData.praças_cities||[]).length} cidade{(editData.praças_cities||[]).length>1?"s":""}</span>
-                            <button className="btn bg" style={{fontSize:10,padding:"2px 8px"}} onClick={()=>setEditData(p=>({...p,praças_cities:[],pracas_detail:""}))}>Limpar</button>
-                          </div>
-                          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-                            {(editData.praças_cities||[]).map((c,i)=>(
-                              <span key={i} className="chip sel" style={{fontSize:11,padding:"3px 10px",display:"flex",gap:4,alignItems:"center"}}>
-                                {c}
-                                <span style={{cursor:"pointer",fontWeight:700}} onClick={()=>setEditData(p=>{const next=(p.praças_cities||[]).filter((_,j)=>j!==i);return{...p,praças_cities:next,pracas_detail:next.join(", ")};})}>×</span>
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {(editData.praças_type||editData.pracas_type)==="Outro"&&(
-                    <CF l="Descreva">
-                      <input className="fi" value={editData.praças_other||editData.pracas_detail||""} onChange={e=>{const v=e.target.value;setEditData(p=>({...p,praças_other:v,pracas_detail:v}));}}/>
-                    </CF>
-                  )}
-
-                  {/* Editable Products & Volumetries */}
-                  <CF l="Produtos Core">
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      {CHECKLIST_CORE_PRODUCTS.map(p=>(
-                        <span key={p} className={`chip${(editData.products||[]).includes(p)?" sel":""}`} style={{cursor:"pointer"}} onClick={()=>{
-                          setEditData(prev=>{
-                            const cur=prev.products||[];
-                            const has=cur.includes(p);
-                            const next=has?cur.filter(x=>x!==p):[...cur,p];
-                            // If removing the product, also clear its volumetry fields
-                            const update={...prev,products:next};
-                            if(has){delete update[`${p}_imp`];delete update[`${p}_views`];delete update[`${p}_bonus_imp`];delete update[`${p}_bonus_views`];}
-                            return update;
-                          });
-                        }}>{p}</span>
-                      ))}
-                    </div>
-                  </CF>
+                  {/* Editable volumetries */}
                   {(editData.products||[]).map(prod=>(
-                    <div key={prod} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
-                      <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:10,textTransform:"uppercase",letterSpacing:".06em"}}>{prod} — Volumetria Contratada</div>
-                      <div className="g2" style={{gap:12,marginBottom:10}}>
-                        <CF l="Impressões Visíveis"><input type="number" className="fi" placeholder="0" value={editData[`${prod}_imp`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_imp`]:e.target.value}))}/></CF>
-                        <CF l="Views 100%"><input type="number" className="fi" placeholder="0" value={editData[`${prod}_views`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_views`]:e.target.value}))}/></CF>
-                      </div>
-                      {(editData[`${prod}_bonus_imp`]||editData[`${prod}_bonus_views`]||editData.has_bonus==="Sim"||editData.has_bonus===true)&&(
-                        <>
-                          <div style={{fontSize:11,fontWeight:700,color:"#a07a00",marginBottom:8,textTransform:"uppercase",letterSpacing:".06em"}}>{prod} — Bonificação</div>
-                          <div className="g2" style={{gap:12}}>
-                            <CF l="Impressões Bonif."><input type="number" className="fi" placeholder="0" value={editData[`${prod}_bonus_imp`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_bonus_imp`]:e.target.value}))}/></CF>
-                            <CF l="Views Bonif."><input type="number" className="fi" placeholder="0" value={editData[`${prod}_bonus_views`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_bonus_views`]:e.target.value}))}/></CF>
-                          </div>
-                        </>
-                      )}
+                    <div key={prod} className="g2" style={{gap:12}}>
+                      <CF l={`${prod} — Impressões Visíveis`}><NumInput value={editData[`${prod}_imp`]||""} onChange={v=>setEditData(p=>({...p,[`${prod}_imp`]:v}))}/></CF>
+                      <CF l={`${prod} — Views 100%`}><NumInput value={editData[`${prod}_views`]||""} onChange={v=>setEditData(p=>({...p,[`${prod}_views`]:v}))}/></CF>
                     </div>
                   ))}
-
-                  {/* Editable Observations */}
-                  <CF l="Observações">
-                    <textarea className="ft" rows={4} placeholder="Observações para o CS sobre a campanha..." value={editData.observations||""} onChange={e=>setEditData(p=>({...p,observations:e.target.value}))}/>
-                  </CF>
-
                   <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
                     <button className="btn bs" onClick={()=>setEditing(false)}>Cancelar</button>
                     <button className="btn bp" onClick={handleSave}><I n="check" s={14}/>Salvar Alterações</button>
@@ -2325,56 +1820,33 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   {/* Section 3: Produtos e Volumetria */}
                   <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>3. Produtos Core e Volumetria</div>
                   {(selected.products||[]).length>0&&<div><div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:6}}>Produtos</div><Tags items={selected.products} color="teal"/></div>}
-                  {(selected.products||[]).map(prod=>{
-                    const imp=selected[`${prod}_imp`];
-                    const views=selected[`${prod}_views`];
-                    return(
+                  {(selected.products||[]).map(prod=>(
                     <div key={prod} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
                       <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:8,textTransform:"uppercase"}}>{prod} — Volumetria Contratada</div>
                       <div className="g2" style={{gap:10}}>
-                        <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
-                          <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Impressões Visíveis</div>
-                          <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{imp?Number(imp).toLocaleString("pt-BR"):"—"}</div>
-                        </div>
-                        <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
-                          <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Views 100%</div>
-                          <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{views?Number(views).toLocaleString("pt-BR"):"—"}</div>
-                        </div>
+                        <D l="Impressões Visíveis" v={fmtNum(selected[`${prod}_imp`])}/>
+                        <D l="Views 100%" v={fmtNum(selected[`${prod}_views`])}/>
                       </div>
                       {prod==="OOH"&&selected.ooh_link&&<div style={{marginTop:8}}><D l="Link OOH" v={selected.ooh_link}/></div>}
                       {prod==="RMND"&&(selected.marketplaces||[]).length>0&&<div style={{marginTop:8}}><div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Marketplaces</div><Tags items={selected.marketplaces} color="teal"/></div>}
                     </div>
-                  );})}
-                  {(()=>{
-                    const hasBonusFlag=selected.has_bonus==="Sim"||selected.has_bonus===true;
-                    const productsWithBonus=(selected.products||[]).filter(prod=>selected[`${prod}_bonus_imp`]||selected[`${prod}_bonus_views`]);
-                    if(!hasBonusFlag&&productsWithBonus.length===0) return null;
-                    const showProds=productsWithBonus.length>0?productsWithBonus:(selected.products||[]);
-                    return(
+                  ))}
+                  {(selected.has_bonus==="Sim"||selected.has_bonus===true)&&(
                     <div>
                       <div style={{fontSize:12,fontWeight:700,color:"#a07a00",marginBottom:8,textTransform:"uppercase"}}>Bonificações</div>
-                      {showProds.map(prod=>{
-                        const bImp=selected[`${prod}_bonus_imp`];
-                        const bViews=selected[`${prod}_bonus_views`];
-                        return(
+                      {(selected.products||[]).map(prod=>(
+                        (selected[`${prod}_bonus_imp`]||selected[`${prod}_bonus_views`])?(
                           <div key={prod+"_b"} style={{padding:14,background:"var(--yellow-dim)",borderRadius:"var(--r)",border:"1px solid rgba(237,217,0,0.3)",marginBottom:8}}>
                             <div style={{fontSize:12,fontWeight:700,color:"#a07a00",marginBottom:8,textTransform:"uppercase"}}>{prod} — Bonificação</div>
                             <div className="g2" style={{gap:10}}>
-                              <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
-                                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Impressões Bonif.</div>
-                                <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{bImp?Number(bImp).toLocaleString("pt-BR"):"—"}</div>
-                              </div>
-                              <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
-                                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Views Bonif.</div>
-                                <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{bViews?Number(bViews).toLocaleString("pt-BR"):"—"}</div>
-                              </div>
+                              <D l="Impressões Bonif." v={fmtNum(selected[`${prod}_bonus_imp`])}/>
+                              <D l="Views Bonif." v={fmtNum(selected[`${prod}_bonus_views`])}/>
                             </div>
                           </div>
-                        );
-                      })}
+                        ):null
+                      ))}
                     </div>
-                    );
-                  })()}
+                  )}
 
                   {/* Section 4: Audiências, Features, Praças */}
                   <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>4. Audiências, Features e Praças</div>
@@ -2411,6 +1883,8 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   {(selected.cl_features||[]).filter(f=>FEAT_VOL[f]).map(feat=>{
                     const cfg=FEAT_VOL[feat];
                     const volType=selected[`fvol_type_${feat}`]||"contratada";
+                    const hasValues=cfg.fields.some(field=>selected[`fv_${feat}_${field}`]);
+                    if(!hasValues) return null;
                     return(
                       <div key={feat} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
                         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
@@ -2418,35 +1892,20 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                           <span className={`badge ${volType==="bonificada"?"b-teal":"b-ylw"}`} style={{textTransform:"capitalize"}}>{volType}</span>
                         </div>
                         <div className="g2" style={{gap:10}}>
-                          {cfg.fields.map(field=>{
-                            const v=selected[`fv_${feat}_${field}`];
-                            return(
-                              <div key={field} style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
-                                <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{field}</div>
-                                <div style={{fontSize:13,color:"var(--t1)",fontWeight:600}}>{v?Number(v).toLocaleString("pt-BR"):"—"}</div>
-                              </div>
-                            );
-                          })}
+                          {cfg.fields.map(field=><D key={field} l={field} v={fmtNum(selected[`fv_${feat}_${field}`])}/>)}
                         </div>
-                        {FEAT_EXTRA_TEXT[feat]&&(
-                          <div style={{marginTop:10,padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
-                            <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>{FEAT_EXTRA_TEXT[feat].label}</div>
-                            <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,whiteSpace:"pre-wrap"}}>{selected[`fextra_${feat}`]||"—"}</div>
-                          </div>
-                        )}
                       </div>
                     );
                   })}
 
                   {/* Survey / Video Survey */}
                   {(selected.cl_features||[]).filter(f=>["Survey","Video Survey"].includes(f)).map(feat=>(
-                    <div key={feat} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
-                      <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:8,textTransform:"uppercase"}}>{feat}</div>
-                      <div style={{padding:12,background:"var(--bg2)",borderRadius:"var(--r)"}}>
-                        <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Perguntas e Respostas</div>
-                        <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,whiteSpace:"pre-wrap"}}>{selected[`ftext_${feat}`]||"—"}</div>
+                    selected[`ftext_${feat}`]?(
+                      <div key={feat} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
+                        <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:8,textTransform:"uppercase"}}>{feat}</div>
+                        <D l="Perguntas e Respostas" v={selected[`ftext_${feat}`]} wide/>
                       </div>
-                    </div>
+                    ):null
                   ))}
 
                   {/* Inventário Parceiro */}
@@ -2459,34 +1918,9 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
 
                   {/* Praças */}
                   <div className="g2" style={{gap:10}}>
-                    <D l="Praças" v={(()=>{
-                      const t=selected.praças_type||selected.pracas_type;
-                      if(!t) return selected.pracas_detail||"—";
-                      if(t==="Brasil") return "Brasil";
-                      if(t==="Estado"){
-                        const states=selected.praças_states||[];
-                        if(states.length>0) return `Estados: ${states.join(", ")}`;
-                        return selected.pracas_detail?`Estado: ${selected.pracas_detail}`:`Estado${selected.praças_state?": "+selected.praças_state:""}`;
-                      }
-                      if(t==="Cidade"){
-                        const cities=selected.praças_cities||[];
-                        if(cities.length>0) return cities.join(", ");
-                        return selected.pracas_detail||(selected.praças_state||selected.praças_city?`${selected.praças_state||""} — ${selected.praças_city||""}`:"Cidade");
-                      }
-                      return selected.praças_other||selected.pracas_detail||t;
-                    })()}/>
+                    <D l="Praças" v={selected.praças_type==="Brasil"?"Brasil":selected.praças_type==="Estado"?(selected.praças_states||[]).length>0?`Estados: ${(selected.praças_states||[]).join(", ")}`:`Estado: ${selected.praças_state||"—"}`:selected.praças_type==="Cidade"?(selected.praças_cities||[]).length>0?(selected.praças_cities||[]).join(", "):`${selected.praças_state||""} — ${selected.praças_city||""}`:selected.praças_other||selected.praças_type||"—"}/>
                     <D l="Reunião pré-campanha com CS" v={selected.had_cs_meeting==="Sim"||selected.had_cs_meeting===true?"Sim":"Não"}/>
                   </div>
-
-                  {/* Observações do CP */}
-                  {selected.observations&&(
-                    <div style={{padding:16,background:"var(--yellow-dim)",border:"1px solid rgba(237,217,0,0.4)",borderRadius:"var(--r)"}}>
-                      <div style={{fontSize:11,color:"#a07a00",textTransform:"uppercase",fontWeight:700,marginBottom:8,letterSpacing:".06em",display:"flex",alignItems:"center",gap:6}}>
-                        <I n="alert-triangle" s={13} c="#a07a00"/>Observações do CP
-                      </div>
-                      <div style={{fontSize:13,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap"}}>{selected.observations}</div>
-                    </div>
-                  )}
 
                   {/* Section 5: Links */}
                   <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>5. Links e Documentos</div>
@@ -2519,49 +1953,10 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   <div style={{paddingTop:12,borderTop:"1px solid var(--bdr)",fontSize:12,color:"var(--t3)"}}>
                     Enviado por: <strong style={{color:"var(--t1)"}}>{selected.submittedBy||selected.submitted_by||"—"}</strong>
                     {(selected.submittedByEmail||selected.submitted_by_email)&&<span> ({selected.submittedByEmail||selected.submitted_by_email})</span>}
-                    {selected.created_at&&<span> — {(()=>{const v=typeof selected.created_at==="object"&&selected.created_at.value?selected.created_at.value:selected.created_at;const d=new Date(v);return isNaN(d.getTime())?"—":d.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})})()}</span>}
+                    {selected.created_at&&<span> — {new Date(selected.created_at).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"})}</span>}
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirmação de exclusão */}
-      {confirmDelete&&(
-        <div className="mo" onClick={e=>e.target===e.currentTarget&&setConfirmDelete(null)}>
-          <div className="ml" style={{maxWidth:440}}>
-            <div className="mb" style={{padding:"28px 24px"}}>
-              <div style={{textAlign:"center",marginBottom:18}}>
-                <div style={{width:54,height:54,borderRadius:"50%",background:"var(--red-bg)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
-                  <I n="trash" s={24} c="var(--red)"/>
-                </div>
-                <div style={{fontFamily:"var(--fd)",fontSize:17,fontWeight:700,marginBottom:6}}>Excluir Checklist?</div>
-                <div style={{fontSize:13,color:"var(--t2)",lineHeight:1.5}}>
-                  Esta ação é <strong>permanente</strong> e remove o checklist <strong>{confirmDelete.client} — {confirmDelete.campaign_name}</strong> tanto do HYPR Command quanto do Report Hub.
-                </div>
-              </div>
-              <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-                <button className="btn bg" onClick={()=>setConfirmDelete(null)}>Cancelar</button>
-                <button className="btn" style={{background:"var(--red)",color:"#fff"}} onClick={()=>handleDelete(confirmDelete)}>
-                  <I n="trash" s={14}/>Excluir Definitivamente
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Erro de permissão */}
-      {permError&&(
-        <div className="mo" onClick={e=>e.target===e.currentTarget&&setPermError("")}>
-          <div className="ml" style={{maxWidth:380}}>
-            <div className="mb" style={{textAlign:"center",padding:"30px 20px"}}>
-              <I n="lock" s={36} c="var(--yellow-s)" style={{marginBottom:12}}/>
-              <div style={{fontFamily:"var(--fd)",fontSize:16,fontWeight:700,marginBottom:8}}>Ação não permitida</div>
-              <div style={{fontSize:13,color:"var(--t2)",lineHeight:1.5,marginBottom:20}}>{permError}</div>
-              <button className="btn bp" onClick={()=>setPermError("")}>Entendi</button>
             </div>
           </div>
         </div>
@@ -2608,235 +2003,6 @@ const CPM_TABLE = {
   'RMNF': { Display: 35, Video: 0 },
   'RMND': { Display: 30, Video: 0.28 },
 };
-
-// ══════════════════════════════════════════════════════════════════════════════
-// ADMIN CENTER — Gerenciar membros do time
-// ══════════════════════════════════════════════════════════════════════════════
-function AdminCenter() {
-  const { members, reload } = useTeam();
-  const user = window.__hyprUser;
-  const toast = useToast();
-  const [showAdd, setShowAdd] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(null);
-  const [editing, setEditing] = useState(null); // member being edited
-  const [search, setSearch] = useState("");
-  const [filterRole, setFilterRole] = useState("all");
-
-  const ROLE_LABELS = { admin: "Admin", sales: "Sales", cs: "CS", none: "Nenhum" };
-  const ROLE_COLORS = { admin: "var(--red)", sales: "var(--teal)", cs: "var(--green)", none: "var(--t3)" };
-  const ROLE_BG     = { admin: "var(--red-bg)", sales: "var(--teal-dim)", cs: "var(--green-bg)", none: "var(--bg3)" };
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return members.filter(m => {
-      if (filterRole !== "all" && m.role !== filterRole) return false;
-      if (q && !(m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q))) return false;
-      return true;
-    }).sort((a,b) => {
-      const order = { admin:0, sales:1, cs:2, none:3 };
-      const ra = order[a.role]??99, rb = order[b.role]??99;
-      if (ra !== rb) return ra - rb;
-      return (a.name||'').localeCompare(b.name||'');
-    });
-  }, [members, search, filterRole]);
-
-  const counts = useMemo(()=>({
-    all: members.length,
-    admin: members.filter(m=>m.role==='admin').length,
-    sales: members.filter(m=>m.role==='sales').length,
-    cs: members.filter(m=>m.role==='cs').length,
-    none: members.filter(m=>m.role==='none').length,
-  }), [members]);
-
-  const fmtAddedAt = (v) => {
-    if (!v) return "—";
-    const s = typeof v === "object" && v.value ? v.value : String(v);
-    const d = new Date(s);
-    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("pt-BR", { day:"2-digit", month:"2-digit", year:"numeric" });
-  };
-
-  const handleSave = async (data) => {
-    try {
-      const r = await fetch(`${BACKEND_URL}/team`, {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ ...data, requesterEmail: user?.email })
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(()=>({}));
-        toast(err.error || `Erro ao salvar (${r.status}).`);
-        return;
-      }
-      toast(editing ? "Membro atualizado!" : "Membro adicionado!");
-      setShowAdd(false); setEditing(null);
-      reload();
-    } catch (err) {
-      console.error(err);
-      toast("Erro de rede ao salvar.");
-    }
-  };
-
-  const handleRemove = async (m) => {
-    setConfirmRemove(null);
-    try {
-      const r = await fetch(`${BACKEND_URL}/team/${encodeURIComponent(m.email)}`, {
-        method:"DELETE",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({ requesterEmail: user?.email })
-      });
-      if (!r.ok) {
-        const err = await r.json().catch(()=>({}));
-        toast(err.error || `Erro ao remover (${r.status}).`);
-        return;
-      }
-      toast("Membro removido!");
-      reload();
-    } catch (err) {
-      console.error(err);
-      toast("Erro de rede ao remover.");
-    }
-  };
-
-  const tabs = [
-    {key:"all",   label:"Todos",  count:counts.all},
-    {key:"admin", label:"Admins", count:counts.admin},
-    {key:"sales", label:"Sales",  count:counts.sales},
-    {key:"cs",    label:"CS",     count:counts.cs},
-    {key:"none",  label:"Sem acesso",  count:counts.none},
-  ];
-
-  return (
-    <div className="page-enter">
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
-        <div>
-          <h2 style={{fontFamily:"var(--fd)",fontSize:20,fontWeight:800}}>Admin — Gerenciamento de Time</h2>
-          <div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>Adicione, edite ou remova membros e seus acessos</div>
-        </div>
-        <button className="btn bp" onClick={()=>{setEditing(null);setShowAdd(true);}}>
-          <I n="plus" s={14}/>Adicionar Membro
-        </button>
-      </div>
-
-      <div className="card" style={{padding:"12px 16px",marginBottom:16}}>
-        <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-          {tabs.map(t=>(
-            <button key={t.key} className={`btn ${filterRole===t.key?"bp":"bs"}`} style={{fontSize:12,padding:"5px 12px",gap:6}} onClick={()=>setFilterRole(t.key)}>
-              {t.label}<span style={{background:filterRole===t.key?"rgba(255,255,255,0.25)":"var(--bg3)",borderRadius:99,padding:"1px 7px",fontSize:11,fontWeight:700}}>{t.count}</span>
-            </button>
-          ))}
-          <div style={{position:"relative",flex:1,minWidth:200,maxWidth:280,marginLeft:"auto"}}>
-            <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}} c="var(--t3)"/>
-            <input className="fi" style={{paddingLeft:32}} placeholder="Buscar nome ou e-mail..." value={search} onChange={e=>setSearch(e.target.value)}/>
-          </div>
-        </div>
-      </div>
-
-      {filtered.length===0?(
-        <div className="card"><div className="empty"><I n="users" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhum membro encontrado</h3></div></div>
-      ):(
-        <div className="card" style={{padding:0,overflow:"hidden"}}>
-          <div style={{display:"grid",gridTemplateColumns:"1.4fr 1.6fr 0.7fr 1.6fr 0.5fr",alignItems:"center",padding:"10px 16px",background:"var(--bg3)",borderBottom:"1px solid var(--bdr)",fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)"}}>
-            <div>Nome</div><div>E-mail</div><div>Papel</div><div>Adicionado por</div><div></div>
-          </div>
-          {filtered.map(m=>(
-            <div key={m.email} style={{display:"grid",gridTemplateColumns:"1.4fr 1.6fr 0.7fr 1.6fr 0.5fr",alignItems:"center",padding:"12px 16px",borderBottom:"1px solid var(--bdr)",fontSize:13}}>
-              <div style={{fontWeight:600,color:"var(--t1)"}}>{m.name}</div>
-              <div style={{color:"var(--t2)",fontSize:12,wordBreak:"break-all"}}>{m.email}</div>
-              <div>
-                <span style={{padding:"3px 10px",borderRadius:99,background:ROLE_BG[m.role]||"var(--bg3)",color:ROLE_COLORS[m.role]||"var(--t2)",fontSize:11,fontWeight:700,fontFamily:"var(--fd)"}}>
-                  {ROLE_LABELS[m.role]||m.role}
-                </span>
-              </div>
-              <div style={{fontSize:11,color:"var(--t3)"}}>
-                {m.added_by==='system-seed'?<em>Sistema</em>:<>{m.added_by||"—"}</>}
-                <div style={{fontSize:10,color:"var(--t3)",opacity:0.7}}>em {fmtAddedAt(m.added_at)}</div>
-              </div>
-              <div style={{display:"flex",gap:6,justifyContent:"flex-end"}}>
-                <button className="btn bs" style={{fontSize:11,padding:"4px 10px"}} onClick={()=>{setEditing(m);setShowAdd(true);}} title="Editar"><I n="edit" s={12}/></button>
-                <button className="btn bg" style={{fontSize:11,padding:"4px 10px",color:"var(--red)"}} onClick={()=>setConfirmRemove(m)} title="Remover"><I n="trash" s={12} c="var(--red)"/></button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showAdd && <AdminMemberModal initial={editing} onClose={()=>{setShowAdd(false);setEditing(null);}} onSave={handleSave}/>}
-      {confirmRemove && (
-        <div className="mo" onClick={e=>e.target===e.currentTarget&&setConfirmRemove(null)}>
-          <div className="ml" style={{maxWidth:440}}>
-            <div className="mb" style={{padding:"28px 24px"}}>
-              <div style={{textAlign:"center",marginBottom:18}}>
-                <div style={{width:54,height:54,borderRadius:"50%",background:"var(--red-bg)",display:"flex",alignItems:"center",justifyContent:"center",margin:"0 auto 12px"}}>
-                  <I n="trash" s={24} c="var(--red)"/>
-                </div>
-                <div style={{fontFamily:"var(--fd)",fontSize:17,fontWeight:700,marginBottom:6}}>Remover membro?</div>
-                <div style={{fontSize:13,color:"var(--t2)",lineHeight:1.5}}>
-                  <strong>{confirmRemove.name}</strong> ({confirmRemove.email}) perderá acesso aos recursos restritos.
-                </div>
-              </div>
-              <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
-                <button className="btn bg" onClick={()=>setConfirmRemove(null)}>Cancelar</button>
-                <button className="btn" style={{background:"var(--red)",color:"#fff"}} onClick={()=>handleRemove(confirmRemove)}>
-                  <I n="trash" s={14}/>Remover
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function AdminMemberModal({initial, onClose, onSave}) {
-  const [email, setEmail] = useState(initial?.email||"");
-  const [name,  setName ] = useState(initial?.name ||"");
-  const [role,  setRole ] = useState(initial?.role ||"cs");
-  const [error, setError] = useState("");
-  useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
-
-  const submit = () => {
-    setError("");
-    if (!email.trim() || !name.trim()) { setError("Nome e e-mail são obrigatórios."); return; }
-    if (!email.toLowerCase().endsWith("@hypr.mobi")) { setError("Apenas e-mails @hypr.mobi."); return; }
-    onSave({ email: email.trim().toLowerCase(), name: name.trim(), role });
-  };
-
-  return (
-    <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="ml" style={{maxWidth:480}}>
-        <div className="mh">
-          <div>
-            <div className="mt"><I n="user" s={18} c="var(--teal)" style={{verticalAlign:"middle",marginRight:8}}/>{initial?"Editar Membro":"Novo Membro"}</div>
-            {initial && <div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>Atualize o papel ou nome do membro</div>}
-          </div>
-          <button className="btn bg" onClick={onClose}><I n="x" s={18}/></button>
-        </div>
-        <div className="mb">
-          <div className="fg"><label className="fl">Nome completo *</label><input className="fi" placeholder="Ex: Maria Silva" value={name} onChange={e=>setName(e.target.value)} autoFocus/></div>
-          <div className="fg"><label className="fl">E-mail @hypr.mobi *</label><input className="fi" placeholder="maria.silva@hypr.mobi" type="email" value={email} disabled={!!initial} onChange={e=>setEmail(e.target.value)}/></div>
-          <div className="fg">
-            <label className="fl">Papel</label>
-            <select className="fs" value={role} onChange={e=>setRole(e.target.value)}>
-              <option value="admin">Admin (acesso total — pode gerenciar membros)</option>
-              <option value="sales">Sales (acesso ao Proposal Builder)</option>
-              <option value="cs">CS (aparece como CS responsável)</option>
-              <option value="none">Sem acesso especial</option>
-            </select>
-            <div style={{fontSize:11,color:"var(--t3)",marginTop:6,lineHeight:1.5}}>
-              <strong>Admin</strong> também tem acesso a Sales e CS. Cada papel é cumulativo de cima para baixo.
-            </div>
-          </div>
-          {error && <div style={{padding:"10px 14px",background:"var(--red-bg)",border:"1px solid var(--red)",borderRadius:"var(--r)",color:"var(--red)",fontSize:12,marginBottom:12}}>{error}</div>}
-          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
-            <button className="btn bg" onClick={onClose}>Cancelar</button>
-            <button className="btn bp" onClick={submit}><I n="check" s={14}/>{initial?"Salvar":"Adicionar"}</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function ProposalBuilder() {
   const user = useAuth();
@@ -3715,7 +2881,7 @@ function ProposalBuilder() {
             </div>
             <div style={{ flex: '0 0 140px' }}>
               <label className="fl" style={{ marginBottom: 4 }}>Volumetria</label>
-              <input className="fi" type="number" value={row.volumetria} onChange={e => updateScopeRow(row.id, 'volumetria', e.target.value)} placeholder="0" />
+              <NumInput value={row.volumetria} onChange={v => updateScopeRow(row.id, 'volumetria', v)} placeholder="0" />
             </div>
             <button className="btn bg" style={{ marginTop: 18, padding: '6px 8px', flexShrink: 0 }} onClick={() => removeScopeRow(row.id)} title="Remover">
               <I n="x" s={14} c="var(--red)" />
@@ -3767,23 +2933,23 @@ function ProposalBuilder() {
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ flex: '0 0 140px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Usuários Estimados</label>
-                  <input className="fi" type="number" value={row.usuariosEstimados} onChange={e => updateContractRow(row.id, 'usuariosEstimados', e.target.value)} placeholder="0" />
+                  <NumInput value={row.usuariosEstimados} onChange={v => updateContractRow(row.id, 'usuariosEstimados', v)} placeholder="0" />
                 </div>
                 <div style={{ flex: '0 0 100px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Cobertura (%)</label>
-                  <input className="fi" type="number" step="0.1" value={row.cobertura} onChange={e => updateContractRow(row.id, 'cobertura', e.target.value)} />
+                  <NumInput decimal value={row.cobertura} onChange={v => updateContractRow(row.id, 'cobertura', v)} />
                 </div>
                 <div style={{ flex: '0 0 90px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Freq. Máx.</label>
-                  <input className="fi" type="number" value={row.frequenciaMaxima} onChange={e => updateContractRow(row.id, 'frequenciaMaxima', e.target.value)} />
+                  <NumInput value={row.frequenciaMaxima} onChange={v => updateContractRow(row.id, 'frequenciaMaxima', v)} />
                 </div>
                 <div style={{ flex: '0 0 110px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
-                  <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateContractRow(row.id, 'cpmTabela', e.target.value)} />
+                  <NumInput decimal value={row.cpmTabela} onChange={v => updateContractRow(row.id, 'cpmTabela', v)} />
                 </div>
                 <div style={{ flex: '0 0 90px' }}>
                   <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
-                  <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateContractRow(row.id, 'desconto', e.target.value)} />
+                  <NumInput value={row.desconto} onChange={v => updateContractRow(row.id, 'desconto', v)} />
                 </div>
               </div>
               {/* Calculated values */}
@@ -3863,11 +3029,11 @@ function ProposalBuilder() {
                   <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                     <div style={{ flex: '0 0 110px' }}>
                       <label className="fl" style={{ marginBottom: 4 }}>CPM/CPCV Tab.</label>
-                      <input className="fi" type="number" step="0.01" value={row.cpmTabela} onChange={e => updateBonusRow(row.id, 'cpmTabela', e.target.value)} />
+                      <NumInput decimal value={row.cpmTabela} onChange={v => updateBonusRow(row.id, 'cpmTabela', v)} />
                     </div>
                     <div style={{ flex: '0 0 90px' }}>
                       <label className="fl" style={{ marginBottom: 4 }}>Desconto (%)</label>
-                      <input className="fi" type="number" step="1" value={row.desconto} onChange={e => updateBonusRow(row.id, 'desconto', e.target.value)} />
+                      <NumInput value={row.desconto} onChange={v => updateBonusRow(row.id, 'desconto', v)} />
                     </div>
                   </div>
                   {/* Calculated bonus values */}
@@ -3921,24 +3087,24 @@ function ProposalBuilder() {
                     onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], scope: e.target.value } }))} />
                   {isPlays && (
                     <div style={{ flex: '0 0 140px' }}>
-                      <input className="fi" type="number" placeholder="Plays"
+                      <NumInput placeholder="Plays"
                         value={featureDetails[f]?.plays || ''}
-                        onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], plays: e.target.value } }))} />
+                        onChange={v => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], plays: v } }))} />
                       <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Plays</div>
                     </div>
                   )}
                   {!isNoVol && !isPlays && (
                     <>
                       <div style={{ flex: '0 0 150px' }}>
-                        <input className="fi" type="number" placeholder="Impressões Visíveis"
+                        <NumInput placeholder="Impressões Visíveis"
                           value={featureDetails[f]?.impressoes || ''}
-                          onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], impressoes: e.target.value } }))} />
+                          onChange={v => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], impressoes: v } }))} />
                         <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Impressões Visíveis</div>
                       </div>
                       <div style={{ flex: '0 0 140px' }}>
-                        <input className="fi" type="number" placeholder="Views 100%"
+                        <NumInput placeholder="Views 100%"
                           value={featureDetails[f]?.views || ''}
-                          onChange={e => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], views: e.target.value } }))} />
+                          onChange={v => setFeatureDetails(prev => ({ ...prev, [f]: { ...prev[f], views: v } }))} />
                         <div style={{ fontSize: 10, color: 'var(--t3)', marginTop: 2, textAlign: 'center' }}>Views 100%</div>
                       </div>
                     </>
@@ -3976,7 +3142,6 @@ const NAV=[
   {key:"checklist",icon:"clipboard",label:"Checklist"},
   {key:"checklist-center",icon:"inbox",label:"Checklist Center"},
   {key:"proposals",icon:"file-text",label:"Proposal Builder"},
-  {key:"admin",icon:"users",label:"Admin"},
 ];
 
 // ─── AUTH CONTEXT ────────────────────────────────────────────────────────────
@@ -4017,12 +3182,10 @@ function LoginScreen() {
   }, []);
 
   return (
-    <div style={{minHeight:"100vh",background:"#1C262F",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Urbanist',sans-serif"}}>
-      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800;900&display=swap"/>
+    <div style={{minHeight:"100vh",background:"#1C262F",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',sans-serif"}}>
       <div style={{textAlign:"center",padding:40}}>
-        <div style={{display:"flex",alignItems:"baseline",justifyContent:"center",gap:14,marginBottom:8}}>
-          <HyprLogo color="#FFFFFF" height={48}/>
-          <span style={{color:"#3397B9",fontSize:22,fontWeight:300,letterSpacing:"0.08em",fontFamily:"'Urbanist',sans-serif"}}>Command</span>
+        <div style={{fontFamily:"'Syne',sans-serif",fontSize:36,fontWeight:800,color:"#fff",marginBottom:4}}>
+          HYPR <span style={{color:"#3397B9",fontSize:20,fontWeight:400,letterSpacing:"0.08em"}}>Command</span>
         </div>
         <div style={{color:"#8DA0AE",fontSize:14,marginBottom:40}}>Plataforma integrada Sales & CS</div>
         <div style={{display:"flex",justifyContent:"center",marginBottom:16}} ref={divRef} />
@@ -4038,22 +3201,7 @@ function LoginScreen() {
 }
 
 export default function App() {
-  // Session persistence: restore user from localStorage if not expired (1h TTL)
-  const SESSION_TTL_MS = 60 * 60 * 1000; // 1 hour
-  const [user,setUser]=useState(()=>{
-    try {
-      const raw = localStorage.getItem("hypr_session");
-      if (!raw) return null;
-      const { user, expiresAt } = JSON.parse(raw);
-      if (Date.now() > expiresAt) {
-        localStorage.removeItem("hypr_session");
-        return null;
-      }
-      // Re-publish so other parts of the app that read window.__hyprUser see it.
-      window.__hyprUser = user;
-      return user;
-    } catch { return null; }
-  });
+  const [user,setUser]=useState(null);
   const [clients,setClients]=useState([]);
   const [clientsLoading,setClientsLoading]=useState(false);
   const [page,setPage]=useState(()=>{const h=window.location.hash.replace("#","");return ["home","monitor","tasks","checklist","checklist-center","proposals"].includes(h)?h:"home"});
@@ -4065,58 +3213,13 @@ export default function App() {
   const [submittedChecklists,setSubmittedChecklists]=useState([]);
   const [duplicateData,setDuplicateData]=useState(null);
   const [studies,setStudies]=useState([]);
-  const [team,setTeam]=useState([]);
-  const loadTeam=useCallback(()=>{
-    fetch(`${BACKEND_URL}/team`).then(r=>r.json()).then(d=>{
-      if(Array.isArray(d)) setTeam(d);
-    }).catch(err=>console.error("Error fetching team:",err));
-  },[]);
-  useEffect(()=>{loadTeam();},[loadTeam]);
   const [notifs,setNotifs]=useState(INITIAL_NOTIFS);
   const [showNotifs,setShowNotifs]=useState(false);
   const notifRef=useRef();
-  const [showUserMenu,setShowUserMenu]=useState(false);
-  const userMenuRef=useRef();
 
   useEffect(()=>{document.documentElement.setAttribute("data-theme",theme)},[theme]);
   useEffect(()=>{const fn=e=>{if(notifRef.current&&!notifRef.current.contains(e.target))setShowNotifs(false)};document.addEventListener("mousedown",fn);return()=>document.removeEventListener("mousedown",fn)},[]);
-  useEffect(()=>{const fn=e=>{if(userMenuRef.current&&!userMenuRef.current.contains(e.target))setShowUserMenu(false)};document.addEventListener("mousedown",fn);return()=>document.removeEventListener("mousedown",fn)},[]);
-  useEffect(()=>{
-    const fn=()=>{
-      const u = window.__hyprUser;
-      setUser(u);
-      // Persist session in localStorage with expiration
-      if (u) {
-        try {
-          localStorage.setItem("hypr_session", JSON.stringify({
-            user: u,
-            expiresAt: Date.now() + SESSION_TTL_MS,
-          }));
-        } catch {}
-      }
-    };
-    window.addEventListener("hypr-login",fn);
-    return()=>window.removeEventListener("hypr-login",fn);
-  },[]);
-
-  // Periodically check if the session expired (every 60s) and force re-login if so
-  useEffect(()=>{
-    if (!user) return;
-    const check = ()=>{
-      try {
-        const raw = localStorage.getItem("hypr_session");
-        if (!raw) return;
-        const { expiresAt } = JSON.parse(raw);
-        if (Date.now() > expiresAt) {
-          localStorage.removeItem("hypr_session");
-          window.__hyprUser = null;
-          setUser(null);
-        }
-      } catch {}
-    };
-    const id = setInterval(check, 60_000);
-    return ()=>clearInterval(id);
-  },[user]);
+  useEffect(()=>{const fn=()=>setUser(window.__hyprUser);window.addEventListener("hypr-login",fn);return()=>window.removeEventListener("hypr-login",fn);},[]);
 
   // Fetch clients from Cloud Function when user logs in
   useEffect(()=>{
@@ -4170,7 +3273,7 @@ export default function App() {
     const n=[];
     const now=new Date();
     tasks.forEach(t=>{
-      if(t.status==="entregue"||t.status==="completed") {
+      if(t.status==="completed") {
         n.push({id:`done-${t.id}`,type:"task",msg:`${t.client} — ${t.type} concluída`,time:"Concluída",read:true});
         return;
       }
@@ -4193,12 +3296,7 @@ export default function App() {
   const markAllRead=()=>setNotifs(ns=>ns.map(n=>({...n,read:true})));
   const pageTitle=NAV.find(n=>n.key===page)?.label||"Command";
 
-  const handleLogout=()=>{
-    setUser(null);
-    window.__hyprUser=null;
-    try{localStorage.removeItem("hypr_session")}catch{}
-    try{window.google.accounts.id.disableAutoSelect()}catch(e){}
-  };
+  const handleLogout=()=>{setUser(null);window.__hyprUser=null;try{window.google.accounts.id.disableAutoSelect()}catch(e){}};
 
   if(!user) return <LoginScreen />;
 
@@ -4206,7 +3304,6 @@ export default function App() {
     <AuthCtx.Provider value={user}>
     <ClientsCtx.Provider value={clients}>
     <StudiesCtx.Provider value={studies}>
-    <TeamCtx.Provider value={{members:team,reload:loadTeam}}>
     <ThemeCtx.Provider value={{theme,setTheme}}>
     <ToastProvider>
       <style>{CSS}</style>
@@ -4216,25 +3313,12 @@ export default function App() {
         {/* SIDEBAR */}
         <aside className={`sb${collapsed?" col":""}${mobileOpen?" mob":""}`}>
           <div className="sb-logo">
-            {collapsed?(
-              <svg viewBox="0 0 110 100" style={{height:28,width:"auto",display:"block"}} xmlns="http://www.w3.org/2000/svg">
-                <text x="0" y="82" fontFamily="Urbanist, sans-serif" fontWeight="200" fontSize="100" letterSpacing="2" fill="#FFFFFF">H</text>
-                <rect x="80" y="14" width="22" height="22" fill="#FFFFFF"/>
-              </svg>
-            ):(
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <HyprLogo color="#FFFFFF" height={22}/>
-                <span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em",fontFamily:"var(--fd)"}}>Command</span>
-              </div>
-            )}
+            {collapsed?<svg viewBox="0 0 28 32" style={{height:28,width:28}}><text x="1" y="26" fontFamily="Arial Black,sans-serif" fontWeight="900" fontSize="26" fill="#FFFFFF">H</text></svg>
+            :<div style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:800,color:"#fff",letterSpacing:"-0.5px"}}>HYPR <span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em"}}>Command</span></div>}
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
-            {NAV.filter(n => {
-              if(n.key==='proposals') return teamHasProposalAccess(team, user?.email) || hasProposalAccess(user?.email);
-              if(n.key==='admin')     return teamIsAdmin(team, user?.email)         || isAdmin(user?.email);
-              return true;
-            }).map(n=>(
+            {NAV.filter(n => n.key !== 'proposals' || hasProposalAccess(user?.email)).map(n=>(
               <button key={n.key} className={`ni${page===n.key?" act":""}`}
                 style={{justifyContent:collapsed?"center":"flex-start",padding:collapsed?10:"10px 12px"}}
                 title={collapsed?n.label:undefined}
@@ -4317,23 +3401,8 @@ export default function App() {
                   </div>
                 )}
               </div>
-              <div ref={userMenuRef} style={{position:"relative"}}>
-                <button onClick={()=>setShowUserMenu(s=>!s)} title={`${user.name} — clique para opções`} style={{background:"transparent",border:"none",padding:0,cursor:"pointer",display:"block"}}>
-                  {user.picture?<img src={user.picture} alt="" style={{width:34,height:34,borderRadius:"50%",flexShrink:0,display:"block"}}/>
-                  :<div style={{width:34,height:34,background:"linear-gradient(135deg, var(--teal), #1a5f7a)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",letterSpacing:".05em",flexShrink:0}}>{user.initials}</div>}
-                </button>
-                {showUserMenu&&(
-                  <div style={{position:"absolute",top:"calc(100% + 8px)",right:0,minWidth:240,background:"var(--bg-card)",border:"1px solid var(--bdr-card)",borderRadius:"var(--r)",boxShadow:"var(--sh-lg)",overflow:"hidden",zIndex:100}}>
-                    <div style={{padding:"14px 16px",borderBottom:"1px solid var(--bdr)"}}>
-                      <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{user.name}</div>
-                      <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{user.email}</div>
-                    </div>
-                    <button onClick={()=>{setShowUserMenu(false);handleLogout();}} style={{width:"100%",padding:"12px 16px",border:"none",background:"transparent",color:"var(--red)",fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:8,fontFamily:"inherit",textAlign:"left"}} onMouseEnter={e=>e.currentTarget.style.background="var(--bg3)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                      <I n="x" s={14} c="var(--red)"/>Sair
-                    </button>
-                  </div>
-                )}
-              </div>
+              {user.picture?<img src={user.picture} alt="" style={{width:34,height:34,borderRadius:"50%",flexShrink:0}}/>
+              :<div style={{width:34,height:34,background:"linear-gradient(135deg, var(--teal), #1a5f7a)",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff",letterSpacing:".05em",flexShrink:0}}>{user.initials}</div>}
             </div>
           </header>
 
@@ -4342,14 +3411,12 @@ export default function App() {
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
             {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} />}
-            {page==="proposals"&&(teamHasProposalAccess(team,user?.email)||hasProposalAccess(user?.email))&&<ProposalBuilder />}
-            {page==="admin"&&(teamIsAdmin(team,user?.email)||isAdmin(user?.email))&&<AdminCenter />}
+            {page==="proposals"&&hasProposalAccess(user?.email)&&<ProposalBuilder />}
           </div>
         </div>
       </div>
     </ToastProvider>
     </ThemeCtx.Provider>
-    </TeamCtx.Provider>
     </StudiesCtx.Provider>
     </ClientsCtx.Provider>
     </AuthCtx.Provider>
