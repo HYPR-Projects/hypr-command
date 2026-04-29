@@ -1192,8 +1192,52 @@ function TaskCenter({tasks,setTasks}) {
       ):viewMode==="kanban"?(
         <KanbanBoard tasks={filtered} canChangeStatus={canChangeStatus} canEdit={canEdit} onEdit={setEditingTask} onOpen={setSelected} onAddLink={setLinkModal} onStart={(t)=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onDrop={handleDrop} dragOverCol={dragOverCol} setDragOverCol={setDragOverCol}/>
       ):(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:16}}>
-          {filtered.map(t=><TaskCard key={t.id} task={t} canChangeStatus={canChangeStatus(t)} canEdit={canEdit(t)} onEdit={()=>setEditingTask(t)} onStart={()=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}} onComplete={handleComplete} onAddLink={setLinkModal} onOpen={setSelected} />)}
+        <div className="card" style={{padding:0,overflow:"hidden"}}>
+          <table className="dt">
+            <thead>
+              <tr>
+                <th style={{width:"22%"}}>Cliente</th>
+                <th style={{width:"18%"}}>Tipo</th>
+                <th style={{width:"18%"}}>CS</th>
+                <th style={{width:"12%"}}>Prazo</th>
+                <th style={{width:"12%"}}>SLA</th>
+                <th style={{width:"14%"}}>Status</th>
+                <th style={{width:"4%"}}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(t=>{
+                const st=getTaskStatus(t);
+                const stCls=st==="Concluída"?"b-teal":st==="Atrasada"?"b-red":st==="Iniciada"?"b-blue":"b-grn";
+                const slaOk=st!=="Atrasada";
+                return(
+                  <tr key={t.id} onClick={()=>setSelected(t)} style={{cursor:"pointer"}}>
+                    <td>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:32,height:32,borderRadius:"50%",background:"linear-gradient(135deg,var(--teal),var(--teal-l))",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#fff",flexShrink:0}}>{t.client?.substring(0,2).toUpperCase()||"?"}</div>
+                        <div style={{minWidth:0}}>
+                          <div style={{fontWeight:600,color:"var(--t1)",fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.client}</div>
+                          {t.agency&&<div style={{fontSize:11,color:"var(--t3)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{t.agency}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td><span style={{padding:"3px 10px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:11,fontWeight:600,color:"var(--t2)",fontFamily:"var(--fd)"}}>{t.type}</span></td>
+                    <td style={{color:"var(--t2)",fontSize:12.5}}>{t.cs||"—"}</td>
+                    <td style={{fontSize:12.5,color:st==="Atrasada"?"var(--red)":"var(--t2)",fontWeight:st==="Atrasada"?600:400}}>{fmtDate(t.deadline)}</td>
+                    <td><span className={`badge ${slaOk?"b-grn":"b-red"}`}>{slaOk?"No prazo":"Atrasada"}</span></td>
+                    <td><span className={`badge ${stCls}`}>{st}</span></td>
+                    <td onClick={e=>e.stopPropagation()}>
+                      <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+                        {t.docLink&&<a href={t.docLink} target="_blank" rel="noreferrer" className="btn bg" style={{padding:"5px 8px",fontSize:11}} title="Abrir documento"><I n="external" s={12}/></a>}
+                        {rawStatus(t)==="aberta"&&<button className="btn bp" style={{fontSize:11,padding:"5px 10px"}} disabled={!canChangeStatus(t)} title={!canChangeStatus(t)?"Apenas o CS responsável pode iniciar":""} onClick={()=>{if(!canChangeStatus(t)){setPermError("Apenas o CS responsável pode iniciar esta task.");return;}setStartModal({task:t,message:""});}}><I n="play" s={11}/></button>}
+                        {rawStatus(t)==="iniciada"&&<button className="btn bp" style={{fontSize:11,padding:"5px 10px"}} disabled={!canChangeStatus(t)} title={!canChangeStatus(t)?"Apenas o CS responsável pode concluir":""} onClick={()=>handleComplete(t.id)}><I n="check" s={11}/></button>}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -1385,23 +1429,25 @@ function KanbanCard({task,canDrag,canChangeStatus,onOpen,onAddLink,onStart,onCom
       draggable={canDrag}
       onDragStart={e=>{e.dataTransfer.setData("text/plain",String(task.id));e.dataTransfer.effectAllowed="move";}}
       onClick={()=>onOpen&&onOpen(task)}
-      style={{background:"var(--bg2)",border:`1px solid ${overdue?"var(--red)":"var(--bdr)"}`,borderLeft:overdue?"3px solid var(--red)":undefined,borderRadius:"var(--r)",padding:"12px 14px",cursor:canDrag?"grab":"pointer",boxShadow:"var(--sh-sm)",display:"flex",flexDirection:"column",gap:8}}
+      style={{background:"var(--bg-card)",border:`1px solid ${overdue?"var(--red)":"var(--bdr-card)"}`,borderLeft:overdue?"3px solid var(--red)":undefined,borderRadius:"var(--r)",padding:"10px 12px",cursor:canDrag?"grab":"pointer",boxShadow:"var(--sh-sm)",display:"flex",flexDirection:"column",gap:6,transition:"all 0.15s"}}
+      onMouseEnter={e=>{e.currentTarget.style.boxShadow="var(--sh-md)";e.currentTarget.style.transform="translateY(-1px)";}}
+      onMouseLeave={e=>{e.currentTarget.style.boxShadow="var(--sh-sm)";e.currentTarget.style.transform="translateY(0)";}}
     >
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <span style={{padding:"2px 8px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:10,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
-        <span style={{fontSize:10,color:"var(--t3)"}}>#{String(task.id).slice(-6)}</span>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:6}}>
+        <span style={{padding:"2px 7px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:9.5,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)",whiteSpace:"nowrap",textOverflow:"ellipsis",overflow:"hidden",maxWidth:140}}>{task.type}</span>
+        <span style={{fontSize:9.5,color:"var(--t3)"}}>#{String(task.id).slice(-6)}</span>
       </div>
-      <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",fontFamily:"var(--fd)"}}>{task.client}</div>
-      <div style={{fontSize:11,color:"var(--t2)",lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{task.briefing}</div>
-      <div style={{display:"flex",alignItems:"center",gap:8,fontSize:11,color:"var(--t3)"}}>
-        <span style={{display:"flex",alignItems:"center",gap:3}}><I n="user" s={10}/>{(task.cs||"").split(" ")[0]}</span>
-        <span style={{display:"flex",alignItems:"center",gap:3,color:overdue?"var(--red)":"var(--t3)"}}><I n="calendar" s={10}/>{fmtDate(task.deadline)}</span>
+      <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",fontFamily:"var(--fd)",lineHeight:1.2}}>{task.client}</div>
+      <div style={{display:"flex",alignItems:"center",gap:10,fontSize:10.5,color:"var(--t3)"}}>
+        <span style={{display:"flex",alignItems:"center",gap:3}}><I n="user" s={10}/>{(task.cs||"—").split(" ")[0]}</span>
+        <span style={{display:"flex",alignItems:"center",gap:3,color:overdue?"var(--red)":"var(--t3)",fontWeight:overdue?600:400}}><I n="calendar" s={10}/>{fmtDate(task.deadline)}</span>
+        {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" onClick={stop} title="Abrir doc" style={{marginLeft:"auto",color:"var(--teal)",display:"flex",alignItems:"center"}}><I n="external" s={11}/></a>}
       </div>
       {(raw==="aberta"||raw==="iniciada")&&(
-        <div onClick={stop} style={{display:"flex",gap:6,paddingTop:6,borderTop:"1px solid var(--bdr)"}}>
-          {raw==="aberta"&&<button className="btn bp" disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável":""} style={{fontSize:10,padding:"4px 8px",flex:1}} onClick={()=>onStart(task)}><I n="play" s={11}/>Iniciar</button>}
-          {raw==="iniciada"&&<button className="btn bp" disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável":""} style={{fontSize:10,padding:"4px 8px",flex:1}} onClick={()=>onComplete(task.id)}><I n="check" s={11}/>Concluir</button>}
-          <button className="btn bg" style={{fontSize:10,padding:"4px 8px"}} onClick={()=>onAddLink(task)} title="Link"><I n="link" s={11}/></button>
+        <div onClick={stop} style={{display:"flex",gap:4,marginTop:2}}>
+          {raw==="aberta"&&<button className="btn bp" disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável":""} style={{fontSize:10,padding:"4px 8px",flex:1,gap:4}} onClick={()=>onStart(task)}><I n="play" s={10}/>Iniciar</button>}
+          {raw==="iniciada"&&<button className="btn bp" disabled={!canChangeStatus} title={!canChangeStatus?"Apenas o CS responsável":""} style={{fontSize:10,padding:"4px 8px",flex:1,gap:4}} onClick={()=>onComplete(task.id)}><I n="check" s={10}/>Concluir</button>}
+          <button className="btn bg" style={{fontSize:10,padding:"4px 6px"}} onClick={()=>onAddLink(task)} title="Link"><I n="link" s={10}/></button>
         </div>
       )}
     </div>
@@ -2467,37 +2513,79 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
       {filtered.length===0?(
         <div className="card"><div className="empty"><I n="clipboard" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>{(search||filterMonth||filterYear)?"Nenhum checklist encontrado com esses filtros":"Nenhum checklist enviado ainda"}</h3></div></div>
       ):(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(340px,1fr))",gap:16}}>
-          {filtered.map(c=>(
-            <div key={c.id} className="card" style={{padding:"18px 20px",cursor:"pointer",display:"flex",flexDirection:"column",gap:10,position:"relative"}} onClick={()=>{setSelected(c);setEditing(false)}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                <span style={{fontSize:15,fontWeight:700,fontFamily:"var(--fd)",color:"var(--t1)"}}>{c.client}</span>
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <span style={{fontSize:11,color:"var(--t3)"}}>{fmtDate(c.created_at)}</span>
-                  {canDelete(c)&&(
-                    <button
-                      onClick={e=>{e.stopPropagation();setConfirmDelete(c);}}
-                      title="Excluir checklist"
-                      style={{background:"transparent",border:"none",padding:4,cursor:"pointer",borderRadius:6,color:"var(--t3)",display:"flex",alignItems:"center"}}
-                      onMouseEnter={e=>{e.currentTarget.style.background="var(--red-bg)";e.currentTarget.style.color="var(--red)";}}
-                      onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="var(--t3)";}}
-                    >
-                      <I n="trash" s={14}/>
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div style={{fontSize:13,color:"var(--t2)"}}>{c.campaign_name||"—"}</div>
-              <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                {c.agency&&<span style={{fontSize:11,color:"var(--t3)",background:"var(--bg3)",padding:"2px 8px",borderRadius:99}}>{c.agency}</span>}
-                {c.campaign_type&&<span style={{fontSize:11,color:"var(--teal)",background:"var(--teal-dim)",padding:"2px 8px",borderRadius:99}}>{c.campaign_type}</span>}
-              </div>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:"1px solid var(--bdr)"}}>
-                <span style={{fontSize:13,fontWeight:700,color:"var(--teal)"}}>{c.investment?`R$ ${Number(c.investment).toLocaleString("pt-BR")}`:"—"}</span>
-                <Tags items={c.products} color="teal"/>
-              </div>
-            </div>
-          ))}
+        <div className="card" style={{padding:0,overflow:"hidden"}}>
+          <table className="dt">
+            <thead>
+              <tr>
+                <th style={{width:"15%"}}>Cliente</th>
+                <th style={{width:"20%"}}>Campanha</th>
+                <th style={{width:"14%"}}>Período</th>
+                <th style={{width:"12%"}}>Investimento</th>
+                <th style={{width:"15%"}}>Produtos</th>
+                <th style={{width:"12%"}}>CS</th>
+                <th style={{width:"8%"}}>Status</th>
+                <th style={{width:"4%"}}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(c=>{
+                // Compute status: Rodando (active) / Pendente (future) / Encerrada (past)
+                const parseDateLocal=(v)=>{if(!v)return null;const s=typeof v==="object"&&v.value?v.value:String(v);const m=s.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?new Date(parseInt(m[1]),parseInt(m[2])-1,parseInt(m[3])):null};
+                const today=new Date();today.setHours(0,0,0,0);
+                const sd=parseDateLocal(c.start_date);
+                const ed=parseDateLocal(c.end_date);
+                let statusLabel="—",statusCls="b-grn";
+                if(sd&&ed){
+                  ed.setHours(23,59,59,999);
+                  if(today<sd){statusLabel="Pendente";statusCls="b-blue"}
+                  else if(today>ed){statusLabel="Encerrada";statusCls="b-grn";statusCls="b-teal"}
+                  else{statusLabel="Rodando";statusCls="b-grn"}
+                }
+                // Format period
+                const fmtMonthDay=(d)=>d?`${d.getDate()} ${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][d.getMonth()]}`:"—";
+                const period=(sd&&ed)?`${fmtMonthDay(sd)} – ${fmtMonthDay(ed)}`:"—";
+                return(
+                  <tr key={c.id} onClick={()=>{setSelected(c);setEditing(false)}} style={{cursor:"pointer"}}>
+                    <td>
+                      <div style={{display:"flex",alignItems:"center",gap:10}}>
+                        <div style={{width:30,height:30,borderRadius:"50%",background:"linear-gradient(135deg,var(--teal),var(--teal-l))",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#fff",flexShrink:0}}>{c.client?.substring(0,2).toUpperCase()||"?"}</div>
+                        <div style={{minWidth:0}}>
+                          <div style={{fontWeight:600,color:"var(--t1)",fontSize:13,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.client||"—"}</div>
+                          {c.agency&&<div style={{fontSize:10.5,color:"var(--t3)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.agency}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{fontSize:12.5,color:"var(--t1)",maxWidth:200,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.campaign_name||"—"}</td>
+                    <td style={{fontSize:12,color:"var(--t2)"}}>{period}</td>
+                    <td style={{fontSize:13,color:"var(--teal)",fontWeight:600}}>{c.investment?`R$ ${Number(c.investment).toLocaleString("pt-BR",{maximumFractionDigits:0})}`:"—"}</td>
+                    <td>
+                      {(c.products||[]).length>0?(
+                        <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+                          {(c.products||[]).slice(0,2).map(p=><span key={p} className="badge b-teal" style={{fontSize:10,padding:"2px 7px"}}>{p}</span>)}
+                          {(c.products||[]).length>2&&<span style={{fontSize:11,color:"var(--t3)"}}>+{(c.products||[]).length-2}</span>}
+                        </div>
+                      ):<span style={{fontSize:12,color:"var(--t3)"}}>—</span>}
+                    </td>
+                    <td style={{fontSize:12.5,color:"var(--t2)"}}>{(c.cs||"—").split(" ")[0]}</td>
+                    <td><span className={`badge ${statusCls}`}>{statusLabel}</span></td>
+                    <td onClick={e=>e.stopPropagation()}>
+                      {canDelete(c)&&(
+                        <button
+                          onClick={e=>{e.stopPropagation();setConfirmDelete(c);}}
+                          title="Excluir checklist"
+                          style={{background:"transparent",border:"none",padding:6,cursor:"pointer",borderRadius:6,color:"var(--t3)",display:"flex",alignItems:"center"}}
+                          onMouseEnter={e=>{e.currentTarget.style.background="var(--red-bg)";e.currentTarget.style.color="var(--red)";}}
+                          onMouseLeave={e=>{e.currentTarget.style.background="transparent";e.currentTarget.style.color="var(--t3)";}}
+                        >
+                          <I n="trash" s={13}/>
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
