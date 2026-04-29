@@ -249,14 +249,15 @@ function HyprLogo({color="#FFFFFF",height=28,style}) {
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap');
 
-/* ═══════════ LIGHT THEME (default) ═══════════ */
+/* ═══════════ LIGHT THEME (refinado) ═══════════ */
 :root{
   --navy:#1C262F;--teal:#3397B9;--teal-l:#4ab3d6;--teal-dim:rgba(51,151,185,0.10);--teal-glow:rgba(51,151,185,0.20);
   --yellow:#EDD900;--yellow-dim:rgba(237,217,0,0.10);
-  --bg1:#F7F9FB;--bg2:#FFFFFF;--bg3:#F0F3F6;--bg-card:#FFFFFF;--bg-sidebar:#0E151C;--bg-input:#FFFFFF;--bg-hero:linear-gradient(135deg,rgba(51,151,185,0.06) 0%,rgba(51,151,185,0.01) 100%);
+  --bg1:#FAFBFC;--bg2:#FFFFFF;--bg3:#F1F4F7;--bg-card:#FFFFFF;--bg-sidebar:#0E151C;--bg-input:#FFFFFF;
+  --bg-hero:linear-gradient(135deg,rgba(51,151,185,0.05) 0%,rgba(255,255,255,0.5) 100%);
   --t1:#1C262F;--t2:#4A6070;--t3:#8DA0AE;
-  --bdr:#E2E8ED;--bdr-focus:#3397B9;--bdr-card:#EAEEF2;--bdr-soft:#F0F3F6;
-  --sh-sm:0 1px 2px rgba(28,38,47,0.04);--sh-md:0 2px 8px rgba(28,38,47,0.06);--sh-lg:0 8px 24px rgba(28,38,47,0.08);
+  --bdr:#E4EAEF;--bdr-focus:#3397B9;--bdr-card:#EAEEF2;--bdr-soft:#F1F4F7;
+  --sh-sm:0 1px 2px rgba(28,38,47,0.04);--sh-md:0 4px 12px rgba(28,38,47,0.06);--sh-lg:0 12px 32px rgba(28,38,47,0.10);
   --green:#22C55E;--green-bg:rgba(34,197,94,0.10);--red:#EF4444;--red-bg:rgba(239,68,68,0.10);--yellow-s:#F59E0B;--yellow-s-bg:rgba(245,158,11,0.10);
   --r:10px;--rl:14px;--rxl:18px;
   --ff:'Urbanist',sans-serif;--fd:'Syne',sans-serif;
@@ -702,29 +703,49 @@ function Dashboard({checklists, tasks, onNav}) {
 
       {/* Charts row */}
       <div className="g2" style={{marginBottom:24}}>
-        {/* Investment by month */}
+        {/* Investment by month - Area chart with gradient */}
         <div className="card" style={{padding:"18px 20px"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:16,fontFamily:"var(--fd)"}}>Investimento por Mês</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={monthlyData} barSize={24}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:600,color:"var(--t1)",fontFamily:"var(--fd)"}}>Investimento mensal</div>
+              <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Últimos meses · em R$</div>
+            </div>
+            {totalInvestment>0&&<span className="badge b-teal">Total: {fmtCurrency(totalInvestment)}</span>}
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={monthlyData} margin={{top:10,right:8,left:0,bottom:0}}>
+              <defs>
+                <linearGradient id="gradInvest" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0%" stopColor="var(--teal)" stopOpacity={0.4}/>
+                  <stop offset="100%" stopColor="var(--teal)" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
               <XAxis dataKey="name" tick={{fontSize:11,fill:"var(--t3)"}} axisLine={false} tickLine={false} />
-              <Tooltip formatter={v => fmtCurrency(v)} contentStyle={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:8,fontSize:12}} />
-              <Bar dataKey="value" fill="var(--teal)" radius={[4,4,0,0]} />
-            </BarChart>
+              <YAxis hide />
+              <Tooltip formatter={v => fmtCurrency(v)} contentStyle={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:10,fontSize:12,boxShadow:"var(--sh-md)"}} labelStyle={{color:"var(--t2)",fontSize:11}} />
+              <Area type="monotone" dataKey="value" stroke="var(--teal)" strokeWidth={2} fill="url(#gradInvest)" dot={{r:3.5,fill:"var(--teal)",strokeWidth:0}} activeDot={{r:5,fill:"var(--yellow)",stroke:"var(--bg-card)",strokeWidth:2}} />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
 
-        {/* Tasks by CS */}
+        {/* Tasks por CS - Bar chart horizontal */}
         <div className="card" style={{padding:"18px 20px"}}>
-          <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",marginBottom:16,fontFamily:"var(--fd)"}}>Tasks por CS (ano)</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={taskByCS} layout="vertical" barSize={16}>
-              <XAxis type="number" tick={{fontSize:11,fill:"var(--t3)"}} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="name" tick={{fontSize:11,fill:"var(--t2)"}} axisLine={false} tickLine={false} width={70} />
-              <Tooltip contentStyle={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:8,fontSize:12}} />
-              <Bar dataKey="tasks" fill="var(--teal-l)" radius={[0,4,4,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:14,fontWeight:600,color:"var(--t1)",fontFamily:"var(--fd)"}}>Tasks por CS</div>
+            <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Distribuição da equipe</div>
+          </div>
+          {taskByCS.length===0?(
+            <div style={{padding:"40px 0",textAlign:"center",color:"var(--t3)",fontSize:12}}>Sem tasks no período</div>
+          ):(
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={taskByCS} layout="vertical" barSize={14} margin={{top:4,right:16,left:0,bottom:0}}>
+                <XAxis type="number" tick={{fontSize:11,fill:"var(--t3)"}} axisLine={false} tickLine={false} />
+                <YAxis type="category" dataKey="name" tick={{fontSize:12,fill:"var(--t2)"}} axisLine={false} tickLine={false} width={80} />
+                <Tooltip contentStyle={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:10,fontSize:12,boxShadow:"var(--sh-md)"}} labelStyle={{color:"var(--t2)",fontSize:11}} cursor={{fill:"var(--bg3)"}} />
+                <Bar dataKey="tasks" fill="var(--teal)" radius={[0,99,99,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 
@@ -4404,7 +4425,10 @@ export default function App() {
   const [clientsLoading,setClientsLoading]=useState(false);
   const [page,setPage]=useState(()=>{const h=window.location.hash.replace("#","");return ["home","monitor","tasks","checklist","checklist-center","proposals"].includes(h)?h:"home"});
   const navigate=(p)=>{setPage(p);window.location.hash=p};
-  const [theme,setTheme]=useState("light");
+  const [theme,setTheme]=useState(()=>{
+    try{const saved=localStorage.getItem("hypr-theme");return saved==="light"||saved==="dark"?saved:"dark"}catch(e){return "dark"}
+  });
+  useEffect(()=>{try{localStorage.setItem("hypr-theme",theme)}catch(e){}},[theme]);
   const [collapsed,setCollapsed]=useState(false);
   const [mobileOpen,setMobileOpen]=useState(false);
   const [tasks,setTasks]=useState([]);
