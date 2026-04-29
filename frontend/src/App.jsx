@@ -380,7 +380,7 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1);transition:back
 [data-theme="dark"] .chip{background:rgba(255,255,255,0.03);border-color:rgba(255,255,255,0.08)}
 .chip:hover{border-color:var(--teal);color:var(--teal)}
 .chip.sel{background:var(--teal-dim);border-color:var(--teal);color:var(--teal-l)}
-.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600;letter-spacing:0.02em}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600;letter-spacing:0.02em;white-space:nowrap}
 .b-grn{background:var(--green-bg);color:var(--green)}
 .b-red{background:var(--red-bg);color:var(--red)}
 .b-ylw{background:var(--yellow-s-bg);color:var(--yellow-s)}
@@ -2517,14 +2517,14 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
           <table className="dt">
             <thead>
               <tr>
-                <th style={{width:"15%"}}>Cliente</th>
-                <th style={{width:"18%"}}>Campanha</th>
-                <th style={{width:"12%"}}>Período</th>
+                <th style={{width:"14%"}}>Cliente</th>
+                <th style={{width:"17%"}}>Campanha</th>
+                <th style={{width:"11%"}}>Período</th>
                 <th style={{width:"11%"}}>Investimento</th>
                 <th style={{width:"12%"}}>Produtos</th>
-                <th style={{width:"11%"}}>CS</th>
-                <th style={{width:"11%"}}>CP</th>
-                <th style={{width:"7%"}}>Status</th>
+                <th style={{width:"10%"}}>CS</th>
+                <th style={{width:"10%"}}>CP</th>
+                <th style={{width:"12%"}}>Status</th>
                 <th style={{width:"3%"}}></th>
               </tr>
             </thead>
