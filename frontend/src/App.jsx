@@ -2518,13 +2518,14 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
             <thead>
               <tr>
                 <th style={{width:"15%"}}>Cliente</th>
-                <th style={{width:"20%"}}>Campanha</th>
-                <th style={{width:"14%"}}>Período</th>
-                <th style={{width:"12%"}}>Investimento</th>
-                <th style={{width:"15%"}}>Produtos</th>
-                <th style={{width:"12%"}}>CS</th>
-                <th style={{width:"8%"}}>Status</th>
-                <th style={{width:"4%"}}></th>
+                <th style={{width:"18%"}}>Campanha</th>
+                <th style={{width:"12%"}}>Período</th>
+                <th style={{width:"11%"}}>Investimento</th>
+                <th style={{width:"12%"}}>Produtos</th>
+                <th style={{width:"11%"}}>CS</th>
+                <th style={{width:"11%"}}>CP</th>
+                <th style={{width:"7%"}}>Status</th>
+                <th style={{width:"3%"}}></th>
               </tr>
             </thead>
             <tbody>
@@ -2537,13 +2538,17 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                 let statusLabel="—",statusCls="b-grn";
                 if(sd&&ed){
                   ed.setHours(23,59,59,999);
-                  if(today<sd){statusLabel="Pendente";statusCls="b-blue"}
-                  else if(today>ed){statusLabel="Encerrada";statusCls="b-grn";statusCls="b-teal"}
-                  else{statusLabel="Rodando";statusCls="b-grn"}
+                  if(today<sd){statusLabel="Não Iniciada";statusCls="b-blue"}
+                  else if(today>ed){statusLabel="Finalizada";statusCls="b-teal"}
+                  else{statusLabel="Ativa";statusCls="b-grn"}
                 }
                 // Format period
                 const fmtMonthDay=(d)=>d?`${d.getDate()} ${["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"][d.getMonth()]}`:"—";
                 const period=(sd&&ed)?`${fmtMonthDay(sd)} – ${fmtMonthDay(ed)}`:"—";
+                // CS / CP names
+                const csName=c.cs_name||c.cs||"—";
+                const cpName=c.cp_name||c.submittedBy||c.submitted_by||"—";
+                const firstName=(name)=>name&&name!=="—"?name.split(" ")[0]:"—";
                 return(
                   <tr key={c.id} onClick={()=>{setSelected(c);setEditing(false)}} style={{cursor:"pointer"}}>
                     <td>
@@ -2566,7 +2571,8 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                         </div>
                       ):<span style={{fontSize:12,color:"var(--t3)"}}>—</span>}
                     </td>
-                    <td style={{fontSize:12.5,color:"var(--t2)"}}>{(c.cs||"—").split(" ")[0]}</td>
+                    <td style={{fontSize:12.5,color:"var(--t2)"}} title={csName}>{firstName(csName)}</td>
+                    <td style={{fontSize:12.5,color:"var(--t2)"}} title={cpName}>{firstName(cpName)}</td>
                     <td><span className={`badge ${statusCls}`}>{statusLabel}</span></td>
                     <td onClick={e=>e.stopPropagation()}>
                       {canDelete(c)&&(
