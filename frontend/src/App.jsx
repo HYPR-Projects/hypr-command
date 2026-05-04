@@ -96,6 +96,15 @@ function fmtDate(d) {
   if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   return new Date(d).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"});
 }
+// Nome curto: primeiro nome + inicial do sobrenome (ex: "João A.")
+// Se só tem 1 nome, retorna só ele. Se vazio, retorna "—".
+function shortName(full) {
+  if (!full) return "—";
+  const parts = String(full).trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[parts.length-1].charAt(0).toUpperCase()}.`;
+}
 // Parse YYYY-MM-DD como data LOCAL (evita timezone shift que joga 01/05 → 30/04 em fusos UTC-)
 function parseLocalDate(d) {
   if (!d) return null;
@@ -1129,8 +1138,8 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink}){
                     {t.budget>0&&<div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>R$ {Number(t.budget).toLocaleString("pt-BR")}</div>}
                   </td>
                   <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)"}}>{t.type}</td>
-                  <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{(t.cs||"—").split(" ")[0]}</td>
-                  <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{(t.requestedBy||"—").split(" ")[0]}</td>
+                  <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{shortName(t.cs)}</td>
+                  <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{shortName(t.requestedBy)}</td>
                   <td style={{padding:"12px 14px",fontSize:12,color:st==="Atrasada"?"var(--red)":"var(--t2)",whiteSpace:"nowrap"}}>{fmtDate(t.deadline)}</td>
                   <td style={{padding:"12px 14px",textAlign:"center"}}>
                     <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:stBg,color:stColor}}>{st}</span>
@@ -1181,7 +1190,7 @@ function KanbanCard({task,draggable,onDragStart,onStart,onComplete,onReopen,onAd
         <div style={{fontSize:11,color:"var(--t2)",lineHeight:1.4,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}}>{task.briefing}</div>
       )}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",fontSize:10,color:"var(--t3)",paddingTop:6,borderTop:"1px solid var(--bdr-card)"}}>
-        <span style={{display:"inline-flex",alignItems:"center",gap:4}}><I n="user" s={10}/>{(task.cs||"—").split(" ")[0]}</span>
+        <span style={{display:"inline-flex",alignItems:"center",gap:4}}><I n="user" s={10}/>{shortName(task.cs)}</span>
         <span style={{display:"inline-flex",alignItems:"center",gap:4,color:isOverdue?"var(--red)":"var(--t3)"}}><I n="calendar" s={10}/>{fmtDate(task.deadline)}</span>
       </div>
       <div style={{display:"flex",gap:4}}>
@@ -2287,8 +2296,8 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                                   ))}
                                 </div>
                               </td>
-                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{(c.cs_name||"—").split(" ")[0]}</td>
-                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{(c.cp_name||c.submittedBy||c.submitted_by||"—").split(" ")[0]}</td>
+                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{shortName(c.cs_name)}</td>
+                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{shortName(c.cp_name||c.submittedBy||c.submitted_by)}</td>
                               <td style={{padding:"12px 14px",textAlign:"center"}}>
                                 <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:statusBg,color:statusColor}}>{status}</span>
                               </td>
