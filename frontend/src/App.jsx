@@ -172,6 +172,8 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
     "list":<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>,
     "columns":<><path d="M12 3v18"/><rect x="3" y="3" width="18" height="18" rx="2"/></>,
     "trash":<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/></>,
+    "shield":<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></>,
+    "user-plus":<><path d="M16 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></>,
     "calendar":<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
     "zap":<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
     "trending-up":<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
@@ -2696,15 +2698,40 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
 // ══════════════════════════════════════════════════════════════════════════════
 // PERMISSIONS
 // ══════════════════════════════════════════════════════════════════════════════
-const ADMINS = [
+// Fallback: lista usada apenas se o backend /team estiver indisponível
+const FALLBACK_ADMINS = [
   'matheus.machado@hypr.mobi','cesar.moura@hypr.mobi','adrian.ferguson@hypr.mobi',
   'mateus.lambranho@hypr.mobi','gian.nardo@hypr.mobi',
 ];
-const SALES_TEAM = [
+const FALLBACK_CPS = [
   'danilo.pereira@hypr.mobi','eduarda.bolzan@hypr.mobi','camila.tenorio@hypr.mobi',
   'egle.stein@hypr.mobi','alexandra.perez@hypr.mobi','karol.siqueira@hypr.mobi',
   'pablo.souza@hypr.mobi','larissa.reis@hypr.mobi','marcelo.nogueira@hypr.mobi',
 ];
+// Context com a lista vinda de GET /team — fonte da verdade pra permissões em runtime
+const TeamCtx = createContext({ members: [], reload: ()=>{}, loading: false });
+const useTeam = () => useContext(TeamCtx);
+const teamRoleOf = (members, email) => {
+  if (!email) return null;
+  const m = members.find(x => x.email?.toLowerCase() === email.toLowerCase());
+  return m?.role || null;
+};
+const isAdminFromTeam = (members, email) => {
+  const r = teamRoleOf(members, email);
+  if (r) return r === 'admin';
+  return FALLBACK_ADMINS.includes((email||'').toLowerCase());
+};
+const hasProposalAccessFromTeam = (members, email) => {
+  const r = teamRoleOf(members, email);
+  if (r) return r === 'admin' || r === 'cp' || r === 'sales';
+  const e = (email||'').toLowerCase();
+  return FALLBACK_ADMINS.includes(e) || FALLBACK_CPS.includes(e);
+};
+
+// Mantidas como constantes legadas para compatibilidade com código que ainda referencia
+// (nao usar para novas decisões de permissão — usar useTeam() + os helpers acima).
+const ADMINS = FALLBACK_ADMINS;
+const SALES_TEAM = FALLBACK_CPS;
 const hasProposalAccess = (email) => ADMINS.includes(email) || SALES_TEAM.includes(email);
 const isAdmin = (email) => ADMINS.includes(email);
 
@@ -3870,7 +3897,363 @@ const NAV=[
   {key:"checklist",icon:"clipboard",label:"Checklist"},
   {key:"checklist-center",icon:"inbox",label:"Checklist Center"},
   {key:"proposals",icon:"file-text",label:"Proposal Builder"},
+  {key:"admin",icon:"shield",label:"Admin"},
 ];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ADMIN PANEL (gerenciamento de usuários)
+// ══════════════════════════════════════════════════════════════════════════════
+const ROLE_OPTIONS = [
+  { value: 'admin', label: 'Admin',           color: 'var(--red)',     desc: 'Acesso total à plataforma' },
+  { value: 'cp',    label: 'Client Partner',  color: 'var(--teal)',    desc: 'Cria checklists e propostas' },
+  { value: 'cs',    label: 'Client Services', color: 'var(--green)',   desc: 'Recebe e executa checklists' },
+  { value: 'none',  label: 'Sem acesso',      color: 'var(--t3)',      desc: 'Bloqueado' },
+];
+// 'sales' (legado) é exibido como Client Partner mas mantido no banco como sales pra
+// compatibilidade. Quando admin troca o role, vira o que ele escolheu.
+const ROLE_LABEL_MAP = { admin:'Admin', cp:'Client Partner', sales:'Client Partner', cs:'Client Services', none:'Sem acesso' };
+const ROLE_COLOR_MAP = { admin:'var(--red)', cp:'var(--teal)', sales:'var(--teal)', cs:'var(--green)', none:'var(--t3)' };
+
+function AdminPanel() {
+  const user = useAuth();
+  const team = useTeam();
+  const toast = useToast();
+  const [search, setSearch] = useState("");
+  const [filterRole, setFilterRole] = useState("all");
+  const [showAdd, setShowAdd] = useState(false);
+  const [removeConfirm, setRemoveConfirm] = useState(null);
+  const [busy, setBusy] = useState(null); // email atualmente em mutação
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return team.members.filter(m => {
+      if (q && !(m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q))) return false;
+      if (filterRole === 'all') return true;
+      // 'cp' e 'sales' tratam como mesma coisa no filtro
+      if (filterRole === 'cp') return m.role === 'cp' || m.role === 'sales';
+      return m.role === filterRole;
+    });
+  }, [team.members, search, filterRole]);
+
+  const counts = useMemo(() => {
+    const c = { all: team.members.length, admin: 0, cp: 0, cs: 0, none: 0 };
+    team.members.forEach(m => {
+      if (m.role === 'admin') c.admin++;
+      else if (m.role === 'cp' || m.role === 'sales') c.cp++;
+      else if (m.role === 'cs') c.cs++;
+      else if (m.role === 'none') c.none++;
+    });
+    return c;
+  }, [team.members]);
+
+  const handleRoleChange = async (member, newRole) => {
+    if (member.role === newRole) return;
+    if (newRole !== 'admin' && member.role === 'admin' && counts.admin <= 1) {
+      toast("Não é possível remover o último admin. Promova outro antes.");
+      return;
+    }
+    setBusy(member.email);
+    try {
+      const res = await fetch(`${BACKEND_URL}/team`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: member.email,
+          name: member.name,
+          role: newRole,
+          requesterEmail: user?.email,
+        }),
+      });
+      if (!res.ok) {
+        let msg = `Erro ${res.status}`;
+        try { const b = await res.json(); if (b?.error) msg = b.error; } catch(_){}
+        toast(msg);
+      } else {
+        toast(`${member.name}: ${ROLE_LABEL_MAP[newRole]}`);
+        team.reload();
+      }
+    } catch (err) {
+      toast("Erro ao salvar — verifique a conexão");
+      console.error(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleRemove = async (member) => {
+    setRemoveConfirm(null);
+    setBusy(member.email);
+    try {
+      const res = await fetch(`${BACKEND_URL}/team/${encodeURIComponent(member.email)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requesterEmail: user?.email }),
+      });
+      if (!res.ok) {
+        let msg = `Erro ${res.status}`;
+        try { const b = await res.json(); if (b?.error) msg = b.error; } catch(_){}
+        toast(msg);
+      } else {
+        toast(`${member.name} removido`);
+        team.reload();
+      }
+    } catch (err) {
+      toast("Erro ao remover");
+      console.error(err);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleAdd = async (data) => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/team`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, requesterEmail: user?.email }),
+      });
+      if (!res.ok) {
+        let msg = `Erro ${res.status}`;
+        try { const b = await res.json(); if (b?.error) msg = b.error; } catch(_){}
+        toast(msg);
+        return false;
+      }
+      const body = await res.json().catch(()=>({}));
+      toast(body?.isNewUser ? "Usuário convidado por e-mail!" : "Usuário atualizado");
+      team.reload();
+      return true;
+    } catch (err) {
+      toast("Erro ao adicionar — verifique a conexão");
+      console.error(err);
+      return false;
+    }
+  };
+
+  return (
+    <div className="page-enter">
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
+        <div>
+          <h2 style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:700}}>Administração de Usuários</h2>
+          <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Gerencie quem tem acesso à HYPR Command e qual o papel de cada um</div>
+        </div>
+        <button className="btn bp" onClick={()=>setShowAdd(true)}><I n="user-plus" s={14}/>Adicionar Usuário</button>
+      </div>
+
+      {/* KPIs */}
+      <div className="g3" style={{marginBottom:20,gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12}}>
+        {[
+          {label:"Total",value:counts.all,icon:"users",color:"var(--t1)"},
+          {label:"Admins",value:counts.admin,icon:"shield",color:"var(--red)"},
+          {label:"Client Partners",value:counts.cp,icon:"file-text",color:"var(--teal)"},
+          {label:"Client Services",value:counts.cs,icon:"check-square",color:"var(--green)"},
+        ].map(s=>(
+          <div key={s.label} className="card" style={{padding:"14px 16px"}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+              <span style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)"}}>{s.label}</span>
+              <div style={{width:28,height:28,borderRadius:8,background:`${s.color}15`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <I n={s.icon} s={14} c={s.color}/>
+              </div>
+            </div>
+            <div style={{fontSize:22,fontWeight:800,fontFamily:"var(--fd)",color:s.color}}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtros */}
+      <div className="card" style={{padding:"12px 16px",marginBottom:18}}>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"center"}}>
+          <div style={{position:"relative",flex:1,minWidth:200,maxWidth:300}}>
+            <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}} c="var(--t3)"/>
+            <input className="fi" style={{paddingLeft:32}} placeholder="Buscar por nome ou e-mail..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          </div>
+          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+            {[
+              {key:"all",label:"Todos"},
+              {key:"admin",label:"Admins"},
+              {key:"cp",label:"Client Partners"},
+              {key:"cs",label:"Client Services"},
+              {key:"none",label:"Sem acesso"},
+            ].map(t=>(
+              <button key={t.key} className={`btn ${filterRole===t.key?"bp":"bs"}`} style={{fontSize:11,padding:"5px 11px"}} onClick={()=>setFilterRole(t.key)}>{t.label}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Lista */}
+      <div className="card" style={{padding:0,overflow:"hidden"}}>
+        {filtered.length===0 ? (
+          <div className="empty"><I n="users" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhum usuário encontrado</h3></div>
+        ) : (
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead>
+                <tr style={{borderBottom:"1px solid var(--bdr)",background:"var(--bg3)"}}>
+                  {["Usuário","E-mail","Função","",""].map((h,i)=>(
+                    <th key={i} style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(m=>{
+                  const initials = (m.name||"?").split(" ").map(n=>n[0]).join("").substring(0,2).toUpperCase();
+                  const isCurrentUser = m.email?.toLowerCase() === user?.email?.toLowerCase();
+                  // Mapeia 'sales' -> 'cp' no dropdown pra exibir corretamente
+                  const displayedRole = m.role === 'sales' ? 'cp' : m.role;
+                  const isBusy = busy === m.email;
+                  return (
+                    <tr key={m.email} style={{borderBottom:"1px solid var(--bdr-card)",opacity:isBusy?.5:1}}>
+                      <td style={{padding:"12px 14px"}}>
+                        <div style={{display:"flex",alignItems:"center",gap:10}}>
+                          <div style={{width:34,height:34,borderRadius:"50%",background:ROLE_COLOR_MAP[m.role]||"var(--teal)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{initials}</div>
+                          <div style={{minWidth:0}}>
+                            <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{m.name}{isCurrentUser&&<span style={{marginLeft:6,fontSize:10,color:"var(--teal)",fontWeight:600}}>(você)</span>}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)"}}>{m.email}</td>
+                      <td style={{padding:"12px 14px"}}>
+                        <select
+                          className="fs"
+                          value={displayedRole||""}
+                          disabled={isBusy}
+                          onChange={e=>handleRoleChange(m,e.target.value)}
+                          style={{minWidth:170,fontSize:12,fontWeight:600,color:ROLE_COLOR_MAP[displayedRole]||"var(--t1)"}}>
+                          {ROLE_OPTIONS.map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
+                        </select>
+                      </td>
+                      <td style={{padding:"12px 14px",fontSize:11,color:"var(--t3)",maxWidth:240}}>
+                        {ROLE_OPTIONS.find(r=>r.value===displayedRole)?.desc}
+                      </td>
+                      <td style={{padding:"12px 14px",textAlign:"right"}}>
+                        {!isCurrentUser&&(
+                          <button title="Remover usuário" disabled={isBusy}
+                            style={{background:"transparent",border:"none",padding:6,cursor:isBusy?"not-allowed":"pointer",color:"var(--t3)",borderRadius:6,display:"inline-flex",alignItems:"center"}}
+                            onMouseEnter={e=>{if(!isBusy){e.currentTarget.style.color="var(--red)";e.currentTarget.style.background="var(--red-bg)"}}}
+                            onMouseLeave={e=>{e.currentTarget.style.color="var(--t3)";e.currentTarget.style.background="transparent"}}
+                            onClick={()=>setRemoveConfirm(m)}>
+                            <I n="trash" s={14}/>
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Modal: Add user */}
+      {showAdd && <AddUserModal onClose={()=>setShowAdd(false)} onSubmit={async(data)=>{ const ok = await handleAdd(data); if(ok) setShowAdd(false); }} existingEmails={team.members.map(m=>m.email?.toLowerCase())}/>}
+
+      {/* Modal: Remove confirm */}
+      {removeConfirm && (
+        <div className="modal-bg" onClick={()=>setRemoveConfirm(null)}>
+          <div className="modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:"22px 24px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:"var(--red-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <I n="trash" s={20} c="var(--red)"/>
+                </div>
+                <div>
+                  <div style={{fontFamily:"var(--fd)",fontSize:16,fontWeight:800,color:"var(--t1)"}}>Remover usuário?</div>
+                  <div style={{fontSize:12,color:"var(--t3)",marginTop:2}}>Essa pessoa perderá acesso à plataforma.</div>
+                </div>
+              </div>
+              <div style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{removeConfirm.name}</div>
+                <div style={{fontSize:12,color:"var(--t2)",marginTop:2}}>{removeConfirm.email}</div>
+                <div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>{ROLE_LABEL_MAP[removeConfirm.role]}</div>
+              </div>
+              <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+                <button className="btn bs" onClick={()=>setRemoveConfirm(null)}>Cancelar</button>
+                <button className="btn" style={{background:"var(--red)",color:"#fff"}} onClick={()=>handleRemove(removeConfirm)}><I n="trash" s={13}/>Remover</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AddUserModal({onClose,onSubmit,existingEmails}){
+  const [name,setName]=useState("");
+  const [email,setEmail]=useState("");
+  const [role,setRole]=useState("cs");
+  const [submitting,setSubmitting]=useState(false);
+  const fullEmail = email.includes("@") ? email.toLowerCase() : (email ? `${email.toLowerCase()}@hypr.mobi` : "");
+  const emailValid = /^[a-z0-9._-]+@hypr\.mobi$/.test(fullEmail);
+  const isDuplicate = emailValid && existingEmails.includes(fullEmail);
+  const valid = name.trim().length>=3 && emailValid && !isDuplicate;
+
+  const submit = async () => {
+    if (!valid || submitting) return;
+    setSubmitting(true);
+    await onSubmit({ name: name.trim(), email: fullEmail, role });
+    setSubmitting(false);
+  };
+
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
+        <div style={{padding:"22px 24px"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
+            <div style={{width:40,height:40,borderRadius:"50%",background:"var(--teal-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              <I n="user-plus" s={20} c="var(--teal)"/>
+            </div>
+            <div>
+              <div style={{fontFamily:"var(--fd)",fontSize:17,fontWeight:800,color:"var(--t1)"}}>Adicionar Novo Usuário</div>
+              <div style={{fontSize:12,color:"var(--t3)",marginTop:2}}>Será enviado um convite por e-mail automaticamente.</div>
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:14,marginBottom:18}}>
+            <CF l="Nome completo">
+              <input className="fi" placeholder="Ex: Maria Silva" value={name} onChange={e=>setName(e.target.value)} autoFocus/>
+            </CF>
+            <CF l="E-mail @hypr.mobi">
+              <div style={{position:"relative"}}>
+                <input className="fi" placeholder="maria.silva" value={email} onChange={e=>setEmail(e.target.value)}
+                  style={{paddingRight: email && !email.includes('@') ? 95 : 12}}/>
+                {email && !email.includes('@') && (
+                  <span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--t3)",pointerEvents:"none"}}>@hypr.mobi</span>
+                )}
+              </div>
+              {email && !emailValid && <div style={{fontSize:11,color:"var(--red)",marginTop:4}}>Apenas e-mails @hypr.mobi são aceitos</div>}
+              {isDuplicate && <div style={{fontSize:11,color:"var(--yellow-s)",marginTop:4}}>Este e-mail já está cadastrado. Use a tabela para alterar a função.</div>}
+            </CF>
+            <CF l="Função">
+              <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                {ROLE_OPTIONS.filter(r=>r.value!=="none").map(r=>(
+                  <label key={r.value}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`1px solid ${role===r.value?r.color:"var(--bdr)"}`,borderRadius:"var(--r)",cursor:"pointer",background:role===r.value?`${r.color}10`:"var(--bg-card)",transition:"all .15s"}}>
+                    <input type="radio" name="role" value={r.value} checked={role===r.value} onChange={e=>setRole(e.target.value)} style={{margin:0,accentColor:r.color}}/>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:700,color:r.color}}>{r.label}</div>
+                      <div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>{r.desc}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </CF>
+          </div>
+          <div className="disc" style={{marginBottom:14,fontSize:11}}>
+            <I n="alert-circle" s={13} c="var(--teal)"/>
+            <div>O usuário receberá um e-mail de boas-vindas com instruções para acessar a plataforma usando sua conta Google @hypr.mobi.</div>
+          </div>
+          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+            <button className="btn bs" onClick={onClose} disabled={submitting}>Cancelar</button>
+            <button className="btn bp" onClick={submit} disabled={!valid||submitting}>
+              {submitting ? <>Enviando...</> : <><I n="send" s={13}/>Adicionar e Enviar Convite</>}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── AUTH CONTEXT ────────────────────────────────────────────────────────────
 const AuthCtx = createContext();
@@ -3961,6 +4344,8 @@ export default function App() {
   const [studies,setStudies]=useState([]);
   const [notifs,setNotifs]=useState(INITIAL_NOTIFS);
   const [showNotifs,setShowNotifs]=useState(false);
+  const [teamMembers,setTeamMembers]=useState([]);
+  const [teamLoading,setTeamLoading]=useState(false);
   const notifRef=useRef();
 
   useEffect(()=>{document.documentElement.setAttribute("data-theme",theme)},[theme]);
@@ -3968,6 +4353,14 @@ export default function App() {
   useEffect(()=>{const fn=()=>setUser(window.__hyprUser);window.addEventListener("hypr-login",fn);return()=>window.removeEventListener("hypr-login",fn);},[]);
 
   // Fetch helpers — extraídos pra serem chamados no init, em polling, e ao voltar o foco
+  const fetchTeam = useCallback(()=>{
+    setTeamLoading(true);
+    fetch(`${BACKEND_URL}/team`)
+      .then(r=>r.json())
+      .then(rows=>{ if(Array.isArray(rows)) setTeamMembers(rows.filter(m=>m.active!==false)); })
+      .catch(err=>console.error("Error fetching team:",err))
+      .finally(()=>setTeamLoading(false));
+  },[]);
   const fetchTasks = useCallback(()=>{
     fetch(`${BACKEND_URL}/tasks`)
       .then(r=>r.json())
@@ -4008,13 +4401,14 @@ export default function App() {
 
     fetchTasks();
     fetchChecklists();
+    fetchTeam();
 
     // Fetch studies from Cloud Function
     fetch(STUDIES_API_URL)
       .then(r=>r.json())
       .then(d=>{if(d.ok&&d.studies)setStudies(d.studies)})
       .catch(err=>console.error("Error fetching studies:",err));
-  },[user,fetchTasks,fetchChecklists]);
+  },[user,fetchTasks,fetchChecklists,fetchTeam]);
 
   // Polling: a cada 30s rebusca tasks e checklists pra ver mudanças de outros usuários.
   // Pausa quando a aba está oculta (não desperdiça quota) e refresca imediatamente ao voltar.
@@ -4036,7 +4430,7 @@ export default function App() {
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("focus", refresh);
     };
-  },[user,fetchTasks,fetchChecklists]);
+  },[user,fetchTasks,fetchChecklists,fetchTeam]);
 
   // Generate notifications from real tasks
   useEffect(()=>{
@@ -4073,6 +4467,7 @@ export default function App() {
 
   return(
     <AuthCtx.Provider value={user}>
+    <TeamCtx.Provider value={{members:teamMembers,reload:fetchTeam,loading:teamLoading}}>
     <ClientsCtx.Provider value={clients}>
     <StudiesCtx.Provider value={studies}>
     <ThemeCtx.Provider value={{theme,setTheme}}>
@@ -4089,7 +4484,11 @@ export default function App() {
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
-            {NAV.filter(n => n.key !== 'proposals' || hasProposalAccess(user?.email)).map(n=>(
+            {NAV.filter(n => {
+              if (n.key === 'proposals') return hasProposalAccessFromTeam(teamMembers, user?.email);
+              if (n.key === 'admin')     return isAdminFromTeam(teamMembers, user?.email);
+              return true;
+            }).map(n=>(
               <button key={n.key} className={`ni${page===n.key?" act":""}`}
                 style={{justifyContent:collapsed?"center":"flex-start",padding:collapsed?10:"10px 12px"}}
                 title={collapsed?n.label:undefined}
@@ -4182,7 +4581,8 @@ export default function App() {
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} onRefetch={fetchTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
             {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} onRefetch={fetchChecklists} />}
-            {page==="proposals"&&hasProposalAccess(user?.email)&&<ProposalBuilder />}
+            {page==="proposals"&&hasProposalAccessFromTeam(teamMembers,user?.email)&&<ProposalBuilder />}
+            {page==="admin"&&isAdminFromTeam(teamMembers,user?.email)&&<AdminPanel />}
           </div>
         </div>
       </div>
@@ -4190,6 +4590,7 @@ export default function App() {
     </ThemeCtx.Provider>
     </StudiesCtx.Provider>
     </ClientsCtx.Provider>
+    </TeamCtx.Provider>
     </AuthCtx.Provider>
   );
 }
