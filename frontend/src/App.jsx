@@ -162,6 +162,7 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
     "layout-grid":<><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></>,
     "list":<><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></>,
     "columns":<><path d="M12 3v18"/><rect x="3" y="3" width="18" height="18" rx="2"/></>,
+    "trash":<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a2 2 0 012-2h2a2 2 0 012 2v2"/></>,
     "calendar":<><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
     "zap":<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>,
     "trending-up":<><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
@@ -1912,7 +1913,8 @@ function FeatSearch({value,onChange}) {
 // ══════════════════════════════════════════════════════════════════════════════
 // CHECKLIST CENTER (view/edit submitted checklists)
 // ══════════════════════════════════════════════════════════════════════════════
-function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
+function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
+  const user = useAuth();
   const [selected,setSelected]=useState(null);
   const [editing,setEditing]=useState(false);
   const [editData,setEditData]=useState(null);
@@ -1920,7 +1922,21 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
   const [monthFilter,setMonthFilter]=useState("all"); // "all" | "YYYY-MM"
   const [yearFilter,setYearFilter]=useState("all");   // "all" | "YYYY"
   const [collapsedMonths,setCollapsedMonths]=useState({});
+  const [deleteConfirm,setDeleteConfirm]=useState(null); // checklist sendo deletado
+  const [csList,setCsList]=useState([]); // [{name,email}] vindo de /team
   const toast=useToast();
+
+  // Carrega lista de CS uma vez (para o dropdown do editar)
+  useEffect(()=>{
+    fetch(`${BACKEND_URL}/team`)
+      .then(r=>r.json())
+      .then(rows=>{
+        if(Array.isArray(rows)){
+          setCsList(rows.filter(m=>m.role==="cs"&&m.active!==false).map(m=>({name:m.name,email:m.email})));
+        }
+      })
+      .catch(err=>console.error("Failed to load team:",err));
+  },[]);
 
   const now = new Date();
 
@@ -2046,17 +2062,68 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
 
   const handleEdit=(c)=>{setEditData({...c});setEditing(true)};
   const handleSave=async()=>{
+    const previousData = checklists.find(c=>c.id===editData.id);
     setChecklists(prev=>prev.map(c=>c.id===editData.id?editData:c));
     setSelected(editData);
     setEditing(false);
     toast("Checklist atualizado!");
     try{
-      await fetch(`${BACKEND_URL}/checklists/${editData.id}`,{
+      const res = await fetch(`${BACKEND_URL}/checklists/${editData.id}`,{
         method:"PUT",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(editData)
+        body:JSON.stringify({
+          ...editData,
+          editedBy: user?.name,
+          editedByEmail: user?.email,
+          // Mandar quem era o CS antes pra backend notificar se mudou
+          previousCsEmail: previousData?.cs_email || null,
+          previousCsName:  previousData?.cs_name  || null,
+        })
       });
-    }catch(err){console.error("Backend checklist PUT error:",err)}
+      if(!res.ok){
+        let msg = `Erro ${res.status}`;
+        try{ const body = await res.json(); if(body?.error) msg=body.error; }catch(_){}
+        if(previousData) setChecklists(prev=>prev.map(c=>c.id===editData.id?previousData:c));
+        toast(msg);
+        console.error("Backend checklist PUT failed:",res.status,msg);
+      } else if(onRefetch){
+        setTimeout(onRefetch,500);
+      }
+    }catch(err){
+      if(previousData) setChecklists(prev=>prev.map(c=>c.id===editData.id?previousData:c));
+      toast("Erro ao salvar — alteração revertida");
+      console.error("Backend checklist PUT error:",err);
+    }
+  };
+
+  const handleDelete=async(c)=>{
+    setDeleteConfirm(null);
+    // remoção otimista
+    setChecklists(prev=>prev.filter(x=>x.id!==c.id));
+    if(selected?.id===c.id){ setSelected(null); setEditing(false); }
+    toast("Excluindo checklist...");
+    try{
+      const res = await fetch(`${BACKEND_URL}/checklists/${c.id}`,{
+        method:"DELETE",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({ requesterEmail: user?.email })
+      });
+      if(!res.ok){
+        let msg = `Erro ${res.status}`;
+        try{ const body = await res.json(); if(body?.error) msg=body.error; }catch(_){}
+        // reverte
+        setChecklists(prev=>[c,...prev]);
+        toast(msg);
+        console.error("Backend checklist DELETE failed:",res.status,msg);
+      } else {
+        toast("Checklist excluído!");
+        if(onRefetch) setTimeout(onRefetch,500);
+      }
+    }catch(err){
+      setChecklists(prev=>[c,...prev]);
+      toast("Erro ao excluir — restaurado");
+      console.error("Backend checklist DELETE error:",err);
+    }
   };
 
   // Detail row helper
@@ -2175,6 +2242,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                           <th style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>CS</th>
                           <th style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>CP</th>
                           <th style={{textAlign:"center",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>Status</th>
+                          <th style={{textAlign:"center",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em",width:50}}></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2224,6 +2292,15 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                               <td style={{padding:"12px 14px",textAlign:"center"}}>
                                 <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:statusBg,color:statusColor}}>{status}</span>
                               </td>
+                              <td style={{padding:"12px 8px",textAlign:"center"}}>
+                                <button title="Excluir checklist"
+                                  style={{background:"transparent",border:"none",padding:6,cursor:"pointer",color:"var(--t3)",borderRadius:6,display:"inline-flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}
+                                  onMouseEnter={e=>{e.currentTarget.style.color="var(--red)";e.currentTarget.style.background="var(--red-bg)"}}
+                                  onMouseLeave={e=>{e.currentTarget.style.color="var(--t3)";e.currentTarget.style.background="transparent"}}
+                                  onClick={(e)=>{e.stopPropagation();setDeleteConfirm(c)}}>
+                                  <I n="trash" s={14}/>
+                                </button>
+                              </td>
                             </tr>
                           );
                         })}
@@ -2267,6 +2344,29 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                     <CF l="Indústria"><input className="fi" value={editData.industry||""} onChange={e=>setEditData(p=>({...p,industry:e.target.value}))}/></CF>
                     <CF l="Data Início"><input type="date" className="fi" value={editData.start_date?.value||editData.start_date||""} onChange={e=>setEditData(p=>({...p,start_date:e.target.value}))}/></CF>
                     <CF l="Data Final"><input type="date" className="fi" value={editData.end_date?.value||editData.end_date||""} onChange={e=>setEditData(p=>({...p,end_date:e.target.value}))}/></CF>
+                  </div>
+                  {/* CS responsável — destacado */}
+                  <div style={{padding:14,background:"var(--teal-dim)",borderRadius:"var(--r)",border:"1px solid var(--teal)"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8}}>
+                      <I n="user" s={14} c="var(--teal)"/>
+                      <span style={{fontSize:12,fontWeight:700,color:"var(--teal)",textTransform:"uppercase",letterSpacing:".06em"}}>CS Responsável pelo Setup</span>
+                    </div>
+                    <select className="fs" style={{width:"100%"}} value={editData.cs_email||""}
+                      onChange={e=>{
+                        const email=e.target.value;
+                        const cs=csList.find(c=>c.email===email);
+                        setEditData(p=>({...p,cs_email:email||null,cs_name:cs?.name||null}));
+                      }}>
+                      <option value="">— Selecione um CS —</option>
+                      {csList.map(cs=><option key={cs.email} value={cs.email}>{cs.name} ({cs.email})</option>)}
+                    </select>
+                    {editData.cs_email && !csList.find(c=>c.email===editData.cs_email) && (
+                      <div style={{fontSize:11,color:"var(--yellow-s)",marginTop:6,display:"flex",alignItems:"center",gap:4}}>
+                        <I n="alert-circle" s={11} c="var(--yellow-s)"/>
+                        CS atual ({editData.cs_name||editData.cs_email}) não está na lista — pode ter saído da equipe.
+                      </div>
+                    )}
+                    <div style={{fontSize:11,color:"var(--t3)",marginTop:6}}>Ao trocar, um e-mail será enviado para o CS atual, o anterior (se houver) e o solicitante.</div>
                   </div>
 
                   {/* Section 2: Produtos Core */}
@@ -2544,6 +2644,38 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmação de exclusão */}
+      {deleteConfirm && (
+        <div className="modal-bg" onClick={()=>setDeleteConfirm(null)}>
+          <div className="modal" style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:"22px 24px"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+                <div style={{width:40,height:40,borderRadius:"50%",background:"var(--red-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <I n="trash" s={20} c="var(--red)"/>
+                </div>
+                <div>
+                  <div style={{fontFamily:"var(--fd)",fontSize:16,fontWeight:800,color:"var(--t1)"}}>Excluir checklist?</div>
+                  <div style={{fontSize:12,color:"var(--t3)",marginTop:2}}>Essa ação não pode ser desfeita.</div>
+                </div>
+              </div>
+              <div style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)",marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{deleteConfirm.client}</div>
+                <div style={{fontSize:12,color:"var(--t2)",marginTop:2}}>{deleteConfirm.campaign_name||"—"}</div>
+                <div style={{fontSize:11,color:"var(--t3)",marginTop:6}}>{fmtDate(deleteConfirm.start_date)} → {fmtDate(deleteConfirm.end_date)}</div>
+              </div>
+              <div className="disc" style={{marginBottom:14,fontSize:11}}>
+                <I n="alert-triangle" s={13} c="var(--yellow-s)"/>
+                <div>O checklist será removido do BigQuery e do Report Hub. Permitido apenas para o CP que enviou, o CS responsável ou admin.</div>
+              </div>
+              <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}>
+                <button className="btn bs" onClick={()=>setDeleteConfirm(null)}>Cancelar</button>
+                <button className="btn" style={{background:"var(--red)",color:"#fff"}} onClick={()=>handleDelete(deleteConfirm)}><I n="trash" s={13}/>Excluir</button>
+              </div>
             </div>
           </div>
         </div>
@@ -4040,7 +4172,7 @@ export default function App() {
             {page==="home"&&<Dashboard checklists={submittedChecklists} tasks={tasks} onNav={navigate} />}
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} onRefetch={fetchTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
-            {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} />}
+            {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} onRefetch={fetchChecklists} />}
             {page==="proposals"&&hasProposalAccess(user?.email)&&<ProposalBuilder />}
           </div>
         </div>
