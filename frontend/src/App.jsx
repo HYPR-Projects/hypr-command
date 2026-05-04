@@ -3905,14 +3905,14 @@ const NAV=[
 // ══════════════════════════════════════════════════════════════════════════════
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin',           color: 'var(--red)',     desc: 'Acesso total à plataforma' },
-  { value: 'cp',    label: 'Client Partner',  color: 'var(--teal)',    desc: 'Cria checklists e propostas' },
+  { value: 'sales', label: 'Client Partner',  color: 'var(--teal)',    desc: 'Cria checklists e propostas' },
   { value: 'cs',    label: 'Client Services', color: 'var(--green)',   desc: 'Recebe e executa checklists' },
   { value: 'none',  label: 'Sem acesso',      color: 'var(--t3)',      desc: 'Bloqueado' },
 ];
-// 'sales' (legado) é exibido como Client Partner mas mantido no banco como sales pra
-// compatibilidade. Quando admin troca o role, vira o que ele escolheu.
-const ROLE_LABEL_MAP = { admin:'Admin', cp:'Client Partner', sales:'Client Partner', cs:'Client Services', none:'Sem acesso' };
-const ROLE_COLOR_MAP = { admin:'var(--red)', cp:'var(--teal)', sales:'var(--teal)', cs:'var(--green)', none:'var(--t3)' };
+// Frontend usa 'sales' (mesmo vocabulário do backend e dos seeds existentes).
+// Display sempre como "Client Partner" pra os usuários.
+const ROLE_LABEL_MAP = { admin:'Admin', sales:'Client Partner', cp:'Client Partner', cs:'Client Services', none:'Sem acesso' };
+const ROLE_COLOR_MAP = { admin:'var(--red)', sales:'var(--teal)', cp:'var(--teal)', cs:'var(--green)', none:'var(--t3)' };
 
 function AdminPanel() {
   const user = useAuth();
@@ -3929,17 +3929,17 @@ function AdminPanel() {
     return team.members.filter(m => {
       if (q && !(m.name?.toLowerCase().includes(q) || m.email?.toLowerCase().includes(q))) return false;
       if (filterRole === 'all') return true;
-      // 'cp' e 'sales' tratam como mesma coisa no filtro
-      if (filterRole === 'cp') return m.role === 'cp' || m.role === 'sales';
+      // 'sales' é canônico, 'cp' é aceito como sinônimo de leitura
+      if (filterRole === 'sales') return m.role === 'sales' || m.role === 'cp';
       return m.role === filterRole;
     });
   }, [team.members, search, filterRole]);
 
   const counts = useMemo(() => {
-    const c = { all: team.members.length, admin: 0, cp: 0, cs: 0, none: 0 };
+    const c = { all: team.members.length, admin: 0, sales: 0, cs: 0, none: 0 };
     team.members.forEach(m => {
       if (m.role === 'admin') c.admin++;
-      else if (m.role === 'cp' || m.role === 'sales') c.cp++;
+      else if (m.role === 'sales' || m.role === 'cp') c.sales++;
       else if (m.role === 'cs') c.cs++;
       else if (m.role === 'none') c.none++;
     });
@@ -4044,7 +4044,7 @@ function AdminPanel() {
         {[
           {label:"Total",value:counts.all,icon:"users",color:"var(--t1)"},
           {label:"Admins",value:counts.admin,icon:"shield",color:"var(--red)"},
-          {label:"Client Partners",value:counts.cp,icon:"file-text",color:"var(--teal)"},
+          {label:"Client Partners",value:counts.sales,icon:"file-text",color:"var(--teal)"},
           {label:"Client Services",value:counts.cs,icon:"check-square",color:"var(--green)"},
         ].map(s=>(
           <div key={s.label} className="card" style={{padding:"14px 16px"}}>
@@ -4070,7 +4070,7 @@ function AdminPanel() {
             {[
               {key:"all",label:"Todos"},
               {key:"admin",label:"Admins"},
-              {key:"cp",label:"Client Partners"},
+              {key:"sales",label:"Client Partners"},
               {key:"cs",label:"Client Services"},
               {key:"none",label:"Sem acesso"},
             ].map(t=>(
@@ -4098,8 +4098,8 @@ function AdminPanel() {
                 {filtered.map(m=>{
                   const initials = (m.name||"?").split(" ").map(n=>n[0]).join("").substring(0,2).toUpperCase();
                   const isCurrentUser = m.email?.toLowerCase() === user?.email?.toLowerCase();
-                  // Mapeia 'sales' -> 'cp' no dropdown pra exibir corretamente
-                  const displayedRole = m.role === 'sales' ? 'cp' : m.role;
+                  // Mapeia 'cp' -> 'sales' no dropdown (canônico). 'sales' continua 'sales'.
+                  const displayedRole = m.role === 'cp' ? 'sales' : m.role;
                   const isBusy = busy === m.email;
                   return (
                     <tr key={m.email} style={{borderBottom:"1px solid var(--bdr-card)",opacity:isBusy?.5:1}}>
