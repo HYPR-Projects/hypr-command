@@ -186,10 +186,15 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
 };
 
 function getTaskStatus(t) {
-  if (t.status === "completed") return "Concluída";
-  if (t.status === "in_progress") return "Iniciado";
+  const s = (t.status || "").toLowerCase();
+  if (s === "entregue" || s === "completed") return "Concluída";
+  if (s === "iniciada" || s === "in_progress") return "Iniciado";
   return new Date() > new Date(t.deadline) ? "Atrasada" : "Dentro do SLA";
 }
+// Helpers de status: aceitam tanto vocabulário pt-BR (backend atual) quanto en (legacy)
+const isTaskCompleted  = t => { const s=(t?.status||"").toLowerCase(); return s==="entregue" || s==="completed"; };
+const isTaskInProgress = t => { const s=(t?.status||"").toLowerCase(); return s==="iniciada" || s==="in_progress"; };
+const isTaskOpen       = t => !isTaskCompleted(t) && !isTaskInProgress(t);
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 const CSS = `
@@ -874,7 +879,8 @@ function CampaignDetail({camp,onClose}) {
 // ══════════════════════════════════════════════════════════════════════════════
 // TASK CENTER
 // ══════════════════════════════════════════════════════════════════════════════
-function TaskCenter({tasks,setTasks}) {
+function TaskCenter({tasks,setTasks,onRefetch}) {
+  const user = useAuth();
   const [showNew,setShowNew]=useState(false);
   const [linkModal,setLinkModal]=useState(null);
   const [search,setSearch]=useState("");
@@ -896,20 +902,20 @@ function TaskCenter({tasks,setTasks}) {
       // No kanban, ignoramos o filtro de status (todas as colunas devem aparecer)
       if(viewMode==="kanban") return mQ && mCS;
       const mSt=filterStatus==="all"
-        ||(filterStatus==="open"&&(st==="Dentro do SLA"||st==="Atrasada"))
-        ||(filterStatus==="in_progress"&&st==="Iniciado")
-        ||(filterStatus==="overdue"&&st==="Atrasada")
-        ||(filterStatus==="done"&&st==="Concluída");
+        ||(filterStatus==="aberta"&&(st==="Dentro do SLA"||st==="Atrasada"))
+        ||(filterStatus==="iniciada"&&st==="Iniciado")
+        ||(filterStatus==="atrasada"&&st==="Atrasada")
+        ||(filterStatus==="entregue"&&st==="Concluída");
       return mQ&&mCS&&mSt;
     });
   },[tasks,search,filterStatus,filterCS,viewMode]);
 
   const counts=useMemo(()=>({
     all:tasks.length,
-    open:tasks.filter(t=>{const s=getTaskStatus(t);return s==="Dentro do SLA"||s==="Atrasada"}).length,
-    in_progress:tasks.filter(t=>getTaskStatus(t)==="Iniciado").length,
-    overdue:tasks.filter(t=>getTaskStatus(t)==="Atrasada").length,
-    done:tasks.filter(t=>getTaskStatus(t)==="Concluída").length,
+    aberta:tasks.filter(t=>{const s=getTaskStatus(t);return s==="Dentro do SLA"||s==="Atrasada"}).length,
+    iniciada:tasks.filter(t=>getTaskStatus(t)==="Iniciado").length,
+    atrasada:tasks.filter(t=>getTaskStatus(t)==="Atrasada").length,
+    entregue:tasks.filter(t=>getTaskStatus(t)==="Concluída").length,
   }),[tasks]);
 
   // Buckets do kanban — usam a lista FILTRADA
@@ -937,21 +943,47 @@ function TaskCenter({tasks,setTasks}) {
       await fetch(`${BACKEND_URL}/tasks`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(data)});
     }catch(err){console.error("Backend task POST error:",err)}
   };
-  // Mudança de status genérica: "open" | "in_progress" | "completed"
+  // Mudança de status genérica: "aberta" | "iniciada" | "entregue"
+  // Backend valida permissão: só o CS responsável pode mudar status.
   const handleStatusChange=async(id,newStatus)=>{
     const task=tasks.find(t=>t.id===id);
     if(!task) return;
-    if(task.status===newStatus) return;
+    if((task.status||"").toLowerCase()===newStatus) return;
+    const previousStatus = task.status;
     setTasks(ts=>ts.map(t=>t.id===id?{...t,status:newStatus}:t));
-    const labels={open:"Task reaberta",in_progress:"Task iniciada",completed:"Task concluída!"};
+    const labels={aberta:"Task reaberta",iniciada:"Task iniciada",entregue:"Task concluída!"};
     toast(labels[newStatus]||"Status atualizado!");
     try{
-      await fetch(`${BACKEND_URL}/tasks/${id}`,{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({status:newStatus,task:{...task,status:newStatus}})});
-    }catch(err){console.error("Backend task PUT error:",err)}
+      const res = await fetch(`${BACKEND_URL}/tasks/${id}`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          status:newStatus,
+          task:{...task,status:newStatus},
+          changedBy: user?.name,
+          changedByEmail: user?.email,
+        })
+      });
+      if(!res.ok){
+        // Reverte e exibe motivo (ex: 403 quando não é o CS responsável)
+        let serverMsg = `Erro ${res.status}`;
+        try { const body = await res.json(); if(body?.error) serverMsg = body.error; } catch(_){}
+        setTasks(ts=>ts.map(t=>t.id===id?{...t,status:previousStatus}:t));
+        toast(serverMsg);
+        console.error("Backend task PUT failed:",res.status,serverMsg);
+      } else if(onRefetch){
+        // Refetch para garantir que estamos sincronizados com o BQ
+        setTimeout(onRefetch, 500);
+      }
+    }catch(err){
+      setTasks(ts=>ts.map(t=>t.id===id?{...t,status:previousStatus}:t));
+      toast("Erro ao salvar — alteração revertida");
+      console.error("Backend task PUT error:",err);
+    }
   };
-  const handleStart   =(id)=>handleStatusChange(id,"in_progress");
-  const handleComplete=(id)=>handleStatusChange(id,"completed");
-  const handleReopen  =(id)=>handleStatusChange(id,"open");
+  const handleStart   =(id)=>handleStatusChange(id,"iniciada");
+  const handleComplete=(id)=>handleStatusChange(id,"entregue");
+  const handleReopen  =(id)=>handleStatusChange(id,"aberta");
 
   const handleSaveLink=async(link)=>{
     const id=linkModal.id;
@@ -974,10 +1006,10 @@ function TaskCenter({tasks,setTasks}) {
 
   const tabs=[
     {key:"all",label:"Todas",count:counts.all},
-    {key:"open",label:"Aberta",count:counts.open},
-    {key:"in_progress",label:"Iniciado",count:counts.in_progress},
-    {key:"overdue",label:"Atrasadas",count:counts.overdue},
-    {key:"done",label:"Concluídas",count:counts.done},
+    {key:"aberta",label:"Aberta",count:counts.aberta},
+    {key:"iniciada",label:"Iniciado",count:counts.iniciada},
+    {key:"atrasada",label:"Atrasadas",count:counts.atrasada},
+    {key:"entregue",label:"Concluídas",count:counts.entregue},
   ];
 
   const VIEW_MODES=[
@@ -1036,9 +1068,9 @@ function TaskCenter({tasks,setTasks}) {
         /* KANBAN */
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:16,alignItems:"flex-start"}}>
           {[
-            {key:"open",       status:"open",         title:"Aberta",    color:"var(--yellow-s)",bg:"var(--yellow-s-bg)",  items:kanbanBuckets.open       },
-            {key:"in_progress",status:"in_progress",  title:"Iniciado",  color:"var(--teal)",    bg:"var(--teal-dim)",     items:kanbanBuckets.inProgress },
-            {key:"done",       status:"completed",    title:"Concluído", color:"var(--green)",   bg:"var(--green-bg)",     items:kanbanBuckets.done       },
+            {key:"open",       status:"aberta",       title:"Aberta",    color:"var(--yellow-s)",bg:"var(--yellow-s-bg)",  items:kanbanBuckets.open       },
+            {key:"in_progress",status:"iniciada",     title:"Iniciado",  color:"var(--teal)",    bg:"var(--teal-dim)",     items:kanbanBuckets.inProgress },
+            {key:"done",       status:"entregue",     title:"Concluído", color:"var(--green)",   bg:"var(--green-bg)",     items:kanbanBuckets.done       },
           ].map(col=>(
             <div key={col.key}
               onDragOver={onDragOver}
@@ -1110,13 +1142,13 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink}){
                     )}
                   </td>
                   <td style={{padding:"12px 14px",textAlign:"center",whiteSpace:"nowrap"}}>
-                    {t.status!=="completed"&&t.status!=="in_progress"&&(
+                    {isTaskOpen(t)&&(
                       <button className="btn bs" style={{fontSize:10,padding:"3px 8px",marginRight:4}} onClick={()=>onStart(t.id)}><I n="play" s={11}/>Iniciar</button>
                     )}
-                    {t.status==="in_progress"&&(
+                    {isTaskInProgress(t)&&(
                       <button className="btn bp" style={{fontSize:10,padding:"3px 8px"}} onClick={()=>onComplete(t.id)}><I n="check" s={11}/>Concluir</button>
                     )}
-                    {t.status==="completed"&&(
+                    {isTaskCompleted(t)&&(
                       <button className="btn bs" style={{fontSize:10,padding:"3px 8px"}} onClick={()=>onReopen(t.id)}><I n="rotate" s={11}/>Reabrir</button>
                     )}
                   </td>
@@ -1152,13 +1184,13 @@ function KanbanCard({task,draggable,onDragStart,onStart,onComplete,onReopen,onAd
         <span style={{display:"inline-flex",alignItems:"center",gap:4,color:isOverdue?"var(--red)":"var(--t3)"}}><I n="calendar" s={10}/>{fmtDate(task.deadline)}</span>
       </div>
       <div style={{display:"flex",gap:4}}>
-        {task.status!=="in_progress"&&task.status!=="completed"&&(
+        {isTaskOpen(task)&&(
           <button className="btn bs" style={{fontSize:10,padding:"4px 8px",flex:1}} onClick={(e)=>{e.stopPropagation();onStart(task.id)}}><I n="play" s={11}/>Iniciar</button>
         )}
-        {task.status==="in_progress"&&(
+        {isTaskInProgress(task)&&(
           <button className="btn bp" style={{fontSize:10,padding:"4px 8px",flex:1}} onClick={(e)=>{e.stopPropagation();onComplete(task.id)}}><I n="check" s={11}/>Concluir</button>
         )}
-        {task.status==="completed"&&(
+        {isTaskCompleted(task)&&(
           <button className="btn bs" style={{fontSize:10,padding:"4px 8px",flex:1}} onClick={(e)=>{e.stopPropagation();onReopen(task.id)}}><I n="rotate" s={11}/>Reabrir</button>
         )}
         {task.docLink?(
@@ -1202,9 +1234,9 @@ function TaskCard({task,onStart,onComplete,onReopen,onAddLink}) {
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:11,padding:"5px 10px",textDecoration:"none"}}><I n="external" s={12} />Doc</a>}
           <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>onAddLink(task)} title={task.docLink?"Editar link":"Adicionar link"}><I n="link" s={12} />{task.docLink?"Editar":"Link"}</button>
-          {task.status!=="completed"&&task.status!=="in_progress"&&onStart&&<button className="btn bs" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onStart(task.id)}><I n="play" s={12} />Iniciar</button>}
-          {task.status==="in_progress"&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onComplete(task.id)}><I n="check" s={12} />Concluir</button>}
-          {task.status==="completed"&&onReopen&&<button className="btn bs" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onReopen(task.id)}><I n="rotate" s={12} />Reabrir</button>}
+          {isTaskOpen(task)&&onStart&&<button className="btn bs" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onStart(task.id)}><I n="play" s={12} />Iniciar</button>}
+          {isTaskInProgress(task)&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onComplete(task.id)}><I n="check" s={12} />Concluir</button>}
+          {isTaskCompleted(task)&&onReopen&&<button className="btn bs" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onReopen(task.id)}><I n="rotate" s={12} />Reabrir</button>}
         </div>
       </div>
     </div>
@@ -1279,7 +1311,7 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
           {f.slaDate&&(<div><div style={{height:1,background:"var(--bdr)",margin:"8px 0 16px"}}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div><div style={{fontSize:13,fontWeight:600}}>Data prevista</div><div style={{fontSize:12,color:"var(--t3)"}}>SLA: {SLA_DAYS[f.type]} dias úteis</div></div><div style={{padding:"8px 16px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)",fontSize:14,fontWeight:700,color:"var(--teal-l)",fontFamily:"var(--fd)"}}>{fmtDate(sla)}</div></div><div style={{fontSize:12,color:"var(--t3)",marginBottom:8}}>SLA personalizado?</div><input type="date" className="fi" style={{width:200}} value={f.customDeadline||f.slaDate} min={new Date().toISOString().split("T")[0]} onChange={e=>set("customDeadline",e.target.value)}/>{f.customDeadline&&f.customDeadline!==f.slaDate&&<div className="disc" style={{marginTop:10}}><I n="alert-triangle" s={14} c="var(--yellow)"/><span>Data fora do SLA padrão. Alinhe com o CS.</span></div>}</div>)}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
             <button className="btn bs" onClick={onClose}>Cancelar</button>
-            <button className="btn bp" disabled={!valid} onClick={()=>onSubmit({...f,requesterEmail:user?.email,requestedBy:user?.name,deadline:sla,status:"open",createdAt:new Date().toISOString().split("T")[0]})}><I n="send" s={14}/>Abrir Task</button>
+            <button className="btn bp" disabled={!valid} onClick={()=>onSubmit({...f,requesterEmail:user?.email,requestedBy:user?.name,deadline:sla,status:"aberta",createdAt:new Date().toISOString().split("T")[0]})}><I n="send" s={14}/>Abrir Task</button>
           </div>
         </div>
       </div>
@@ -3703,6 +3735,23 @@ const NAV=[
 const AuthCtx = createContext();
 const useAuth = () => useContext(AuthCtx);
 const GOOGLE_CLIENT_ID = "453955675457-mdf12g19of257ol5c6hs1b6qmuvg3r4f.apps.googleusercontent.com";
+const SESSION_TTL_MS = 10 * 60 * 60 * 1000; // 10 horas
+const SESSION_KEY = "hypr_session_v1";
+
+function loadSavedSession() {
+  try {
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj || !obj.user || !obj.expiresAt) return null;
+    if (Date.now() > obj.expiresAt) { localStorage.removeItem(SESSION_KEY); return null; }
+    return obj.user;
+  } catch (e) { return null; }
+}
+function saveSession(user) {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ user, expiresAt: Date.now() + SESSION_TTL_MS })); } catch (e) {}
+}
+function clearSession() { try { localStorage.removeItem(SESSION_KEY); } catch (e) {} }
 
 function LoginScreen() {
   const divRef = useRef();
@@ -3724,6 +3773,7 @@ function LoginScreen() {
           }
           const user = { name: payload.name, email: payload.email, picture: payload.picture, initials: payload.name?.split(" ").map(n=>n[0]).join("").substring(0,2).toUpperCase() };
           window.__hyprUser = user;
+          saveSession(user);
           window.dispatchEvent(new Event("hypr-login"));
         },
         auto_select: false,
@@ -3756,7 +3806,7 @@ function LoginScreen() {
 }
 
 export default function App() {
-  const [user,setUser]=useState(null);
+  const [user,setUser]=useState(()=>{ const s=loadSavedSession(); if(s) window.__hyprUser=s; return s; });
   const [clients,setClients]=useState([]);
   const [clientsLoading,setClientsLoading]=useState(false);
   const [page,setPage]=useState(()=>{const h=window.location.hash.replace("#","");return ["home","monitor","tasks","checklist","checklist-center","proposals"].includes(h)?h:"home"});
@@ -3776,20 +3826,8 @@ export default function App() {
   useEffect(()=>{const fn=e=>{if(notifRef.current&&!notifRef.current.contains(e.target))setShowNotifs(false)};document.addEventListener("mousedown",fn);return()=>document.removeEventListener("mousedown",fn)},[]);
   useEffect(()=>{const fn=()=>setUser(window.__hyprUser);window.addEventListener("hypr-login",fn);return()=>window.removeEventListener("hypr-login",fn);},[]);
 
-  // Fetch clients from Cloud Function when user logs in
-  useEffect(()=>{
-    if(!user) return;
-    setClientsLoading(true);
-    fetch(CLIENTS_API_URL)
-      .then(r=>r.json())
-      .then(d=>{
-        if(d.ok&&d.clients){setClients(d.clients);}
-        else{console.warn("Failed to load clients:",d);}
-      })
-      .catch(err=>{console.error("Error fetching clients:",err);})
-      .finally(()=>setClientsLoading(false));
-
-    // Fetch tasks from backend
+  // Fetch helpers — extraídos pra serem chamados no init, em polling, e ao voltar o foco
+  const fetchTasks = useCallback(()=>{
     fetch(`${BACKEND_URL}/tasks`)
       .then(r=>r.json())
       .then(rows=>{
@@ -3806,21 +3844,58 @@ export default function App() {
         }
       })
       .catch(err=>console.error("Error fetching tasks:",err));
-
-    // Fetch checklists from backend
+  },[]);
+  const fetchChecklists = useCallback(()=>{
     fetch(`${BACKEND_URL}/checklists`)
       .then(r=>r.json())
-      .then(rows=>{
-        if(Array.isArray(rows)){setSubmittedChecklists(rows)}
-      })
+      .then(rows=>{ if(Array.isArray(rows)){setSubmittedChecklists(rows)} })
       .catch(err=>console.error("Error fetching checklists:",err));
+  },[]);
+
+  // Fetch clients from Cloud Function when user logs in
+  useEffect(()=>{
+    if(!user) return;
+    setClientsLoading(true);
+    fetch(CLIENTS_API_URL)
+      .then(r=>r.json())
+      .then(d=>{
+        if(d.ok&&d.clients){setClients(d.clients);}
+        else{console.warn("Failed to load clients:",d);}
+      })
+      .catch(err=>{console.error("Error fetching clients:",err);})
+      .finally(()=>setClientsLoading(false));
+
+    fetchTasks();
+    fetchChecklists();
 
     // Fetch studies from Cloud Function
     fetch(STUDIES_API_URL)
       .then(r=>r.json())
       .then(d=>{if(d.ok&&d.studies)setStudies(d.studies)})
       .catch(err=>console.error("Error fetching studies:",err));
-  },[user]);
+  },[user,fetchTasks,fetchChecklists]);
+
+  // Polling: a cada 30s rebusca tasks e checklists pra ver mudanças de outros usuários.
+  // Pausa quando a aba está oculta (não desperdiça quota) e refresca imediatamente ao voltar.
+  useEffect(()=>{
+    if(!user) return;
+    let timer;
+    const refresh = ()=>{ fetchTasks(); fetchChecklists(); };
+    const start = ()=>{ stop(); timer = setInterval(refresh, 30000); };
+    const stop = ()=>{ if(timer){clearInterval(timer); timer=null;} };
+    const onVisibility = ()=>{
+      if(document.visibilityState === "visible"){ refresh(); start(); }
+      else { stop(); }
+    };
+    if(document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", refresh);
+    return ()=>{
+      stop();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", refresh);
+    };
+  },[user,fetchTasks,fetchChecklists]);
 
   // Generate notifications from real tasks
   useEffect(()=>{
@@ -3828,7 +3903,7 @@ export default function App() {
     const n=[];
     const now=new Date();
     tasks.forEach(t=>{
-      if(t.status==="completed") {
+      if(isTaskCompleted(t)) {
         n.push({id:`done-${t.id}`,type:"task",msg:`${t.client} — ${t.type} concluída`,time:"Concluída",read:true});
         return;
       }
@@ -3851,7 +3926,7 @@ export default function App() {
   const markAllRead=()=>setNotifs(ns=>ns.map(n=>({...n,read:true})));
   const pageTitle=NAV.find(n=>n.key===page)?.label||"Command";
 
-  const handleLogout=()=>{setUser(null);window.__hyprUser=null;try{window.google.accounts.id.disableAutoSelect()}catch(e){}};
+  const handleLogout=()=>{setUser(null);window.__hyprUser=null;clearSession();try{window.google.accounts.id.disableAutoSelect()}catch(e){}};
 
   if(!user) return <LoginScreen />;
 
@@ -3963,7 +4038,7 @@ export default function App() {
 
           <div className="pg">
             {page==="home"&&<Dashboard checklists={submittedChecklists} tasks={tasks} onNav={navigate} />}
-            {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} />}
+            {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} onRefetch={fetchTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
             {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} />}
             {page==="proposals"&&hasProposalAccess(user?.email)&&<ProposalBuilder />}
