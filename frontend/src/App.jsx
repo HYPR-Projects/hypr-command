@@ -96,6 +96,15 @@ function fmtDate(d) {
   if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   return new Date(d).toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit",year:"numeric"});
 }
+// Parse YYYY-MM-DD como data LOCAL (evita timezone shift que joga 01/05 → 30/04 em fusos UTC-)
+function parseLocalDate(d) {
+  if (!d) return null;
+  const s = typeof d === "object" && d.value ? d.value : String(d);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]));
+  const dt = new Date(s);
+  return isNaN(dt) ? null : dt;
+}
 function fmtCurrency(v) { if (!v && v !== 0) return "—"; return new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format(v); }
 function fmtCompact(v) { if (v >= 1e6) return (v/1e6).toFixed(1)+"M"; if (v >= 1e3) return (v/1e3).toFixed(0)+"K"; return v; }
 
@@ -180,8 +189,8 @@ function getTaskStatus(t) {
 
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300..700;1,9..40,300&display=swap');
-:root{--navy:#1C262F;--teal:#3397B9;--teal-l:#4ab3d6;--teal-dim:rgba(51,151,185,0.12);--yellow:#EDD900;--yellow-dim:rgba(237,217,0,0.10);--bg1:#F4F6F8;--bg2:#FFFFFF;--bg3:#EEF1F4;--bg-card:#FFFFFF;--bg-sidebar:#1C262F;--bg-input:#FFFFFF;--t1:#1C262F;--t2:#4A6070;--t3:#8DA0AE;--bdr:#DDE3E8;--bdr-focus:#3397B9;--bdr-card:#E8ECF0;--sh-sm:0 1px 3px rgba(28,38,47,0.06);--sh-md:0 4px 12px rgba(28,38,47,0.08);--sh-lg:0 8px 24px rgba(28,38,47,0.10);--green:#22C55E;--green-bg:rgba(34,197,94,0.10);--red:#EF4444;--red-bg:rgba(239,68,68,0.10);--yellow-s:#F59E0B;--yellow-s-bg:rgba(245,158,11,0.10);--r:10px;--ff:'DM Sans',sans-serif;--fd:'Syne',sans-serif;--tr:0.18s ease}
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap');
+:root{--navy:#1C262F;--teal:#3397B9;--teal-l:#4ab3d6;--teal-dim:rgba(51,151,185,0.12);--yellow:#EDD900;--yellow-dim:rgba(237,217,0,0.10);--bg1:#F4F6F8;--bg2:#FFFFFF;--bg3:#EEF1F4;--bg-card:#FFFFFF;--bg-sidebar:#1C262F;--bg-input:#FFFFFF;--t1:#1C262F;--t2:#4A6070;--t3:#8DA0AE;--bdr:#DDE3E8;--bdr-focus:#3397B9;--bdr-card:#E8ECF0;--sh-sm:0 1px 3px rgba(28,38,47,0.06);--sh-md:0 4px 12px rgba(28,38,47,0.08);--sh-lg:0 8px 24px rgba(28,38,47,0.10);--green:#22C55E;--green-bg:rgba(34,197,94,0.10);--red:#EF4444;--red-bg:rgba(239,68,68,0.10);--yellow-s:#F59E0B;--yellow-s-bg:rgba(245,158,11,0.10);--r:10px;--ff:'Urbanist',sans-serif;--fd:'Urbanist',sans-serif;--tr:0.18s ease}
 [data-theme="dark"]{--bg1:#111820;--bg2:#1C262F;--bg3:#141D25;--bg-card:#1C262F;--bg-sidebar:#0E151C;--bg-input:#253340;--t1:#E8EDF1;--t2:#94A9B8;--t3:#5A7080;--bdr:#2A3845;--bdr-card:#253340;--sh-sm:0 1px 3px rgba(0,0,0,0.25);--sh-md:0 4px 12px rgba(0,0,0,0.3);--sh-lg:0 8px 24px rgba(0,0,0,0.35)}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:14px;-webkit-font-smoothing:antialiased}
@@ -365,9 +374,8 @@ function Dashboard({checklists, tasks, onNav}) {
     const [from, to] = getDateRange();
     if (!from) return checklists;
     return checklists.filter(c => {
-      const sd = c.start_date?.value || c.start_date;
-      if (!sd) return false;
-      const d = new Date(sd);
+      const d = parseLocalDate(c.start_date);
+      if (!d) return false;
       return d >= from && d <= to;
     });
   }, [checklists, getDateRange]);
@@ -384,10 +392,10 @@ function Dashboard({checklists, tasks, onNav}) {
   // Active campaigns = checklists where today is between start_date and end_date
   const active = useMemo(() => {
     return filteredChecklists.filter(c => {
-      const s = c.start_date?.value || c.start_date;
-      const e = c.end_date?.value || c.end_date;
+      const s = parseLocalDate(c.start_date);
+      const e = parseLocalDate(c.end_date);
       if (!s || !e) return false;
-      return now >= new Date(s) && now <= new Date(e);
+      return now >= s && now <= e;
     });
   }, [filteredChecklists]);
 
@@ -395,7 +403,7 @@ function Dashboard({checklists, tasks, onNav}) {
   const openTasks = filteredTasks.filter(t => getTaskStatus(t) !== "Concluída");
   const overdueTasks = filteredTasks.filter(t => getTaskStatus(t) === "Atrasada");
 
-  // Unique active clients (sem duplicar) e tickets médios
+  // Unique active clients (sem duplicar) e tickets médios — sobre as ATIVAS
   const uniqueActiveClients = useMemo(() => {
     const set = new Set();
     active.forEach(c => { if (c.client) set.add(String(c.client).trim()); });
@@ -413,10 +421,8 @@ function Dashboard({checklists, tasks, onNav}) {
   const monthlyGroups = useMemo(() => {
     const map = {}; // key: YYYY-MM
     filteredChecklists.forEach(c => {
-      const sd = c.start_date?.value || c.start_date;
-      if (!sd) return;
-      const d = new Date(sd);
-      if (isNaN(d)) return;
+      const d = parseLocalDate(c.start_date);
+      if (!d) return;
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,"0")}`;
       if (!map[key]) {
         map[key] = {
@@ -437,9 +443,9 @@ function Dashboard({checklists, tasks, onNav}) {
       g.checklists.forEach(c => {
         if (c.client) clients.add(String(c.client).trim());
         investment += parseFloat(c.investment)||0;
-        const s = c.start_date?.value || c.start_date;
-        const e = c.end_date?.value || c.end_date;
-        if (s && e && now >= new Date(s) && now <= new Date(e)) activeCount++;
+        const s = parseLocalDate(c.start_date);
+        const e = parseLocalDate(c.end_date);
+        if (s && e && now >= s && now <= e) activeCount++;
       });
       const campaigns = g.checklists.length;
       return {
@@ -510,8 +516,8 @@ function Dashboard({checklists, tasks, onNav}) {
         {[
           {label:"Campanhas Ativas",value:active.length,icon:"zap",color:"var(--green)",sub:`de ${filteredChecklists.length} no período`},
           {label:"Clientes Ativos",value:uniqueActiveClients,icon:"users",color:"var(--teal)",sub:"sem duplicar"},
-          {label:"Ticket Médio / Anunciante",value:fmtCompact(ticketByClient),icon:"dollar",color:"var(--teal-l)",sub:fmtCurrency(ticketByClient)},
-          {label:"Ticket Médio / Campanha",value:fmtCompact(ticketByCampaign),icon:"dollar",color:"var(--teal-l)",sub:fmtCurrency(ticketByCampaign)},
+          {label:"Tkt Médio / Anunciante",value:fmtCompact(ticketByClient),icon:"dollar",color:"var(--teal-l)",sub:fmtCurrency(ticketByClient)},
+          {label:"Tkt Médio / Campanha",value:fmtCompact(ticketByCampaign),icon:"dollar",color:"var(--teal-l)",sub:fmtCurrency(ticketByCampaign)},
           {label:"Tasks Abertas",value:openTasks.length,icon:"inbox",color:"var(--yellow-s)",sub:overdueTasks.length>0?`${overdueTasks.length} atrasada${overdueTasks.length>1?"s":""}`:"Tudo no prazo"},
         ].map(s => (
           <div key={s.label} className="card" style={{padding:"18px 20px",position:"relative",overflow:"hidden"}}>
@@ -1680,15 +1686,12 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
 
   const now = new Date();
 
-  // Filter by search + year + month (always grouped by start_date)
   const filtered=useMemo(()=>{
     const q=search.toLowerCase();
     return checklists.filter(c=>{
       if(q && !(c.client?.toLowerCase().includes(q)||c.campaign_name?.toLowerCase().includes(q)||c.agency?.toLowerCase().includes(q))) return false;
-      const sd = c.start_date?.value || c.start_date;
-      if(!sd) return monthFilter==="all" && yearFilter==="all";
-      const d = new Date(sd);
-      if(isNaN(d)) return false;
+      const d = parseLocalDate(c.start_date);
+      if(!d) return monthFilter==="all" && yearFilter==="all";
       if(yearFilter!=="all" && String(d.getFullYear())!==yearFilter) return false;
       if(monthFilter!=="all"){
         const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,"0")}`;
@@ -1698,13 +1701,13 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
     });
   },[checklists,search,monthFilter,yearFilter]);
 
-  // KPIs gerais (do conjunto filtrado)
+  // KPIs (calculados sobre as ATIVAS dentro do filtro)
   const kpis = useMemo(() => {
     const activeArr = filtered.filter(c => {
-      const s = c.start_date?.value || c.start_date;
-      const e = c.end_date?.value || c.end_date;
+      const s = parseLocalDate(c.start_date);
+      const e = parseLocalDate(c.end_date);
       if (!s || !e) return false;
-      return now >= new Date(s) && now <= new Date(e);
+      return now >= s && now <= e;
     });
     const clients = new Set();
     let inv = 0;
@@ -1717,19 +1720,16 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
       uniqueClients: clients.size,
       ticketByClient:   clients.size ? inv/clients.size : 0,
       ticketByCampaign: activeArr.length ? inv/activeArr.length : 0,
-      activeInvestment: inv,
     };
   }, [filtered]);
 
-  // Agrupamento mensal (por start_date) — newest first
+  // Agrupamento mensal por start_date — newest first
   const monthlyGroups = useMemo(() => {
     const map = {};
     const undated = [];
     filtered.forEach(c => {
-      const sd = c.start_date?.value || c.start_date;
-      if (!sd) { undated.push(c); return; }
-      const d = new Date(sd);
-      if (isNaN(d)) { undated.push(c); return; }
+      const d = parseLocalDate(c.start_date);
+      if (!d) { undated.push(c); return; }
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,"0")}`;
       if (!map[key]) {
         map[key] = {
@@ -1749,14 +1749,13 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
       g.checklists.forEach(c => {
         if (c.client) clients.add(String(c.client).trim());
         investment += parseFloat(c.investment)||0;
-        const s = c.start_date?.value || c.start_date;
-        const e = c.end_date?.value || c.end_date;
-        if (s && e && now >= new Date(s) && now <= new Date(e)) activeCount++;
+        const s = parseLocalDate(c.start_date);
+        const e = parseLocalDate(c.end_date);
+        if (s && e && now >= s && now <= e) activeCount++;
       });
-      // sort checklists within month: ativas primeiro, depois por start_date desc
       g.checklists.sort((a,b)=>{
-        const da = new Date(a.start_date?.value||a.start_date||0);
-        const db = new Date(b.start_date?.value||b.start_date||0);
+        const da = parseLocalDate(a.start_date)?.getTime()||0;
+        const db = parseLocalDate(b.start_date)?.getTime()||0;
         return db - da;
       });
       return {
@@ -1784,14 +1783,11 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
     return groups;
   }, [filtered]);
 
-  // Anos e meses disponíveis para filtros
   const availableYears = useMemo(()=>{
     const s = new Set();
     checklists.forEach(c=>{
-      const sd = c.start_date?.value || c.start_date;
-      if(!sd) return;
-      const d = new Date(sd);
-      if(!isNaN(d)) s.add(d.getFullYear());
+      const d = parseLocalDate(c.start_date);
+      if(d) s.add(d.getFullYear());
     });
     return [...s].sort((a,b)=>b-a);
   },[checklists]);
@@ -1799,10 +1795,8 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
   const availableMonths = useMemo(()=>{
     const m = new Map();
     checklists.forEach(c=>{
-      const sd = c.start_date?.value || c.start_date;
-      if(!sd) return;
-      const d = new Date(sd);
-      if(isNaN(d)) return;
+      const d = parseLocalDate(c.start_date);
+      if(!d) return;
       if(yearFilter!=="all" && String(d.getFullYear())!==yearFilter) return;
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2,"0")}`;
       m.set(key, `${MONTHS_PT[d.getMonth()]} ${d.getFullYear()}`);
@@ -1814,12 +1808,10 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
 
   const handleEdit=(c)=>{setEditData({...c});setEditing(true)};
   const handleSave=async()=>{
-    // Atualiza estado local imediatamente
     setChecklists(prev=>prev.map(c=>c.id===editData.id?editData:c));
     setSelected(editData);
     setEditing(false);
     toast("Checklist atualizado!");
-    // Tenta persistir no backend (endpoint PUT). Se não existir ainda, falha silenciosa.
     try{
       await fetch(`${BACKEND_URL}/checklists/${editData.id}`,{
         method:"PUT",
@@ -1861,11 +1853,11 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
         <h2 style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:700}}>Checklists Enviados</h2>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:140}} value={yearFilter} onChange={e=>{setYearFilter(e.target.value);setMonthFilter("all")}}>
+          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:140,width:"auto"}} value={yearFilter} onChange={e=>{setYearFilter(e.target.value);setMonthFilter("all")}}>
             <option value="all">Todos os anos</option>
             {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
           </select>
-          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:170}} value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>
+          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:170,width:"auto"}} value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>
             <option value="all">Todos os meses</option>
             {availableMonths.map(([k,label])=><option key={k} value={k}>{label}</option>)}
           </select>
@@ -1902,13 +1894,13 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
       {filtered.length===0?(
         <div className="card"><div className="empty"><I n="clipboard" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhum checklist encontrado</h3></div></div>
       ):(
-        <div style={{display:"flex",flexDirection:"column",gap:20}}>
+        <div style={{display:"flex",flexDirection:"column",gap:18}}>
           {monthlyGroups.map(g=>{
             const collapsed = collapsedMonths[g.key];
             return (
-              <div key={g.key} className="card" style={{padding:"16px 18px"}}>
+              <div key={g.key} className="card" style={{padding:0,overflow:"hidden"}}>
                 {/* Month header */}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:collapsed?0:14,gap:12,flexWrap:"wrap",cursor:"pointer"}} onClick={()=>toggleMonth(g.key)}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",cursor:"pointer",padding:"14px 18px",borderBottom:collapsed?"none":"1px solid var(--bdr)"}} onClick={()=>toggleMonth(g.key)}>
                   <div style={{display:"flex",alignItems:"center",gap:10}}>
                     <I n="chevron-down" s={16} c="var(--t2)" style={{transform:collapsed?"rotate(-90deg)":"none",transition:"transform .15s"}}/>
                     <div>
@@ -1931,40 +1923,74 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate}) {
                   </div>
                 </div>
 
-                {/* Cards do mês */}
+                {/* Table */}
                 {!collapsed && (
-                  <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(320px,1fr))",gap:12}}>
-                    {g.checklists.map(c=>{
-                      const s = c.start_date?.value || c.start_date;
-                      const e = c.end_date?.value || c.end_date;
-                      const isActive = s && e && now >= new Date(s) && now <= new Date(e);
-                      const isFuture = s && now < new Date(s);
-                      const status = isActive ? "Ativa" : isFuture ? "Não Iniciada" : "Finalizada";
-                      const statusBg = isActive ? "var(--green-bg)" : isFuture ? "var(--yellow-s-bg)" : "var(--bg-card)";
-                      const statusColor = isActive ? "var(--green)" : isFuture ? "var(--yellow-s)" : "var(--t3)";
-                      return (
-                        <div key={c.id} className="card" style={{padding:"14px 16px",cursor:"pointer",display:"flex",flexDirection:"column",gap:8,background:"var(--bg3)",border:"1px solid var(--bdr)"}} onClick={()=>{setSelected(c);setEditing(false)}}>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
-                            <div style={{minWidth:0,flex:1}}>
-                              <div style={{fontSize:14,fontWeight:700,fontFamily:"var(--fd)",color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.client}</div>
-                              <div style={{fontSize:12,color:"var(--t2)",marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.campaign_name||"—"}</div>
-                            </div>
-                            <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:statusBg,color:statusColor}}>{status}</span>
-                          </div>
-                          <div style={{fontSize:10,color:"var(--t3)"}}>
-                            {fmtDate(s)} → {fmtDate(e)}
-                          </div>
-                          <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                            {c.agency&&<span style={{fontSize:10,color:"var(--t3)",background:"var(--bg-card)",padding:"2px 7px",borderRadius:99}}>{c.agency}</span>}
-                            {c.campaign_type&&<span style={{fontSize:10,color:"var(--teal)",background:"var(--teal-dim)",padding:"2px 7px",borderRadius:99}}>{c.campaign_type}</span>}
-                          </div>
-                          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,borderTop:"1px solid var(--bdr)",marginTop:"auto"}}>
-                            <span style={{fontSize:13,fontWeight:700,color:"var(--teal)"}}>{c.investment?`R$ ${Number(c.investment).toLocaleString("pt-BR")}`:"—"}</span>
-                            <Tags items={c.products} color="teal"/>
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div style={{overflowX:"auto"}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                      <thead>
+                        <tr style={{borderBottom:"1px solid var(--bdr)",background:"var(--bg3)"}}>
+                          <th style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>Cliente</th>
+                          <th style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>Campanha</th>
+                          <th style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>Período</th>
+                          <th style={{textAlign:"right",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>Investimento</th>
+                          <th style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>Produtos</th>
+                          <th style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>CS</th>
+                          <th style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>CP</th>
+                          <th style={{textAlign:"center",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {g.checklists.map(c=>{
+                          const sParsed = parseLocalDate(c.start_date);
+                          const eParsed = parseLocalDate(c.end_date);
+                          const isActive = sParsed && eParsed && now >= sParsed && now <= eParsed;
+                          const isFuture = sParsed && now < sParsed;
+                          const status = isActive ? "Ativa" : isFuture ? "Não Iniciada" : "Finalizada";
+                          const statusBg = isActive ? "var(--green-bg)" : isFuture ? "var(--yellow-s-bg)" : "var(--bg3)";
+                          const statusColor = isActive ? "var(--green)" : isFuture ? "var(--yellow-s)" : "var(--t3)";
+                          // Iniciais para avatar
+                          const initials = (c.client||"?").substring(0,2).toUpperCase();
+                          return (
+                            <tr key={c.id}
+                              style={{borderBottom:"1px solid var(--bdr-card)",cursor:"pointer",transition:"background .15s"}}
+                              onMouseEnter={e=>e.currentTarget.style.background="var(--bg3)"}
+                              onMouseLeave={e=>e.currentTarget.style.background="transparent"}
+                              onClick={()=>{setSelected(c);setEditing(false)}}>
+                              <td style={{padding:"12px 14px"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                  <div style={{width:32,height:32,borderRadius:"50%",background:"var(--teal)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{initials}</div>
+                                  <div style={{minWidth:0}}>
+                                    <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{c.client||"—"}</div>
+                                    {c.agency&&<div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>{c.agency}</div>}
+                                  </div>
+                                </div>
+                              </td>
+                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,maxWidth:250}}>
+                                <div style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.campaign_name||"—"}</div>
+                              </td>
+                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>
+                                {fmtDate(c.start_date)} → {fmtDate(c.end_date)}
+                              </td>
+                              <td style={{padding:"12px 14px",textAlign:"right",color:"var(--teal)",fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>
+                                {c.investment?`R$ ${Number(c.investment).toLocaleString("pt-BR")}`:"—"}
+                              </td>
+                              <td style={{padding:"12px 14px"}}>
+                                <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
+                                  {(c.products||[]).map(p=>(
+                                    <span key={p} style={{padding:"2px 7px",background:"var(--teal-dim)",color:"var(--teal-l)",border:"1px solid var(--teal)",borderRadius:99,fontSize:10,fontWeight:600}}>{p}</span>
+                                  ))}
+                                </div>
+                              </td>
+                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{(c.cs_name||"—").split(" ")[0]}</td>
+                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{(c.cp_name||c.submittedBy||c.submitted_by||"—").split(" ")[0]}</td>
+                              <td style={{padding:"12px 14px",textAlign:"center"}}>
+                                <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:statusBg,color:statusColor}}>{status}</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
@@ -3505,9 +3531,9 @@ function LoginScreen() {
   }, []);
 
   return (
-    <div style={{minHeight:"100vh",background:"#1C262F",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'DM Sans',sans-serif"}}>
+    <div style={{minHeight:"100vh",background:"#1C262F",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Urbanist',sans-serif"}}>
       <div style={{textAlign:"center",padding:40}}>
-        <div style={{fontFamily:"'Syne',sans-serif",fontSize:36,fontWeight:800,color:"#fff",marginBottom:4}}>
+        <div style={{fontFamily:"'Urbanist',sans-serif",fontSize:36,fontWeight:800,color:"#fff",marginBottom:4}}>
           HYPR <span style={{color:"#3397B9",fontSize:20,fontWeight:400,letterSpacing:"0.08em"}}>Command</span>
         </div>
         <div style={{color:"#8DA0AE",fontSize:14,marginBottom:40}}>Plataforma integrada Sales & CS</div>
@@ -3637,7 +3663,7 @@ export default function App() {
         <aside className={`sb${collapsed?" col":""}${mobileOpen?" mob":""}`}>
           <div className="sb-logo">
             {collapsed?<svg viewBox="0 0 28 32" style={{height:28,width:28}}><text x="1" y="26" fontFamily="Arial Black,sans-serif" fontWeight="900" fontSize="26" fill="#FFFFFF">H</text></svg>
-            :<div style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:800,color:"#fff",letterSpacing:"-0.5px"}}>HYPR <span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em"}}>Command</span></div>}
+            :<div style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:800,color:"#fff",letterSpacing:"-0.5px"}}>HYPR<span style={{color:"var(--teal)",fontWeight:800}}>°</span> <span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em"}}>Command</span></div>}
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
