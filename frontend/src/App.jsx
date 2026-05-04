@@ -369,10 +369,32 @@ function PacingBar({value, label}) {
 // ══════════════════════════════════════════════════════════════════════════════
 function Dashboard({checklists, tasks, onNav}) {
   const user = useAuth();
+  const team = useTeam();
+  const myRole = teamRoleOf(team.members, user?.email);
+  const initialScope = (myRole === 'cs' || myRole === 'sales' || myRole === 'cp') ? 'mine' : 'all';
+  const [scope,setScope] = useState(initialScope);
   const now = new Date();
   const [dateFilter,setDateFilter]=useState("all");
   const [customFrom,setCustomFrom]=useState("");
   const [customTo,setCustomTo]=useState("");
+
+  useEffect(()=>{
+    if (!team.members.length || !user?.email) return;
+    const r = teamRoleOf(team.members, user.email);
+    if (r === 'cs' || r === 'sales' || r === 'cp') setScope('mine');
+    else setScope('all');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[team.members.length, user?.email]);
+
+  // Filtra por scope (mine = só os meus)
+  const scopedChecklists = useMemo(()=>{
+    if (scope === 'all') return checklists;
+    return checklists.filter(c => checklistOwnedBy(c, user?.email));
+  },[checklists,scope,user?.email]);
+  const scopedTasks = useMemo(()=>{
+    if (scope === 'all') return tasks;
+    return tasks.filter(t => taskOwnedBy(t, user?.email));
+  },[tasks,scope,user?.email]);
 
   // Date filter presets
   const getDateRange = useCallback(() => {
@@ -393,18 +415,18 @@ function Dashboard({checklists, tasks, onNav}) {
   // Filtered checklists by date range
   const filteredChecklists = useMemo(() => {
     const [from, to] = getDateRange();
-    if (!from) return checklists;
-    return checklists.filter(c => {
+    if (!from) return scopedChecklists;
+    return scopedChecklists.filter(c => {
       const d = parseLocalDate(c.start_date);
       if (!d) return false;
       return d >= from && d <= to;
     });
-  }, [checklists, getDateRange]);
+  }, [scopedChecklists, getDateRange]);
 
   const filteredTasks = useMemo(() => {
     const [from, to] = getDateRange();
-    if (!from) return tasks;
-    return tasks.filter(t => {
+    if (!from) return scopedTasks;
+    return scopedTasks.filter(t => {
       const d = new Date(t.createdAt || t.created_at?.value || t.created_at);
       return d >= from && d <= to;
     });
@@ -510,10 +532,21 @@ function Dashboard({checklists, tasks, onNav}) {
 
   return (
     <div className="page-enter">
-      {/* Welcome */}
-      <div style={{marginBottom:24}}>
-        <h1 style={{fontFamily:"var(--fd)",fontSize:22,fontWeight:800,color:"var(--t1)",marginBottom:4}}>{new Date().getHours()<12?"Bom dia":new Date().getHours()<18?"Boa tarde":"Boa noite"}, {user?.name?.split(" ")[0]||"!"}</h1>
-        <p style={{color:"var(--t2)",fontSize:13}}>Aqui está o resumo do HYPR Command — {new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})}</p>
+      {/* Welcome + scope toggle */}
+      <div style={{marginBottom:24,display:"flex",justifyContent:"space-between",alignItems:"flex-end",gap:14,flexWrap:"wrap"}}>
+        <div>
+          <h1 style={{fontFamily:"var(--fd)",fontSize:22,fontWeight:800,color:"var(--t1)",marginBottom:4}}>{new Date().getHours()<12?"Bom dia":new Date().getHours()<18?"Boa tarde":"Boa noite"}, {user?.name?.split(" ")[0]||"!"}</h1>
+          <p style={{color:"var(--t2)",fontSize:13}}>{scope==="mine"?"Mostrando apenas as suas campanhas e tasks":"Mostrando dados de toda a equipe"} — {new Date().toLocaleDateString("pt-BR",{weekday:"long",day:"numeric",month:"long"})}</p>
+        </div>
+        <div style={{display:"flex",gap:0,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",padding:2}}>
+          {[{k:"mine",label:"Meus"},{k:"all",label:"Equipe"}].map(o=>(
+            <button key={o.k}
+              style={{padding:"6px 16px",border:"none",background:scope===o.k?"var(--bg-card)":"transparent",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600,color:scope===o.k?"var(--teal)":"var(--t3)",boxShadow:scope===o.k?"var(--sh-sm)":"none",transition:"all .15s"}}
+              onClick={()=>setScope(o.k)}>
+              {o.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Date filter */}
@@ -893,42 +926,77 @@ function CampaignDetail({camp,onClose}) {
 // ══════════════════════════════════════════════════════════════════════════════
 function TaskCenter({tasks,setTasks,onRefetch}) {
   const user = useAuth();
+  const team = useTeam();
+  const isAdmin = isAdminFromTeam(team.members, user?.email);
+  const myRole = teamRoleOf(team.members, user?.email);
+  // Default: "mine" pra CP/CS/sales; admin começa com "all"
+  const initialScope = (myRole === 'cs' || myRole === 'sales' || myRole === 'cp') ? 'mine' : 'all';
+  const [scope,setScope] = useState(initialScope); // "mine" | "all"
   const [showNew,setShowNew]=useState(false);
   const [linkModal,setLinkModal]=useState(null);
   const [search,setSearch]=useState("");
   const [filterStatus,setFilterStatus]=useState("all");
   const [filterCS,setFilterCS]=useState("");
+  const [filterCP,setFilterCP]=useState(""); // email do CP (solicitante)
   const [viewMode,setViewMode]=useState(()=>localStorage.getItem("hypr_task_view")||"cards"); // cards | list | kanban
   const [draggingId,setDraggingId]=useState(null);
   const toast = useToast();
   const gfIdx = useRef(0);
 
   useEffect(()=>{ try{localStorage.setItem("hypr_task_view",viewMode)}catch(e){} },[viewMode]);
+  // Recalcula scope inicial quando time carrega (evita race)
+  useEffect(()=>{
+    if (!team.members.length || !user?.email) return;
+    const r = teamRoleOf(team.members, user.email);
+    if (r === 'cs' || r === 'sales' || r === 'cp') setScope('mine');
+    else setScope('all');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[team.members.length, user?.email]);
+
+  // Lista de Solicitantes (CPs) únicos pra dropdown
+  const cpOptions = useMemo(()=>{
+    const m = new Map();
+    tasks.forEach(t=>{
+      const e = t.requesterEmail || t.requester_email;
+      const n = t.requestedBy || t.requested_by;
+      if (e && n) m.set(e.toLowerCase(), n);
+    });
+    return [...m.entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+  },[tasks]);
 
   const filtered = useMemo(()=>{
     return tasks.filter(t=>{
+      // Scope "minhas": eu sou CS responsável OU solicitante
+      if (scope === 'mine' && !taskOwnedBy(t, user?.email)) return false;
       const q=search.toLowerCase();
       const mQ=!q||t.client.toLowerCase().includes(q)||t.type.toLowerCase().includes(q)||t.cs.toLowerCase().includes(q);
       const mCS=!filterCS||t.cs===filterCS;
+      const mCP=!filterCP||((t.requesterEmail||t.requester_email||'').toLowerCase()===filterCP.toLowerCase());
       const st=getTaskStatus(t);
       // No kanban, ignoramos o filtro de status (todas as colunas devem aparecer)
-      if(viewMode==="kanban") return mQ && mCS;
+      if(viewMode==="kanban") return mQ && mCS && mCP;
       const mSt=filterStatus==="all"
         ||(filterStatus==="aberta"&&(st==="Dentro do SLA"||st==="Atrasada"))
         ||(filterStatus==="iniciada"&&st==="Iniciado")
         ||(filterStatus==="atrasada"&&st==="Atrasada")
         ||(filterStatus==="entregue"&&st==="Concluída");
-      return mQ&&mCS&&mSt;
+      return mQ&&mCS&&mCP&&mSt;
     });
-  },[tasks,search,filterStatus,filterCS,viewMode]);
+  },[tasks,scope,user?.email,search,filterStatus,filterCS,filterCP,viewMode]);
+
+  // Contagens reagem ao scope tb
+  const tasksScoped = useMemo(()=>{
+    if (scope === 'all') return tasks;
+    return tasks.filter(t => taskOwnedBy(t, user?.email));
+  },[tasks,scope,user?.email]);
 
   const counts=useMemo(()=>({
-    all:tasks.length,
-    aberta:tasks.filter(t=>{const s=getTaskStatus(t);return s==="Dentro do SLA"||s==="Atrasada"}).length,
-    iniciada:tasks.filter(t=>getTaskStatus(t)==="Iniciado").length,
-    atrasada:tasks.filter(t=>getTaskStatus(t)==="Atrasada").length,
-    entregue:tasks.filter(t=>getTaskStatus(t)==="Concluída").length,
-  }),[tasks]);
+    all:tasksScoped.length,
+    aberta:tasksScoped.filter(t=>{const s=getTaskStatus(t);return s==="Dentro do SLA"||s==="Atrasada"}).length,
+    iniciada:tasksScoped.filter(t=>getTaskStatus(t)==="Iniciado").length,
+    atrasada:tasksScoped.filter(t=>getTaskStatus(t)==="Atrasada").length,
+    entregue:tasksScoped.filter(t=>getTaskStatus(t)==="Concluída").length,
+  }),[tasksScoped]);
 
   // Buckets do kanban — usam a lista FILTRADA
   const kanbanBuckets = useMemo(()=>{
@@ -1057,13 +1125,27 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
 
       <div className="card" style={{padding:"12px 16px",marginBottom:20}}>
         <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-          <div style={{position:"relative",flex:1,minWidth:200,maxWidth:300}}>
+          {/* Toggle Minhas / Todas */}
+          <div style={{display:"flex",gap:0,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",padding:2}}>
+            {[{k:"mine",label:"Minhas"},{k:"all",label:"Todas"}].map(o=>(
+              <button key={o.k}
+                style={{padding:"6px 14px",border:"none",background:scope===o.k?"var(--bg-card)":"transparent",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:600,color:scope===o.k?"var(--teal)":"var(--t3)",boxShadow:scope===o.k?"var(--sh-sm)":"none",transition:"all .15s"}}
+                onClick={()=>setScope(o.k)}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <div style={{position:"relative",flex:1,minWidth:180,maxWidth:280}}>
             <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}} c="var(--t3)" />
             <input className="fi" style={{paddingLeft:32}} placeholder="Buscar..." value={search} onChange={e=>setSearch(e.target.value)} />
           </div>
-          <select className="fs" style={{width:200}} value={filterCS} onChange={e=>setFilterCS(e.target.value)}>
+          <select className="fs" style={{width:180}} value={filterCS} onChange={e=>setFilterCS(e.target.value)}>
             <option value="">Todos os CS</option>
             {CS_LIST.filter(c=>c!=="Greenfield").map(cs=><option key={cs}>{cs}</option>)}
+          </select>
+          <select className="fs" style={{width:200}} value={filterCP} onChange={e=>setFilterCP(e.target.value)}>
+            <option value="">Todos os Solicitantes</option>
+            {cpOptions.map(([email,name])=><option key={email} value={email}>{shortName(name)}</option>)}
           </select>
         </div>
       </div>
@@ -1926,12 +2008,18 @@ function FeatSearch({value,onChange}) {
 // ══════════════════════════════════════════════════════════════════════════════
 function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
   const user = useAuth();
+  const team = useTeam();
+  const myRole = teamRoleOf(team.members, user?.email);
+  const initialScope = (myRole === 'cs' || myRole === 'sales' || myRole === 'cp') ? 'mine' : 'all';
+  const [scope,setScope] = useState(initialScope);
   const [selected,setSelected]=useState(null);
   const [editing,setEditing]=useState(false);
   const [editData,setEditData]=useState(null);
   const [search,setSearch]=useState("");
   const [monthFilter,setMonthFilter]=useState("all"); // "all" | "YYYY-MM"
   const [yearFilter,setYearFilter]=useState("all");   // "all" | "YYYY"
+  const [filterCS,setFilterCS]=useState(""); // email do CS responsável
+  const [filterCP,setFilterCP]=useState(""); // email do CP que enviou
   const [collapsedMonths,setCollapsedMonths]=useState({});
   const [deleteConfirm,setDeleteConfirm]=useState(null); // checklist sendo deletado
   const [csList,setCsList]=useState([]); // [{name,email}] vindo de /team
@@ -1951,9 +2039,39 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
 
   const now = new Date();
 
+  // Recalcula scope inicial quando time carrega
+  useEffect(()=>{
+    if (!team.members.length || !user?.email) return;
+    const r = teamRoleOf(team.members, user.email);
+    if (r === 'cs' || r === 'sales' || r === 'cp') setScope('mine');
+    else setScope('all');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[team.members.length, user?.email]);
+
+  // Listas únicas pra dropdowns de CS e CP (a partir dos checklists existentes)
+  const csOptions = useMemo(()=>{
+    const m = new Map();
+    checklists.forEach(c=>{ if(c.cs_email && c.cs_name) m.set(c.cs_email.toLowerCase(), c.cs_name); });
+    return [...m.entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+  },[checklists]);
+  const cpOptions = useMemo(()=>{
+    const m = new Map();
+    checklists.forEach(c=>{
+      const e = c.submitted_by_email || c.submittedByEmail || c.cp_email;
+      const n = c.submitted_by || c.submittedBy || c.cp_name;
+      if (e && n) m.set(e.toLowerCase(), n);
+    });
+    return [...m.entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+  },[checklists]);
+
   const filtered=useMemo(()=>{
     const q=search.toLowerCase();
     return checklists.filter(c=>{
+      // Scope "minhas": eu sou CP que enviou OU CS responsável
+      if (scope === 'mine' && !checklistOwnedBy(c, user?.email)) return false;
+      if (filterCS && (c.cs_email||'').toLowerCase() !== filterCS.toLowerCase()) return false;
+      const cpEmail = (c.submitted_by_email || c.submittedByEmail || c.cp_email || '').toLowerCase();
+      if (filterCP && cpEmail !== filterCP.toLowerCase()) return false;
       if(q && !(c.client?.toLowerCase().includes(q)||c.campaign_name?.toLowerCase().includes(q)||c.agency?.toLowerCase().includes(q))) return false;
       const d = parseLocalDate(c.start_date);
       if(!d) return monthFilter==="all" && yearFilter==="all";
@@ -1964,7 +2082,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
       }
       return true;
     });
-  },[checklists,search,monthFilter,yearFilter]);
+  },[checklists,scope,user?.email,search,monthFilter,yearFilter,filterCS,filterCP]);
 
   // KPIs (calculados sobre as ATIVAS dentro do filtro)
   const kpis = useMemo(() => {
@@ -2166,18 +2284,38 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
 
   return(
     <div className="page-enter">
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
-        <h2 style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:700}}>Checklists Enviados</h2>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:14,flexWrap:"wrap"}}>
+          <h2 style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:700}}>Checklists Enviados</h2>
+          {/* Toggle Minhas / Todas */}
+          <div style={{display:"flex",gap:0,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",padding:2}}>
+            {[{k:"mine",label:"Meus"},{k:"all",label:"Todos"}].map(o=>(
+              <button key={o.k}
+                style={{padding:"6px 14px",border:"none",background:scope===o.k?"var(--bg-card)":"transparent",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:600,color:scope===o.k?"var(--teal)":"var(--t3)",boxShadow:scope===o.k?"var(--sh-sm)":"none",transition:"all .15s"}}
+                onClick={()=>setScope(o.k)}>
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:140,width:"auto"}} value={yearFilter} onChange={e=>{setYearFilter(e.target.value);setMonthFilter("all")}}>
+          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:130,width:"auto"}} value={yearFilter} onChange={e=>{setYearFilter(e.target.value);setMonthFilter("all")}}>
             <option value="all">Todos os anos</option>
             {availableYears.map(y=><option key={y} value={y}>{y}</option>)}
           </select>
-          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:170,width:"auto"}} value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>
+          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:150,width:"auto"}} value={monthFilter} onChange={e=>setMonthFilter(e.target.value)}>
             <option value="all">Todos os meses</option>
             {availableMonths.map(([k,label])=><option key={k} value={k}>{label}</option>)}
           </select>
-          <div style={{position:"relative",minWidth:200,maxWidth:300}}>
+          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:140,width:"auto"}} value={filterCS} onChange={e=>setFilterCS(e.target.value)}>
+            <option value="">Todos os CS</option>
+            {csOptions.map(([email,name])=><option key={email} value={email}>{shortName(name)}</option>)}
+          </select>
+          <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:140,width:"auto"}} value={filterCP} onChange={e=>setFilterCP(e.target.value)}>
+            <option value="">Todos os CP</option>
+            {cpOptions.map(([email,name])=><option key={email} value={email}>{shortName(name)}</option>)}
+          </select>
+          <div style={{position:"relative",minWidth:180,maxWidth:260}}>
             <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)"}} c="var(--t3)"/>
             <input className="fi" style={{paddingLeft:32}} placeholder="Buscar cliente ou campanha..." value={search} onChange={e=>setSearch(e.target.value)}/>
           </div>
@@ -2721,6 +2859,28 @@ const isAdminFromTeam = (members, email) => {
   if (r) return r === 'admin';
   return FALLBACK_ADMINS.includes((email||'').toLowerCase());
 };
+
+// "Eu sou dono?" → true se eu criei (CP/sales) ou sou o CS responsável
+function checklistOwnedBy(checklist, email) {
+  if (!checklist || !email) return false;
+  const e = email.toLowerCase();
+  return [
+    checklist.submitted_by_email,
+    checklist.submittedByEmail,
+    checklist.cp_email,
+    checklist.cs_email,
+  ].some(v => v && String(v).toLowerCase() === e);
+}
+function taskOwnedBy(task, email) {
+  if (!task || !email) return false;
+  const e = email.toLowerCase();
+  return [
+    task.requester_email,
+    task.requesterEmail,
+    task.cs_email,
+    task.csEmail,
+  ].some(v => v && String(v).toLowerCase() === e);
+}
 const hasProposalAccessFromTeam = (members, email) => {
   const r = teamRoleOf(members, email);
   if (r) return r === 'admin' || r === 'cp' || r === 'sales';
