@@ -934,6 +934,7 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
   const [scope,setScope] = useState(initialScope); // "mine" | "all"
   const [showNew,setShowNew]=useState(false);
   const [linkModal,setLinkModal]=useState(null);
+  const [selectedTask,setSelectedTask]=useState(null);
   const [search,setSearch]=useState("");
   const [filterStatus,setFilterStatus]=useState("all");
   const [filterCS,setFilterCS]=useState("");
@@ -1154,10 +1155,10 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
         <div className="card"><div className="empty"><I n="check-circle" s={40} c="var(--t3)" /><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhuma task encontrada</h3></div></div>
       ):viewMode==="cards"?(
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:16}}>
-          {filtered.map(t=><TaskCard key={t.id} task={t} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} />)}
+          {filtered.map(t=><TaskCard key={t.id} task={t} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} />)}
         </div>
       ):viewMode==="list"?(
-        <TaskListView tasks={filtered} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal}/>
+        <TaskListView tasks={filtered} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask}/>
       ):(
         /* KANBAN */
         <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:16,alignItems:"flex-start"}}>
@@ -1184,7 +1185,7 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
                 <KanbanCard key={t.id} task={t} draggable
                   onDragStart={(e)=>onDragStart(e,t.id)}
                   onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen}
-                  onAddLink={setLinkModal}/>
+                  onAddLink={setLinkModal} onOpen={setSelectedTask}/>
               ))}
             </div>
           ))}
@@ -1193,12 +1194,13 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
+      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}}/>}
     </div>
   );
 }
 
 // ──────────── Visão de Lista (tabela) ────────────
-function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink}){
+function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen}){
   return (
     <div className="card" style={{padding:0,overflow:"hidden"}}>
       <div style={{overflowX:"auto"}}>
@@ -1216,7 +1218,11 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink}){
               const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
               const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
               return (
-                <tr key={t.id} style={{borderBottom:"1px solid var(--bdr-card)"}}>
+                <tr key={t.id}
+                  style={{borderBottom:"1px solid var(--bdr-card)",cursor:onOpen?"pointer":"default",transition:"background .15s"}}
+                  onClick={()=>onOpen&&onOpen(t)}
+                  onMouseEnter={e=>{if(onOpen)e.currentTarget.style.background="var(--bg3)"}}
+                  onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
                   <td style={{padding:"12px 14px"}}>
                     <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{t.client}</div>
                     {t.budget>0&&<div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>R$ {Number(t.budget).toLocaleString("pt-BR")}</div>}
@@ -1230,20 +1236,20 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink}){
                   </td>
                   <td style={{padding:"12px 14px",textAlign:"center"}}>
                     {t.docLink?(
-                      <a href={t.docLink} target="_blank" rel="noreferrer" style={{color:"var(--teal)",display:"inline-flex",alignItems:"center",gap:4,fontSize:11,textDecoration:"none"}}><I n="external" s={11}/>Abrir</a>
+                      <a href={t.docLink} target="_blank" rel="noreferrer" style={{color:"var(--teal)",display:"inline-flex",alignItems:"center",gap:4,fontSize:11,textDecoration:"none"}} onClick={e=>e.stopPropagation()}><I n="external" s={11}/>Abrir</a>
                     ):(
-                      <button className="btn bs" style={{fontSize:10,padding:"3px 8px"}} onClick={()=>onAddLink(t)}><I n="link" s={11}/>Anexar</button>
+                      <button className="btn bs" style={{fontSize:10,padding:"3px 8px"}} onClick={e=>{e.stopPropagation();onAddLink(t)}}><I n="link" s={11}/>Anexar</button>
                     )}
                   </td>
                   <td style={{padding:"12px 14px",textAlign:"center",whiteSpace:"nowrap"}}>
                     {isTaskOpen(t)&&(
-                      <button className="btn bs" style={{fontSize:10,padding:"3px 8px",marginRight:4}} onClick={()=>onStart(t.id)}><I n="play" s={11}/>Iniciar</button>
+                      <button className="btn bs" style={{fontSize:10,padding:"3px 8px",marginRight:4}} onClick={e=>{e.stopPropagation();onStart(t.id)}}><I n="play" s={11}/>Iniciar</button>
                     )}
                     {isTaskInProgress(t)&&(
-                      <button className="btn bp" style={{fontSize:10,padding:"3px 8px"}} onClick={()=>onComplete(t.id)}><I n="check" s={11}/>Concluir</button>
+                      <button className="btn bp" style={{fontSize:10,padding:"3px 8px"}} onClick={e=>{e.stopPropagation();onComplete(t.id)}}><I n="check" s={11}/>Concluir</button>
                     )}
                     {isTaskCompleted(t)&&(
-                      <button className="btn bs" style={{fontSize:10,padding:"3px 8px"}} onClick={()=>onReopen(t.id)}><I n="rotate" s={11}/>Reabrir</button>
+                      <button className="btn bs" style={{fontSize:10,padding:"3px 8px"}} onClick={e=>{e.stopPropagation();onReopen(t.id)}}><I n="rotate" s={11}/>Reabrir</button>
                     )}
                   </td>
                 </tr>
@@ -1257,12 +1263,15 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink}){
 }
 
 // ──────────── Card compacto para Kanban ────────────
-function KanbanCard({task,draggable,onDragStart,onStart,onComplete,onReopen,onAddLink}){
+function KanbanCard({task,draggable,onDragStart,onStart,onComplete,onReopen,onAddLink,onOpen}){
   const st=getTaskStatus(task);
   const isOverdue=st==="Atrasada";
   return (
     <div draggable={draggable} onDragStart={onDragStart}
-      style={{padding:12,background:"var(--bg-card)",borderRadius:"var(--r)",border:`1px solid ${isOverdue?"var(--red)":"var(--bdr)"}`,cursor:"grab",boxShadow:"var(--sh-sm)",display:"flex",flexDirection:"column",gap:8}}>
+      onClick={()=>onOpen&&onOpen(task)}
+      style={{padding:12,background:"var(--bg-card)",borderRadius:"var(--r)",border:`1px solid ${isOverdue?"var(--red)":"var(--bdr)"}`,cursor:onOpen?"pointer":"grab",boxShadow:"var(--sh-sm)",display:"flex",flexDirection:"column",gap:8,transition:"all .15s"}}
+      onMouseEnter={e=>{if(onOpen&&!isOverdue)e.currentTarget.style.borderColor="var(--teal)"}}
+      onMouseLeave={e=>{if(onOpen&&!isOverdue)e.currentTarget.style.borderColor="var(--bdr)"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6}}>
         <div style={{minWidth:0,flex:1}}>
           <div style={{fontSize:12,fontWeight:700,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.client}</div>
@@ -1297,11 +1306,14 @@ function KanbanCard({task,draggable,onDragStart,onStart,onComplete,onReopen,onAd
   );
 }
 
-function TaskCard({task,onStart,onComplete,onReopen,onAddLink}) {
+function TaskCard({task,onStart,onComplete,onReopen,onAddLink,onOpen}) {
   const st=getTaskStatus(task);
   const stCls=st==="Concluída"?"b-teal":st==="Iniciado"?"b-teal":st==="Atrasada"?"b-red":"b-grn";
   return (
-    <div className="card" style={{padding:"18px 20px",display:"flex",flexDirection:"column",gap:12}}>
+    <div className="card" style={{padding:"18px 20px",display:"flex",flexDirection:"column",gap:12,cursor:onOpen?"pointer":"default",transition:"all .15s"}}
+      onClick={()=>onOpen&&onOpen(task)}
+      onMouseEnter={e=>{if(onOpen)e.currentTarget.style.borderColor="var(--teal)"}}
+      onMouseLeave={e=>{if(onOpen)e.currentTarget.style.borderColor=""}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{display:"flex",alignItems:"center",gap:6}}>
           <span style={{padding:"3px 10px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:11,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
@@ -1326,11 +1338,141 @@ function TaskCard({task,onStart,onComplete,onReopen,onAddLink}) {
           <div style={{display:"flex",alignItems:"center",gap:4}}><I n="calendar" s={12} c="var(--t3)" /><span style={{fontSize:12,color:st==="Atrasada"?"var(--red)":"var(--t2)"}}>{fmtDate(task.deadline)}</span></div>
         </div>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-          {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:11,padding:"5px 10px",textDecoration:"none"}}><I n="external" s={12} />Doc</a>}
-          <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={()=>onAddLink(task)} title={task.docLink?"Editar link":"Adicionar link"}><I n="link" s={12} />{task.docLink?"Editar":"Link"}</button>
-          {isTaskOpen(task)&&onStart&&<button className="btn bs" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onStart(task.id)}><I n="play" s={12} />Iniciar</button>}
-          {isTaskInProgress(task)&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onComplete(task.id)}><I n="check" s={12} />Concluir</button>}
-          {isTaskCompleted(task)&&onReopen&&<button className="btn bs" style={{fontSize:11,padding:"5px 12px"}} onClick={()=>onReopen(task.id)}><I n="rotate" s={12} />Reabrir</button>}
+          {task.docLink&&<a href={task.docLink} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:11,padding:"5px 10px",textDecoration:"none"}} onClick={e=>e.stopPropagation()}><I n="external" s={12} />Doc</a>}
+          <button className="btn bg" style={{fontSize:11,padding:"5px 10px"}} onClick={e=>{e.stopPropagation();onAddLink(task)}} title={task.docLink?"Editar link":"Adicionar link"}><I n="link" s={12} />{task.docLink?"Editar":"Link"}</button>
+          {isTaskOpen(task)&&onStart&&<button className="btn bs" style={{fontSize:11,padding:"5px 12px"}} onClick={e=>{e.stopPropagation();onStart(task.id)}}><I n="play" s={12} />Iniciar</button>}
+          {isTaskInProgress(task)&&<button className="btn bp" style={{fontSize:11,padding:"5px 12px"}} onClick={e=>{e.stopPropagation();onComplete(task.id)}}><I n="check" s={12} />Concluir</button>}
+          {isTaskCompleted(task)&&onReopen&&<button className="btn bs" style={{fontSize:11,padding:"5px 12px"}} onClick={e=>{e.stopPropagation();onReopen(task.id)}}><I n="rotate" s={12} />Reabrir</button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────── Modal de detalhes da Task ────────────
+function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
+  const st=getTaskStatus(task);
+  const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
+  const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal" style={{maxWidth:720,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+        {/* Header */}
+        <div style={{padding:"20px 24px",borderBottom:"1px solid var(--bdr)",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexShrink:0}}>
+          <div style={{minWidth:0,flex:1}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+              <span style={{padding:"3px 10px",borderRadius:99,background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:11,fontWeight:700,color:"var(--t2)",fontFamily:"var(--fd)"}}>{task.type}</span>
+              <span className="badge" style={{fontSize:10,background:stBg,color:stColor}}>
+                <I n={st==="Atrasada"?"alert-circle":st==="Iniciado"?"play":st==="Concluída"?"check-circle":"clock"} s={10}/> {st}
+              </span>
+              <span style={{fontSize:11,color:"var(--t3)"}}>#{task.id}</span>
+            </div>
+            <div style={{fontFamily:"var(--fd)",fontSize:20,fontWeight:800,color:"var(--t1)",lineHeight:1.2}}>{task.client}</div>
+          </div>
+          <button title="Fechar" onClick={onClose}
+            style={{background:"transparent",border:"none",padding:6,cursor:"pointer",color:"var(--t3)",borderRadius:6,display:"inline-flex",alignItems:"center",flexShrink:0}}
+            onMouseEnter={e=>{e.currentTarget.style.color="var(--t1)";e.currentTarget.style.background="var(--bg3)"}}
+            onMouseLeave={e=>{e.currentTarget.style.color="var(--t3)";e.currentTarget.style.background="transparent"}}>
+            <I n="x" s={18}/>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div style={{padding:"20px 24px",overflowY:"auto",flex:1}}>
+          {/* Briefing — destaque principal */}
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:8}}>Briefing</div>
+            <div style={{padding:14,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",fontSize:13,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
+              {task.briefing||<span style={{color:"var(--t3)",fontStyle:"italic"}}>Sem briefing informado</span>}
+            </div>
+          </div>
+
+          {/* Metadados em grid */}
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:18}}>
+            <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
+              <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>CS Responsável</div>
+              <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:"var(--t1)"}}>
+                <I n="user" s={13} c="var(--teal)"/>{task.cs||"—"}
+              </div>
+              {task.csEmail&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{task.csEmail}</div>}
+            </div>
+            <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
+              <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>Solicitante</div>
+              <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:"var(--t1)"}}>
+                <I n="user" s={13} c="var(--teal)"/>{task.requestedBy||"—"}
+              </div>
+              {task.requesterEmail&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{task.requesterEmail}</div>}
+            </div>
+            <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
+              <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>Prazo</div>
+              <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:st==="Atrasada"?"var(--red)":"var(--t1)"}}>
+                <I n="calendar" s={13} c={st==="Atrasada"?"var(--red)":"var(--teal)"}/>{fmtDate(task.deadline)}
+              </div>
+              {task.sla&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>SLA: {task.sla}</div>}
+            </div>
+            {task.budget>0&&(
+              <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
+                <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>Investimento</div>
+                <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:700,color:"var(--teal)"}}>
+                  <I n="dollar" s={13} c="var(--teal)"/>{fmtCurrency(task.budget)}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Produtos e features */}
+          {(task.products?.length>0||task.features?.length>0)&&(
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:8}}>Produtos & Features</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                {task.products?.map(p=><span key={p} className="chip sel" style={{fontSize:11}}>{p}</span>)}
+                {task.features?.map(f=><span key={f} style={{padding:"3px 10px",background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:99,fontSize:11,color:"var(--t2)",fontWeight:600}}>{f}</span>)}
+              </div>
+            </div>
+          )}
+
+          {/* Doc link */}
+          <div style={{marginBottom:18}}>
+            <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:8}}>Documento de Apoio</div>
+            {task.docLink?(
+              <a href={task.docLink} target="_blank" rel="noreferrer"
+                style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)",fontSize:12,fontWeight:600,color:"var(--teal-l)",textDecoration:"none",maxWidth:"100%"}}>
+                <I n="external" s={13}/>
+                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.docLink}</span>
+              </a>
+            ):(
+              <div style={{fontSize:12,color:"var(--t3)",fontStyle:"italic"}}>Nenhum link anexado ainda</div>
+            )}
+          </div>
+
+          {/* Datas */}
+          {task.createdAt&&(
+            <div style={{fontSize:11,color:"var(--t3)",paddingTop:12,borderTop:"1px solid var(--bdr)"}}>
+              Aberta em {fmtDate(task.createdAt)}
+            </div>
+          )}
+        </div>
+
+        {/* Footer com ações */}
+        <div style={{padding:"14px 24px",borderTop:"1px solid var(--bdr)",display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap",flexShrink:0,background:"var(--bg-card)"}}>
+          <button className="btn bg" style={{fontSize:12}} onClick={()=>onAddLink(task)}>
+            <I n="link" s={13}/>{task.docLink?"Editar Link":"Anexar Link"}
+          </button>
+          {isTaskOpen(task)&&onStart&&(
+            <button className="btn bs" style={{fontSize:12}} onClick={()=>{onStart(task.id);onClose()}}>
+              <I n="play" s={13}/>Iniciar Task
+            </button>
+          )}
+          {isTaskInProgress(task)&&(
+            <button className="btn bp" style={{fontSize:12}} onClick={()=>{onComplete(task.id);onClose()}}>
+              <I n="check" s={13}/>Marcar como Concluída
+            </button>
+          )}
+          {isTaskCompleted(task)&&onReopen&&(
+            <button className="btn bs" style={{fontSize:12}} onClick={()=>{onReopen(task.id);onClose()}}>
+              <I n="rotate" s={13}/>Reabrir Task
+            </button>
+          )}
         </div>
       </div>
     </div>
