@@ -8,7 +8,7 @@ const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","
 const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados RMNF": 3 };
 const CORE_PRODUCTS = ["O2O","OOH","RMN Digital","RMN Físico"];
 const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","RMNF","RMND"];
-const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context"];
+const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context","Survey","Video Survey"];
 const FEATURES_WITH_VOLUMETRIA = ["P-DOOH","Tap to Go","Tap To Scratch","Weather","Topics","Click to Calendar","Downloaded Apps"];
 const MARKETPLACES = ["VTEX","Amazon"];
 
@@ -1355,8 +1355,8 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
   const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
   const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
   return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="modal" style={{maxWidth:720,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+    <div className="mo" onClick={onClose}>
+      <div className="ml" style={{maxWidth:720,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
         {/* Header */}
         <div style={{padding:"20px 24px",borderBottom:"1px solid var(--bdr)",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:14,flexShrink:0}}>
           <div style={{minWidth:0,flex:1}}>
@@ -2942,8 +2942,8 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
 
       {/* Modal de confirmação de exclusão */}
       {deleteConfirm && (
-        <div className="modal-bg" onClick={()=>setDeleteConfirm(null)}>
-          <div className="modal" style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
+        <div className="mo" onClick={()=>setDeleteConfirm(null)}>
+          <div className="ml" style={{maxWidth:480}} onClick={e=>e.stopPropagation()}>
             <div style={{padding:"22px 24px"}}>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
                 <div style={{width:40,height:40,borderRadius:"50%",background:"var(--red-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -4452,8 +4452,8 @@ function AdminPanel() {
 
       {/* Modal: Remove confirm */}
       {removeConfirm && (
-        <div className="modal-bg" onClick={()=>setRemoveConfirm(null)}>
-          <div className="modal" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
+        <div className="mo" onClick={()=>setRemoveConfirm(null)}>
+          <div className="ml" style={{maxWidth:460}} onClick={e=>e.stopPropagation()}>
             <div style={{padding:"22px 24px"}}>
               <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
                 <div style={{width:40,height:40,borderRadius:"50%",background:"var(--red-bg)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -4499,8 +4499,8 @@ function AddUserModal({onClose,onSubmit,existingEmails}){
   };
 
   return (
-    <div className="modal-bg" onClick={onClose}>
-      <div className="modal" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
+    <div className="mo" onClick={onClose}>
+      <div className="ml" style={{maxWidth:520}} onClick={e=>e.stopPropagation()}>
         <div style={{padding:"22px 24px"}}>
           <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:18}}>
             <div style={{width:40,height:40,borderRadius:"50%",background:"var(--teal-dim)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
