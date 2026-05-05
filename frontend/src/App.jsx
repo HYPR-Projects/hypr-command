@@ -2,8 +2,10 @@ import { useState, useEffect, useMemo, useRef, createContext, useContext, useCal
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
-const CS_LIST = ["Beatriz Severine","Isaac Agiman","João Armelin","João Buzolin","Mariana Lewinski","Thiago Nascimento","Greenfield"];
-const GREENFIELD_QUEUE = CS_LIST.filter(c => c !== "Greenfield");
+const CS_LIST = ["Beatriz Severine","Isaac Agiman","João Armelin","João Buzolin","Mariana Lewinski","Thiago Nascimento","Greenfield","Solutions Architect"];
+const GREENFIELD_QUEUE = CS_LIST.filter(c => c !== "Greenfield" && c !== "Solutions Architect");
+const SA_NAME = "Solutions Architect";
+const SA_EMAIL = "solutions@hypr.mobi";
 const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","Pós-Venda","Dados RMNF"];
 const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados RMNF": 3 };
 const CORE_PRODUCTS = ["O2O","OOH","RMN Digital","RMN Físico"];
@@ -1494,18 +1496,39 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
 function NewTaskModal({onClose,onSubmit,gfIdx}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
-  const [f,sF]=useState({type:"",client:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false,saMode:"none"});
+  const [f,sF]=useState({type:"",client:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null});
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
   const tog=(k,v)=>sF(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
   useEffect(()=>{if(f.type&&SLA_DAYS[f.type]){const d=addBusinessDays(new Date(),SLA_DAYS[f.type]);set("slaDate",d.toISOString().split("T")[0]);set("customDeadline",null);}},[f.type]);
   useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
 
   const handleClientSelect=(entry)=>{
-    if(!entry){sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));return;}
-    if(entry.cs&&entry.csEmail){sF(p=>({...p,cs:entry.cs,csEmail:entry.csEmail,autoCS:true}));}
-    else{sF(p=>({...p,cs:"",csEmail:"",autoCS:false}));}
+    if(!entry){sF(p=>({...p,cs:"",csEmail:"",autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null}));return;}
+    if(entry.cs&&entry.csEmail){sF(p=>({...p,cs:entry.cs,csEmail:entry.csEmail,autoCS:true,saMode:"none",originalCs:null,originalCsEmail:null}));}
+    else{sF(p=>({...p,cs:"",csEmail:"",autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null}));}
   };
-  const handleCS=cs=>{if(cs==="Greenfield"){const next=GREENFIELD_QUEUE[gfIdx.current%GREENFIELD_QUEUE.length];gfIdx.current++;sF(p=>({...p,cs:next,autoCS:false}));}else sF(p=>({...p,cs:cs,autoCS:false}));};
+  const handleCS=cs=>{
+    if(cs==="Solutions Architect"){
+      // SA assume — preserva CS anterior (se houver e for válido) como referência histórica
+      sF(p=>{
+        const hasPrevCs = p.cs && p.cs !== SA_NAME;
+        return {...p,
+          cs: SA_NAME,
+          csEmail: SA_EMAIL,
+          autoCS: false,
+          saMode: "lead",
+          originalCs: hasPrevCs ? p.cs : null,
+          originalCsEmail: hasPrevCs ? (p.csEmail || null) : null,
+        };
+      });
+    } else if(cs==="Greenfield"){
+      const next=GREENFIELD_QUEUE[gfIdx.current%GREENFIELD_QUEUE.length];
+      gfIdx.current++;
+      sF(p=>({...p,cs:next,csEmail:"",autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null}));
+    } else {
+      sF(p=>({...p,cs:cs,csEmail:"",autoCS:false,saMode:p.saMode==="lead"?"none":p.saMode,originalCs:null,originalCsEmail:null}));
+    }
+  };
   const sla=f.customDeadline||f.slaDate;
   const valid=f.type&&f.client&&f.cs&&f.briefing;
 
@@ -1528,7 +1551,7 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
                 <div style={{fontSize:12,fontWeight:700,color:"var(--green)"}}>CS identificado automaticamente</div>
                 <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,marginTop:2}}>{f.cs} <span style={{fontWeight:400,color:"var(--t3)"}}>({f.csEmail})</span></div>
               </div>
-              <button className="btn bg" style={{fontSize:11,padding:"4px 8px"}} onClick={()=>sF(p=>({...p,autoCS:false,cs:"",csEmail:""}))}>Alterar</button>
+              <button className="btn bg" style={{fontSize:11,padding:"4px 8px"}} onClick={()=>sF(p=>({...p,autoCS:false}))}>Alterar</button>
             </div>
           )}
 
@@ -1544,39 +1567,28 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
             </div>
           )}
 
-          {/* Participação de SA (Solutions Architect) */}
-          <div className="fg">
-            <label className="fl">Participação de SA (Solutions Architect)</label>
-            <div style={{display:"flex",flexDirection:"column",gap:6}}>
-              {[
-                {val:"none",   label:"Sem SA",       desc:"Apenas o CS responde pela task",                       color:"var(--t3)",   icon:"x"},
-                {val:"support",label:"SA acompanha", desc:"CS é responsável e Time de SA recebe em cópia",        color:"var(--teal)", icon:"users"},
-                {val:"lead",   label:"SA assume",    desc:"Time de SA vira o responsável — CS NÃO recebe a task", color:"var(--yellow-s)",icon:"shield"},
-              ].map(opt=>{
-                const sel = f.saMode===opt.val;
-                return (
-                  <label key={opt.val}
-                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`1px solid ${sel?opt.color:"var(--bdr)"}`,borderRadius:"var(--r)",cursor:"pointer",background:sel?`${opt.color}15`:"var(--bg-card)",transition:"all .15s"}}
-                    onClick={()=>set("saMode",opt.val)}>
-                    <div style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${sel?opt.color:"var(--bdr)"}`,background:sel?opt.color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                      {sel&&<div style={{width:6,height:6,borderRadius:"50%",background:"#fff"}}/>}
-                    </div>
-                    <I n={opt.icon} s={14} c={sel?opt.color:"var(--t3)"}/>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{fontSize:13,fontWeight:700,color:sel?opt.color:"var(--t1)"}}>{opt.label}</div>
-                      <div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>{opt.desc}</div>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-            {f.saMode==="lead"&&(
-              <div className="disc" style={{marginTop:8,fontSize:11,background:"var(--yellow-s-bg)",borderLeft:"3px solid var(--yellow-s)"}}>
-                <I n="alert-triangle" s={13} c="var(--yellow-s)"/>
-                <div>O CS <strong>{f.cs||"selecionado"}</strong> não receberá esta task. O Time de SA será o responsável e único notificado.</div>
+          {/* SA — quando o CS escolhido é o próprio Solutions Architect, mostra aviso */}
+          {f.saMode==="lead"&&f.cs===SA_NAME&&(
+            <div className="disc" style={{fontSize:11,background:"var(--yellow-s-bg)",borderLeft:"3px solid var(--yellow-s)"}}>
+              <I n="shield" s={13} c="var(--yellow-s)"/>
+              <div>
+                <strong>Time de SA é o responsável por esta task.</strong> A notificação será enviada apenas para <code style={{background:"rgba(0,0,0,0.06)",padding:"1px 5px",borderRadius:4}}>{SA_EMAIL}</code>
+                {f.originalCs&&<> — o CS original do cliente ({f.originalCs}) <strong>não</strong> será notificado.</>}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* SA acompanha — checkbox compacto quando o CS é alguém da equipe */}
+          {f.cs && f.cs !== SA_NAME && (
+            <label style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`1px solid ${f.saMode==="support"?"var(--teal)":"var(--bdr)"}`,borderRadius:"var(--r)",cursor:"pointer",background:f.saMode==="support"?"var(--teal-dim)":"var(--bg-card)",transition:"all .15s"}}>
+              <input type="checkbox" checked={f.saMode==="support"} onChange={e=>set("saMode",e.target.checked?"support":"none")} style={{margin:0,accentColor:"var(--teal)",cursor:"pointer"}}/>
+              <I n="users" s={14} c={f.saMode==="support"?"var(--teal)":"var(--t3)"}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:700,color:f.saMode==="support"?"var(--teal)":"var(--t1)"}}>SA acompanha esta task</div>
+                <div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>O Time de SA recebe em cópia. {f.cs} segue como responsável.</div>
+              </div>
+            </label>
+          )}
 
           <div className="fg"><label className="fl">Produto Core</label><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CORE_PRODUCTS.map(p=><span key={p} className={`chip${f.products.includes(p)?" sel":""}`} onClick={()=>tog("products",p)}>{p}</span>)}</div></div>
           <div className="fg"><label className="fl">Features</label><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{FEATURES.map(x=><span key={x} className={`chip${f.features.includes(x)?" sel":""}`} style={{fontSize:11}} onClick={()=>tog("features",x)}>{x}</span>)}</div></div>
@@ -1594,26 +1606,15 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
             <button className="btn bs" onClick={onClose}>Cancelar</button>
             <button className="btn bp" disabled={!valid} onClick={()=>{
-              // Se SA assume, o time de SA vira o CS responsável (CS original não recebe)
-              const SA_NAME = "Time SA";
-              const SA_EMAIL = "solutions@hypr.mobi";
-              const payload = {
+              onSubmit({
                 ...f,
                 requesterEmail: user?.email,
                 requestedBy: user?.name,
                 deadline: sla,
                 status: "aberta",
                 createdAt: new Date().toISOString().split("T")[0],
-                saMode: f.saMode,
                 isSA: f.saMode==="support" || f.saMode==="lead", // mantém compat com backend antigo
-              };
-              if (f.saMode === "lead") {
-                payload.originalCs      = f.cs;       // guarda quem era originalmente
-                payload.originalCsEmail = f.csEmail;
-                payload.cs      = SA_NAME;
-                payload.csEmail = SA_EMAIL;
-              }
-              onSubmit(payload);
+              });
             }}><I n="send" s={14}/>Abrir Task</button>
           </div>
         </div>
