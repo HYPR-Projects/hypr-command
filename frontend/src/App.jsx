@@ -1418,12 +1418,16 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
                 </div>
               </div>
             )}
-            {task.isSA&&(
-              <div style={{padding:12,background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)"}}>
-                <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--teal)",marginBottom:6}}>Solutions Architect</div>
-                <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:700,color:"var(--teal-l)"}}>
-                  <I n="check-circle" s={13} c="var(--teal)"/>Gian Nardo participando
+            {(task.saMode==="support"||task.saMode==="lead"||task.isSA)&&(
+              <div style={{padding:12,background:task.saMode==="lead"?"var(--yellow-s-bg)":"var(--teal-dim)",border:`1px solid ${task.saMode==="lead"?"var(--yellow-s)":"var(--teal)"}`,borderRadius:"var(--r)"}}>
+                <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:task.saMode==="lead"?"var(--yellow-s)":"var(--teal)",marginBottom:6}}>Solutions Architect</div>
+                <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:700,color:task.saMode==="lead"?"var(--yellow-s)":"var(--teal-l)"}}>
+                  <I n={task.saMode==="lead"?"shield":"users"} s={13} c={task.saMode==="lead"?"var(--yellow-s)":"var(--teal)"}/>
+                  {task.saMode==="lead"?"Time SA é o responsável":"Time SA acompanhando"}
                 </div>
+                {task.saMode==="lead"&&task.originalCs&&(
+                  <div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>CS original do cliente: {task.originalCs}</div>
+                )}
               </div>
             )}
           </div>
@@ -1490,7 +1494,7 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
 function NewTaskModal({onClose,onSubmit,gfIdx}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
-  const [f,sF]=useState({type:"",client:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false,isSA:false});
+  const [f,sF]=useState({type:"",client:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false,saMode:"none"});
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
   const tog=(k,v)=>sF(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
   useEffect(()=>{if(f.type&&SLA_DAYS[f.type]){const d=addBusinessDays(new Date(),SLA_DAYS[f.type]);set("slaDate",d.toISOString().split("T")[0]);set("customDeadline",null);}},[f.type]);
@@ -1540,25 +1544,36 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
             </div>
           )}
 
-          {/* Participação de Solutions Architect (Gian) */}
+          {/* Participação de SA (Solutions Architect) */}
           <div className="fg">
             <label className="fl">Participação de SA (Solutions Architect)</label>
-            <div style={{display:"flex",gap:6}}>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
               {[
-                {val:false,label:"Não",color:"var(--t3)"},
-                {val:true, label:"Sim",color:"var(--teal)"},
-              ].map(opt=>(
-                <button key={String(opt.val)} type="button"
-                  onClick={()=>set("isSA",opt.val)}
-                  style={{flex:1,padding:"10px 14px",borderRadius:"var(--r)",border:`1px solid ${f.isSA===opt.val?opt.color:"var(--bdr)"}`,background:f.isSA===opt.val?`${opt.color}15`:"var(--bg-card)",color:f.isSA===opt.val?opt.color:"var(--t2)",fontSize:13,fontWeight:f.isSA===opt.val?700:500,cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                  {f.isSA===opt.val&&<I n="check" s={13}/>}{opt.label}
-                </button>
-              ))}
+                {val:"none",   label:"Sem SA",       desc:"Apenas o CS responde pela task",                       color:"var(--t3)",   icon:"x"},
+                {val:"support",label:"SA acompanha", desc:"CS é responsável e Time de SA recebe em cópia",        color:"var(--teal)", icon:"users"},
+                {val:"lead",   label:"SA assume",    desc:"Time de SA vira o responsável — CS NÃO recebe a task", color:"var(--yellow-s)",icon:"shield"},
+              ].map(opt=>{
+                const sel = f.saMode===opt.val;
+                return (
+                  <label key={opt.val}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",border:`1px solid ${sel?opt.color:"var(--bdr)"}`,borderRadius:"var(--r)",cursor:"pointer",background:sel?`${opt.color}15`:"var(--bg-card)",transition:"all .15s"}}
+                    onClick={()=>set("saMode",opt.val)}>
+                    <div style={{width:18,height:18,borderRadius:"50%",border:`2px solid ${sel?opt.color:"var(--bdr)"}`,background:sel?opt.color:"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                      {sel&&<div style={{width:6,height:6,borderRadius:"50%",background:"#fff"}}/>}
+                    </div>
+                    <I n={opt.icon} s={14} c={sel?opt.color:"var(--t3)"}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:700,color:sel?opt.color:"var(--t1)"}}>{opt.label}</div>
+                      <div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>{opt.desc}</div>
+                    </div>
+                  </label>
+                );
+              })}
             </div>
-            {f.isSA&&(
-              <div className="disc" style={{marginTop:8,fontSize:11}}>
-                <I n="alert-circle" s={13} c="var(--teal)"/>
-                <div>Gian Nardo será notificado por e-mail e incluído no fluxo da task.</div>
+            {f.saMode==="lead"&&(
+              <div className="disc" style={{marginTop:8,fontSize:11,background:"var(--yellow-s-bg)",borderLeft:"3px solid var(--yellow-s)"}}>
+                <I n="alert-triangle" s={13} c="var(--yellow-s)"/>
+                <div>O CS <strong>{f.cs||"selecionado"}</strong> não receberá esta task. O Time de SA será o responsável e único notificado.</div>
               </div>
             )}
           </div>
@@ -1578,7 +1593,28 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
           {f.slaDate&&(<div><div style={{height:1,background:"var(--bdr)",margin:"8px 0 16px"}}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div><div style={{fontSize:13,fontWeight:600}}>Data prevista</div><div style={{fontSize:12,color:"var(--t3)"}}>SLA: {SLA_DAYS[f.type]} dias úteis</div></div><div style={{padding:"8px 16px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)",fontSize:14,fontWeight:700,color:"var(--teal-l)",fontFamily:"var(--fd)"}}>{fmtDate(sla)}</div></div><div style={{fontSize:12,color:"var(--t3)",marginBottom:8}}>SLA personalizado?</div><input type="date" className="fi" style={{width:200}} value={f.customDeadline||f.slaDate} min={new Date().toISOString().split("T")[0]} onChange={e=>set("customDeadline",e.target.value)}/>{f.customDeadline&&f.customDeadline!==f.slaDate&&<div className="disc" style={{marginTop:10}}><I n="alert-triangle" s={14} c="var(--yellow)"/><span>Data fora do SLA padrão. Alinhe com o CS.</span></div>}</div>)}
           <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
             <button className="btn bs" onClick={onClose}>Cancelar</button>
-            <button className="btn bp" disabled={!valid} onClick={()=>onSubmit({...f,requesterEmail:user?.email,requestedBy:user?.name,deadline:sla,status:"aberta",createdAt:new Date().toISOString().split("T")[0]})}><I n="send" s={14}/>Abrir Task</button>
+            <button className="btn bp" disabled={!valid} onClick={()=>{
+              // Se SA assume, o time de SA vira o CS responsável (CS original não recebe)
+              const SA_NAME = "Time SA";
+              const SA_EMAIL = "solutions@hypr.mobi";
+              const payload = {
+                ...f,
+                requesterEmail: user?.email,
+                requestedBy: user?.name,
+                deadline: sla,
+                status: "aberta",
+                createdAt: new Date().toISOString().split("T")[0],
+                saMode: f.saMode,
+                isSA: f.saMode==="support" || f.saMode==="lead", // mantém compat com backend antigo
+              };
+              if (f.saMode === "lead") {
+                payload.originalCs      = f.cs;       // guarda quem era originalmente
+                payload.originalCsEmail = f.csEmail;
+                payload.cs      = SA_NAME;
+                payload.csEmail = SA_EMAIL;
+              }
+              onSubmit(payload);
+            }}><I n="send" s={14}/>Abrir Task</button>
           </div>
         </div>
       </div>
@@ -4707,6 +4743,9 @@ export default function App() {
             docLink:r.doc_link, requestedBy:r.requested_by,
             requesterEmail:r.requester_email, sla:r.sla,
             isSA:r.is_sa===true||r.is_sa==='true'||r.isSA===true,
+            saMode:r.sa_mode||(r.is_sa===true||r.is_sa==='true'?"support":"none"),
+            originalCs: r.original_cs||null,
+            originalCsEmail: r.original_cs_email||null,
             createdAt:r.created_at?.value||r.created_at,
           })));
         }
