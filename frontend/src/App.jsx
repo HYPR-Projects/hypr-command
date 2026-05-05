@@ -1418,6 +1418,14 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
                 </div>
               </div>
             )}
+            {task.isSA&&(
+              <div style={{padding:12,background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)"}}>
+                <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--teal)",marginBottom:6}}>Solutions Architect</div>
+                <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:700,color:"var(--teal-l)"}}>
+                  <I n="check-circle" s={13} c="var(--teal)"/>Gian Nardo participando
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Produtos e features */}
@@ -1482,7 +1490,7 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
 function NewTaskModal({onClose,onSubmit,gfIdx}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
-  const [f,sF]=useState({type:"",client:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false});
+  const [f,sF]=useState({type:"",client:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false,isSA:false});
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
   const tog=(k,v)=>sF(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
   useEffect(()=>{if(f.type&&SLA_DAYS[f.type]){const d=addBusinessDays(new Date(),SLA_DAYS[f.type]);set("slaDate",d.toISOString().split("T")[0]);set("customDeadline",null);}},[f.type]);
@@ -1531,6 +1539,29 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
               {f.cs&&<div style={{fontSize:11,color:"var(--teal)",marginTop:4,display:"flex",alignItems:"center",gap:4}}><I n="user" s={10}/>Atribuído: <strong>{f.cs}</strong></div>}
             </div>
           )}
+
+          {/* Participação de Solutions Architect (Gian) */}
+          <div className="fg">
+            <label className="fl">Participação de SA (Solutions Architect)</label>
+            <div style={{display:"flex",gap:6}}>
+              {[
+                {val:false,label:"Não",color:"var(--t3)"},
+                {val:true, label:"Sim",color:"var(--teal)"},
+              ].map(opt=>(
+                <button key={String(opt.val)} type="button"
+                  onClick={()=>set("isSA",opt.val)}
+                  style={{flex:1,padding:"10px 14px",borderRadius:"var(--r)",border:`1px solid ${f.isSA===opt.val?opt.color:"var(--bdr)"}`,background:f.isSA===opt.val?`${opt.color}15`:"var(--bg-card)",color:f.isSA===opt.val?opt.color:"var(--t2)",fontSize:13,fontWeight:f.isSA===opt.val?700:500,cursor:"pointer",transition:"all .15s",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                  {f.isSA===opt.val&&<I n="check" s={13}/>}{opt.label}
+                </button>
+              ))}
+            </div>
+            {f.isSA&&(
+              <div className="disc" style={{marginTop:8,fontSize:11}}>
+                <I n="alert-circle" s={13} c="var(--teal)"/>
+                <div>Gian Nardo será notificado por e-mail e incluído no fluxo da task.</div>
+              </div>
+            )}
+          </div>
 
           <div className="fg"><label className="fl">Produto Core</label><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CORE_PRODUCTS.map(p=><span key={p} className={`chip${f.products.includes(p)?" sel":""}`} onClick={()=>tog("products",p)}>{p}</span>)}</div></div>
           <div className="fg"><label className="fl">Features</label><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{FEATURES.map(x=><span key={x} className={`chip${f.features.includes(x)?" sel":""}`} style={{fontSize:11}} onClick={()=>tog("features",x)}>{x}</span>)}</div></div>
@@ -4675,6 +4706,7 @@ export default function App() {
             status:r.status, deadline:r.deadline?.value||r.deadline,
             docLink:r.doc_link, requestedBy:r.requested_by,
             requesterEmail:r.requester_email, sla:r.sla,
+            isSA:r.is_sa===true||r.is_sa==='true'||r.isSA===true,
             createdAt:r.created_at?.value||r.created_at,
           })));
         }
