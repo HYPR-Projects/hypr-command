@@ -195,6 +195,7 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
     "award":<><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></>,
     "inbox":<><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></>,
     "external":<><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>,
+    "folder":<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>,
   };
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,...st}} {...r}>{p[n]}</svg>;
 };
@@ -2050,9 +2051,9 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
 
       <Sec title="5. Links e Documentos">
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
-          <CF l="Link das peças"><input className="fi" placeholder="Link do Drive..." value={f.pecas_link} onChange={e=>set("pecas_link",e.target.value)}/><div className="disc" style={{marginTop:8}}><I n="alert-triangle" s={13} c="var(--yellow)"/>Verificar peso máximo das peças.</div></CF>
+          <CF l="Link das peças"><input className="fi" placeholder="Link do Drive..." value={f.pecas_link} onChange={e=>set("pecas_link",e.target.value)}/><div style={{marginTop:8,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}><a href="https://drive.google.com/drive/folders/1wVsxLY9EsKihkEE6ceTiF07rpf5aVX-t" target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:600,color:"var(--teal)",textDecoration:"none",padding:"6px 10px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)"}}><I n="folder" s={13}/>Pasta de upload de peças<I n="external" s={11}/></a><div className="disc" style={{margin:0}}><I n="alert-triangle" s={13} c="var(--yellow)"/>Verificar peso máximo das peças.</div></div></CF>
           <CF l="URLs de direcionamento"><div style={{display:"flex",flexDirection:"column",gap:8}}>{f.extra_urls.map((u,i)=><div key={i} style={{display:"flex",gap:8}}><input className="fi" placeholder="https://..." value={u} onChange={e=>{const a=[...f.extra_urls];a[i]=e.target.value;set("extra_urls",a)}}/>{f.extra_urls.length>1&&<button className="btn bg" onClick={()=>set("extra_urls",f.extra_urls.filter((_,j)=>j!==i))}><I n="x" s={14}/></button>}</div>)}<button className="btn bs" style={{alignSelf:"flex-start",fontSize:12}} onClick={()=>set("extra_urls",[...f.extra_urls,""])}><I n="plus" s={12}/>Adicionar URL</button></div></CF>
-          <CF l="Link do PI"><input className="fi" value={f.pi_link} onChange={e=>set("pi_link",e.target.value)}/></CF>
+          <CF l="Link do PI"><input className="fi" value={f.pi_link} onChange={e=>set("pi_link",e.target.value)}/><div style={{marginTop:8}}><a href="https://drive.google.com/drive/folders/19oeOni4mwJHSnt7GSP5tTpW8xM-hIslx" target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:600,color:"var(--teal)",textDecoration:"none",padding:"6px 10px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)"}}><I n="folder" s={13}/>Pasta de faturamento (PIs)<I n="external" s={11}/></a></div></CF>
           <CF l="Link da Proposta"><input className="fi" value={f.proposta_link} onChange={e=>set("proposta_link",e.target.value)}/></CF>
         </div>
       </Sec>
