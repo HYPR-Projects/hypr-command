@@ -2751,6 +2751,30 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                     </div>
                   ))}
 
+                  {/* Bonificações — toggle + cards por produto */}
+                  {(editData.products||[]).length>0&&(
+                    <CF l="Teremos volumetria bonificada nos produtos core?">
+                      <div style={{display:"flex",gap:6}}>
+                        {["Sim","Não"].map(opt=>{
+                          const cur=editData.has_bonus===true?"Sim":(editData.has_bonus||"");
+                          return(
+                            <button key={opt} className={`btn ${cur===opt?"bp":"bs"}`} style={{fontSize:11,padding:"4px 12px"}}
+                              onClick={()=>setEditData(p=>({...p,has_bonus:opt}))}>{opt}</button>
+                          );
+                        })}
+                      </div>
+                    </CF>
+                  )}
+                  {(editData.has_bonus==="Sim"||editData.has_bonus===true)&&(editData.products||[]).map(prod=>(
+                    <div key={prod+"_b"} style={{padding:12,background:"var(--yellow-dim)",borderRadius:"var(--r)",border:"1px solid rgba(237,217,0,0.3)"}}>
+                      <div style={{fontSize:12,fontWeight:700,color:"#a07a00",marginBottom:8,textTransform:"uppercase"}}>{prod} — Bonificação</div>
+                      <div className="g2" style={{gap:10}}>
+                        <CF l="Impressões Bonif."><input type="number" className="fi" value={editData[`${prod}_bonus_imp`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_bonus_imp`]:e.target.value}))}/></CF>
+                        <CF l="Views Bonif."><input type="number" className="fi" value={editData[`${prod}_bonus_views`]||""} onChange={e=>setEditData(p=>({...p,[`${prod}_bonus_views`]:e.target.value}))}/></CF>
+                      </div>
+                    </div>
+                  ))}
+
                   {/* Section 3: Features (incremento de verba pós-início) */}
                   <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>3. Features</div>
                   <div className="disc" style={{fontSize:11}}>
