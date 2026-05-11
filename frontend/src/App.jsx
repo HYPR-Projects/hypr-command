@@ -196,6 +196,7 @@ const I = ({n, s=16, c="currentColor", style:st, ...r}) => {
     "inbox":<><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></>,
     "external":<><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></>,
     "folder":<path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>,
+    "edit":<><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></>,
   };
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,...st}} {...r}>{p[n]}</svg>;
 };
@@ -1079,6 +1080,50 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
     }catch(err){console.error("Backend link PUT error:",err)}
   };
 
+  // Edição completa de uma task (briefing, prazo, investimento, CS, produtos, features).
+  // Permitido para admin, o CS responsável ou o solicitante (CP que abriu).
+  const canEditTask=(task)=>{
+    if(!task||!user?.email) return false;
+    if(isAdmin) return true;
+    const me=user.email.toLowerCase();
+    if((task.csEmail||"").toLowerCase()===me) return true;
+    if((task.requesterEmail||"").toLowerCase()===me) return true;
+    return false;
+  };
+  const handleEditTask=async(updated)=>{
+    const id=updated.id;
+    const previous=tasks.find(t=>t.id===id);
+    setTasks(ts=>ts.map(t=>t.id===id?{...t,...updated}:t));
+    setSelectedTask(s=>s&&s.id===id?{...s,...updated}:s);
+    toast("Task atualizada!");
+    try{
+      const res = await fetch(`${BACKEND_URL}/tasks/${id}`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          task:{...previous,...updated},
+          editedBy: user?.name,
+          editedByEmail: user?.email,
+        })
+      });
+      if(!res.ok){
+        let msg=`Erro ${res.status}`;
+        try{ const body=await res.json(); if(body?.error) msg=body.error; }catch(_){}
+        if(previous) setTasks(ts=>ts.map(t=>t.id===id?previous:t));
+        if(previous) setSelectedTask(s=>s&&s.id===id?previous:s);
+        toast(msg);
+        console.error("Backend task edit PUT failed:",res.status,msg);
+      } else if(onRefetch){
+        setTimeout(onRefetch,500);
+      }
+    }catch(err){
+      if(previous) setTasks(ts=>ts.map(t=>t.id===id?previous:t));
+      if(previous) setSelectedTask(s=>s&&s.id===id?previous:s);
+      toast("Erro ao salvar — alteração revertida");
+      console.error("Backend task edit PUT error:",err);
+    }
+  };
+
   // Drag & drop handlers para o kanban
   const onDragStart=(e,id)=>{ setDraggingId(id); try{e.dataTransfer.effectAllowed="move"}catch(_){} };
   const onDragOver=(e)=>{ e.preventDefault(); try{e.dataTransfer.dropEffect="move"}catch(_){} };
@@ -1197,7 +1242,7 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
-      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}}/>}
+      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}} canEdit={canEditTask(selectedTask)} onSaveEdit={handleEditTask}/>}
     </div>
   );
 }
@@ -1353,10 +1398,33 @@ function TaskCard({task,onStart,onComplete,onReopen,onAddLink,onOpen}) {
 }
 
 // ──────────── Modal de detalhes da Task ────────────
-function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
+function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,canEdit,onSaveEdit}){
   const st=getTaskStatus(task);
   const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
   const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
+  const [isEditing,setIsEditing]=useState(false);
+  const [editForm,setEditForm]=useState(null);
+  const startEdit=()=>{ setEditForm({
+    id:task.id,
+    briefing:task.briefing||"",
+    cs:task.cs||"",
+    deadline:task.deadline||"",
+    budget:task.budget||"",
+    products:task.products||[],
+    features:task.features||[],
+  }); setIsEditing(true); };
+  const cancelEdit=()=>{ setIsEditing(false); setEditForm(null); };
+  const saveEdit=()=>{
+    onSaveEdit&&onSaveEdit({
+      ...editForm,
+      budget: editForm.budget===""?null:Number(editForm.budget),
+    });
+    setIsEditing(false); setEditForm(null);
+  };
+  const togItem=(key,val)=>setEditForm(p=>{
+    const arr=p[key]||[];
+    return{...p,[key]:arr.includes(val)?arr.filter(x=>x!==val):[...arr,val]};
+  });
   return (
     <div className="mo" onClick={onClose}>
       <div className="ml" style={{maxWidth:720,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
@@ -1372,12 +1440,19 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
             </div>
             <div style={{fontFamily:"var(--fd)",fontSize:20,fontWeight:800,color:"var(--t1)",lineHeight:1.2}}>{task.client}</div>
           </div>
-          <button title="Fechar" onClick={onClose}
-            style={{background:"transparent",border:"none",padding:6,cursor:"pointer",color:"var(--t3)",borderRadius:6,display:"inline-flex",alignItems:"center",flexShrink:0}}
-            onMouseEnter={e=>{e.currentTarget.style.color="var(--t1)";e.currentTarget.style.background="var(--bg3)"}}
-            onMouseLeave={e=>{e.currentTarget.style.color="var(--t3)";e.currentTarget.style.background="transparent"}}>
-            <I n="x" s={18}/>
-          </button>
+          <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+            {canEdit&&!isEditing&&(
+              <button title="Editar task" onClick={startEdit} className="btn bs" style={{fontSize:11,padding:"5px 10px"}}>
+                <I n="edit" s={13}/>Editar
+              </button>
+            )}
+            <button title="Fechar" onClick={onClose}
+              style={{background:"transparent",border:"none",padding:6,cursor:"pointer",color:"var(--t3)",borderRadius:6,display:"inline-flex",alignItems:"center"}}
+              onMouseEnter={e=>{e.currentTarget.style.color="var(--t1)";e.currentTarget.style.background="var(--bg3)"}}
+              onMouseLeave={e=>{e.currentTarget.style.color="var(--t3)";e.currentTarget.style.background="transparent"}}>
+              <I n="x" s={18}/>
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -1385,19 +1460,27 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
           {/* Briefing — destaque principal */}
           <div style={{marginBottom:18}}>
             <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:8}}>Briefing</div>
-            <div style={{padding:14,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",fontSize:13,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
-              {task.briefing||<span style={{color:"var(--t3)",fontStyle:"italic"}}>Sem briefing informado</span>}
-            </div>
+            {isEditing?(
+              <textarea className="ft" rows={5} value={editForm.briefing} onChange={e=>setEditForm(p=>({...p,briefing:e.target.value}))} style={{width:"100%",fontSize:13,lineHeight:1.5}}/>
+            ):(
+              <div style={{padding:14,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",fontSize:13,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
+                {task.briefing||<span style={{color:"var(--t3)",fontStyle:"italic"}}>Sem briefing informado</span>}
+              </div>
+            )}
           </div>
 
           {/* Metadados em grid */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:18}}>
             <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
               <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>CS Responsável</div>
-              <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:"var(--t1)"}}>
-                <I n="user" s={13} c="var(--teal)"/>{task.cs||"—"}
-              </div>
-              {task.csEmail&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{task.csEmail}</div>}
+              {isEditing?(
+                <input className="fi" value={editForm.cs} onChange={e=>setEditForm(p=>({...p,cs:e.target.value}))} placeholder="Nome do CS" style={{fontSize:13}}/>
+              ):(<>
+                <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:"var(--t1)"}}>
+                  <I n="user" s={13} c="var(--teal)"/>{task.cs||"—"}
+                </div>
+                {task.csEmail&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>{task.csEmail}</div>}
+              </>)}
             </div>
             <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
               <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>Solicitante</div>
@@ -1408,20 +1491,28 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
             </div>
             <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
               <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>Prazo</div>
-              <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:st==="Atrasada"?"var(--red)":"var(--t1)"}}>
-                <I n="calendar" s={13} c={st==="Atrasada"?"var(--red)":"var(--teal)"}/>{fmtDate(task.deadline)}
-              </div>
-              {task.sla&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>SLA: {task.sla}</div>}
+              {isEditing?(
+                <input type="date" className="fi" value={(editForm.deadline||"").slice(0,10)} onChange={e=>setEditForm(p=>({...p,deadline:e.target.value}))} style={{fontSize:13}}/>
+              ):(<>
+                <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:st==="Atrasada"?"var(--red)":"var(--t1)"}}>
+                  <I n="calendar" s={13} c={st==="Atrasada"?"var(--red)":"var(--teal)"}/>{fmtDate(task.deadline)}
+                </div>
+                {task.sla&&<div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>SLA: {task.sla}</div>}
+              </>)}
             </div>
-            {task.budget>0&&(
+            {(isEditing||task.budget>0)&&(
               <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
                 <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>Investimento</div>
-                <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:700,color:"var(--teal)"}}>
-                  <I n="dollar" s={13} c="var(--teal)"/>{fmtCurrency(task.budget)}
-                </div>
+                {isEditing?(
+                  <input type="number" className="fi" value={editForm.budget} onChange={e=>setEditForm(p=>({...p,budget:e.target.value}))} placeholder="0" style={{fontSize:13}}/>
+                ):(
+                  <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:700,color:"var(--teal)"}}>
+                    <I n="dollar" s={13} c="var(--teal)"/>{fmtCurrency(task.budget)}
+                  </div>
+                )}
               </div>
             )}
-            {(task.saMode==="support"||task.saMode==="lead"||task.isSA)&&(
+            {!isEditing&&(task.saMode==="support"||task.saMode==="lead"||task.isSA)&&(
               <div style={{padding:12,background:task.saMode==="lead"?"var(--yellow-s-bg)":"var(--teal-dim)",border:`1px solid ${task.saMode==="lead"?"var(--yellow-s)":"var(--teal)"}`,borderRadius:"var(--r)"}}>
                 <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:task.saMode==="lead"?"var(--yellow-s)":"var(--teal)",marginBottom:6}}>Solutions Architect</div>
                 <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:700,color:task.saMode==="lead"?"var(--yellow-s)":"var(--teal-l)"}}>
@@ -1436,7 +1527,26 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
           </div>
 
           {/* Produtos e features */}
-          {(task.products?.length>0||task.features?.length>0)&&(
+          {isEditing?(
+            <div style={{marginBottom:18,display:"flex",flexDirection:"column",gap:12}}>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:8}}>Produtos</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {CORE_PRODUCTS.map(p=>(
+                    <span key={p} className={`chip${(editForm.products||[]).includes(p)?" sel":""}`} style={{fontSize:11,cursor:"pointer"}} onClick={()=>togItem("products",p)}>{p}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:8}}>Features</div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                  {FEATURES.map(f=>(
+                    <span key={f} className={`chip${(editForm.features||[]).includes(f)?" sel":""}`} style={{fontSize:11,cursor:"pointer"}} onClick={()=>togItem("features",f)}>{f}</span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ):(task.products?.length>0||task.features?.length>0)&&(
             <div style={{marginBottom:18}}>
               <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:8}}>Produtos & Features</div>
               <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
@@ -1447,21 +1557,23 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
           )}
 
           {/* Doc link */}
-          <div style={{marginBottom:18}}>
-            <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:8}}>Documento de Apoio</div>
-            {task.docLink?(
-              <a href={task.docLink} target="_blank" rel="noreferrer"
-                style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)",fontSize:12,fontWeight:600,color:"var(--teal-l)",textDecoration:"none",maxWidth:"100%"}}>
-                <I n="external" s={13}/>
-                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.docLink}</span>
-              </a>
-            ):(
-              <div style={{fontSize:12,color:"var(--t3)",fontStyle:"italic"}}>Nenhum link anexado ainda</div>
-            )}
-          </div>
+          {!isEditing&&(
+            <div style={{marginBottom:18}}>
+              <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:8}}>Documento de Apoio</div>
+              {task.docLink?(
+                <a href={task.docLink} target="_blank" rel="noreferrer"
+                  style={{display:"inline-flex",alignItems:"center",gap:8,padding:"10px 14px",background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)",fontSize:12,fontWeight:600,color:"var(--teal-l)",textDecoration:"none",maxWidth:"100%"}}>
+                  <I n="external" s={13}/>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.docLink}</span>
+                </a>
+              ):(
+                <div style={{fontSize:12,color:"var(--t3)",fontStyle:"italic"}}>Nenhum link anexado ainda</div>
+              )}
+            </div>
+          )}
 
           {/* Datas */}
-          {task.createdAt&&(
+          {!isEditing&&task.createdAt&&(
             <div style={{fontSize:11,color:"var(--t3)",paddingTop:12,borderTop:"1px solid var(--bdr)"}}>
               Aberta em {fmtDate(task.createdAt)}
             </div>
@@ -1470,24 +1582,29 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink}){
 
         {/* Footer com ações */}
         <div style={{padding:"14px 24px",borderTop:"1px solid var(--bdr)",display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap",flexShrink:0,background:"var(--bg-card)"}}>
-          <button className="btn bg" style={{fontSize:12}} onClick={()=>onAddLink(task)}>
-            <I n="link" s={13}/>{task.docLink?"Editar Link":"Anexar Link"}
-          </button>
-          {isTaskOpen(task)&&onStart&&(
-            <button className="btn bs" style={{fontSize:12}} onClick={()=>{onStart(task.id);onClose()}}>
-              <I n="play" s={13}/>Iniciar Task
+          {isEditing?(<>
+            <button className="btn bs" style={{fontSize:12}} onClick={cancelEdit}>Cancelar</button>
+            <button className="btn bp" style={{fontSize:12}} onClick={saveEdit}><I n="check" s={13}/>Salvar Alterações</button>
+          </>):(<>
+            <button className="btn bg" style={{fontSize:12}} onClick={()=>onAddLink(task)}>
+              <I n="link" s={13}/>{task.docLink?"Editar Link":"Anexar Link"}
             </button>
-          )}
-          {isTaskInProgress(task)&&(
-            <button className="btn bp" style={{fontSize:12}} onClick={()=>{onComplete(task.id);onClose()}}>
-              <I n="check" s={13}/>Marcar como Concluída
-            </button>
-          )}
-          {isTaskCompleted(task)&&onReopen&&(
-            <button className="btn bs" style={{fontSize:12}} onClick={()=>{onReopen(task.id);onClose()}}>
-              <I n="rotate" s={13}/>Reabrir Task
-            </button>
-          )}
+            {isTaskOpen(task)&&onStart&&(
+              <button className="btn bs" style={{fontSize:12}} onClick={()=>{onStart(task.id);onClose()}}>
+                <I n="play" s={13}/>Iniciar Task
+              </button>
+            )}
+            {isTaskInProgress(task)&&(
+              <button className="btn bp" style={{fontSize:12}} onClick={()=>{onComplete(task.id);onClose()}}>
+                <I n="check" s={13}/>Marcar como Concluída
+              </button>
+            )}
+            {isTaskCompleted(task)&&onReopen&&(
+              <button className="btn bs" style={{fontSize:12}} onClick={()=>{onReopen(task.id);onClose()}}>
+                <I n="rotate" s={13}/>Reabrir Task
+              </button>
+            )}
+          </>)}
         </div>
       </div>
     </div>
