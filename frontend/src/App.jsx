@@ -1789,7 +1789,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
   const availableStudies = useStudies();
-  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],cs_name:"",cs_email:""};
+  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],observations:"",cs_name:"",cs_email:""};
   const [f,sF]=useState(()=>{
     if(!initialData) return INIT;
     const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
@@ -2173,6 +2173,15 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           <CF l="Link do PI"><input className="fi" value={f.pi_link} onChange={e=>set("pi_link",e.target.value)}/><div style={{marginTop:8}}><a href="https://drive.google.com/drive/folders/19oeOni4mwJHSnt7GSP5tTpW8xM-hIslx" target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:600,color:"var(--teal)",textDecoration:"none",padding:"6px 10px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)"}}><I n="folder" s={13}/>Pasta de faturamento (PIs)<I n="external" s={11}/></a></div></CF>
           <CF l="Link da Proposta"><input className="fi" value={f.proposta_link} onChange={e=>set("proposta_link",e.target.value)}/></CF>
         </div>
+      </Sec>
+
+      <Sec title="6. Observações da Campanha">
+        <CF l="Observações (opcional)">
+          <textarea className="ft" rows={4} placeholder="Inclua aqui qualquer observação relevante sobre a campanha: contexto do cliente, alinhamentos prévios, sensibilidades, pedidos específicos do CP, etc."
+            value={f.observations} onChange={e=>set("observations",e.target.value)}
+            style={{width:"100%",fontSize:13,lineHeight:1.5,resize:"vertical",minHeight:90}}/>
+          <div className="disc" style={{marginTop:8}}><I n="alert-triangle" s={13} c="var(--yellow)"/>Essas observações ficam visíveis para o CS responsável e para o time de Client Services.</div>
+        </CF>
       </Sec>
 
       {/* Email summary + Submit */}
@@ -2958,6 +2967,10 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                   <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>4. Audiências</div>
                   <CF l="Audiências"><textarea className="ft" rows={3} value={editData.audiences||""} onChange={e=>setEditData(p=>({...p,audiences:e.target.value}))}/></CF>
 
+                  {/* Observações */}
+                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>5. Observações da Campanha</div>
+                  <CF l="Observações (opcional)"><textarea className="ft" rows={4} placeholder="Contexto do cliente, alinhamentos prévios, sensibilidades, pedidos específicos..." value={editData.observations||""} onChange={e=>setEditData(p=>({...p,observations:e.target.value}))}/></CF>
+
                   <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8,position:"sticky",bottom:0,padding:"10px 0",background:"var(--bg-card)",borderTop:"1px solid var(--bdr)"}}>
                     <button className="btn bs" onClick={()=>setEditing(false)}>Cancelar</button>
                     <button className="btn bp" onClick={handleSave}><I n="check" s={14}/>Salvar Alterações</button>
@@ -3136,6 +3149,14 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                       </a>
                     ))}
                   </div>
+
+                  {/* Section 6: Observações */}
+                  {selected.observations&&(<>
+                    <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>6. Observações da Campanha</div>
+                    <div style={{padding:14,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",fontSize:13,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
+                      {selected.observations}
+                    </div>
+                  </>)}
 
                   {/* Submitted by */}
                   <div style={{paddingTop:12,borderTop:"1px solid var(--bdr)",fontSize:12,color:"var(--t3)"}}>
