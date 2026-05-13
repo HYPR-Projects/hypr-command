@@ -13,6 +13,7 @@ const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","RMNF","RMND"];
 const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context","Survey","Video Survey"];
 const FEATURES_WITH_VOLUMETRIA = ["P-DOOH","Tap to Go","Tap To Scratch","Weather","Topics","Click to Calendar","Downloaded Apps"];
 const MARKETPLACES = ["VTEX","Amazon"];
+const MARKETING_ACTIONS = ["SXSW","Festa Aniversário HYPR","Festa São João","Festa Carnaval","Festa Halloween","Gift Card"];
 
 // ── Checklist Feature Config ─────────────────────────────────────────────────
 // Features with volumetry fields
@@ -1789,7 +1790,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
   const availableStudies = useStudies();
-  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],observations:"",cs_name:"",cs_email:""};
+  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],observations:"",marketing_action:"",cs_name:"",cs_email:""};
   const [f,sF]=useState(()=>{
     if(!initialData) return INIT;
     const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
@@ -2175,13 +2176,22 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
         </div>
       </Sec>
 
-      <Sec title="6. Observações da Campanha">
-        <CF l="Observações (opcional)">
-          <textarea className="ft" rows={4} placeholder="Inclua aqui qualquer observação relevante sobre a campanha: contexto do cliente, alinhamentos prévios, sensibilidades, pedidos específicos do CP, etc."
-            value={f.observations} onChange={e=>set("observations",e.target.value)}
-            style={{width:"100%",fontSize:13,lineHeight:1.5,resize:"vertical",minHeight:90}}/>
-          <div className="disc" style={{marginTop:8}}><I n="alert-triangle" s={13} c="var(--yellow)"/>Essas observações ficam visíveis para o CS responsável e para o time de Client Services.</div>
-        </CF>
+      <Sec title="6. Observações e Ação de Marketing">
+        <div style={{display:"flex",flexDirection:"column",gap:18}}>
+          <CF l="Ação de Marketing (opcional)">
+            <select className="fs" value={f.marketing_action} onChange={e=>set("marketing_action",e.target.value)}>
+              <option value="">Nenhuma</option>
+              {MARKETING_ACTIONS.map(a=><option key={a} value={a}>{a}</option>)}
+            </select>
+            <div className="disc" style={{marginTop:6}}><I n="alert-circle" s={12} c="var(--teal)"/>Selecione apenas se a campanha está vinculada a uma ação de marketing específica.</div>
+          </CF>
+          <CF l="Observações (opcional)">
+            <textarea className="ft" rows={4} placeholder="Inclua aqui qualquer observação relevante sobre a campanha: contexto do cliente, alinhamentos prévios, sensibilidades, pedidos específicos do CP, etc."
+              value={f.observations} onChange={e=>set("observations",e.target.value)}
+              style={{width:"100%",fontSize:13,lineHeight:1.5,resize:"vertical",minHeight:90}}/>
+            <div className="disc" style={{marginTop:8}}><I n="alert-triangle" s={13} c="var(--yellow)"/>Essas observações ficam visíveis para o CS responsável e para o time de Client Services.</div>
+          </CF>
+        </div>
       </Sec>
 
       {/* Email summary + Submit */}
@@ -2855,8 +2865,31 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                     <div style={{fontSize:11,color:"var(--t3)",marginTop:6}}>Ao trocar, um e-mail será enviado para o CS atual, o anterior (se houver) e o solicitante.</div>
                   </div>
 
-                  {/* Section 2: Produtos Core */}
-                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>2. Produtos Core e Volumetria</div>
+                  {/* Section: Formatos e Métricas */}
+                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>2. Formatos e Métricas</div>
+                  <CF l="Formatos">
+                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                      {["Display","Video"].map(x=>{
+                        const arr=editData.formats||[];
+                        const sel=arr.includes(x);
+                        return(
+                          <span key={x} className={`chip${sel?" sel":""}`} style={{cursor:"pointer"}}
+                            onClick={()=>setEditData(p=>{const a=p.formats||[];return{...p,formats:a.includes(x)?a.filter(y=>y!==x):[...a,x]}})}>{x}</span>
+                        );
+                      })}
+                    </div>
+                  </CF>
+                  <div className="g2" style={{gap:12}}>
+                    {(editData.formats||[]).includes("Display")&&(
+                      <CF l="CPM Negociado (R$)"><input type="number" step="0.01" className="fi" placeholder="Ex: 14.40" value={editData.cpm||""} onChange={e=>setEditData(p=>({...p,cpm:e.target.value}))}/></CF>
+                    )}
+                    {(editData.formats||[]).includes("Video")&&(
+                      <CF l="CPCV Negociado (R$)"><input type="number" step="0.01" className="fi" placeholder="Ex: 0.36" value={editData.cpcv||""} onChange={e=>setEditData(p=>({...p,cpcv:e.target.value}))}/></CF>
+                    )}
+                  </div>
+
+                  {/* Section 3: Produtos Core */}
+                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>3. Produtos Core e Volumetria</div>
                   <CF l="Produtos">
                     <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                       {CHECKLIST_CORE_PRODUCTS.map(prod=>(
@@ -2902,7 +2935,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                   ))}
 
                   {/* Section 3: Features (incremento de verba pós-início) */}
-                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>3. Features</div>
+                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>4. Features</div>
                   <div className="disc" style={{fontSize:11}}>
                     <I n="alert-circle" s={13} c="var(--teal)"/>
                     <div>Para incrementos de verba após o início da campanha, marque as novas features e preencha a volumetria adicional.</div>
@@ -2964,11 +2997,17 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                   ))}
 
                   {/* Audiências */}
-                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>4. Audiências</div>
+                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>5. Audiências</div>
                   <CF l="Audiências"><textarea className="ft" rows={3} value={editData.audiences||""} onChange={e=>setEditData(p=>({...p,audiences:e.target.value}))}/></CF>
 
                   {/* Observações */}
-                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>5. Observações da Campanha</div>
+                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>6. Observações e Ação de Marketing</div>
+                  <CF l="Ação de Marketing (opcional)">
+                    <select className="fs" value={editData.marketing_action||""} onChange={e=>setEditData(p=>({...p,marketing_action:e.target.value}))}>
+                      <option value="">Nenhuma</option>
+                      {MARKETING_ACTIONS.map(a=><option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </CF>
                   <CF l="Observações (opcional)"><textarea className="ft" rows={4} placeholder="Contexto do cliente, alinhamentos prévios, sensibilidades, pedidos específicos..." value={editData.observations||""} onChange={e=>setEditData(p=>({...p,observations:e.target.value}))}/></CF>
 
                   <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8,position:"sticky",bottom:0,padding:"10px 0",background:"var(--bg-card)",borderTop:"1px solid var(--bdr)"}}>
@@ -3150,12 +3189,23 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                     ))}
                   </div>
 
-                  {/* Section 6: Observações */}
-                  {selected.observations&&(<>
-                    <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>6. Observações da Campanha</div>
-                    <div style={{padding:14,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",fontSize:13,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
-                      {selected.observations}
-                    </div>
+                  {/* Section 6: Observações + Ação de Marketing */}
+                  {(selected.observations||selected.marketing_action)&&(<>
+                    <div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:8}}>6. Observações e Ação de Marketing</div>
+                    {selected.marketing_action&&(
+                      <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",background:"var(--teal-dim)",border:"1px solid var(--teal)",borderRadius:"var(--r)"}}>
+                        <I n="activity" s={14} c="var(--teal)"/>
+                        <div>
+                          <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,letterSpacing:".06em"}}>Ação de Marketing</div>
+                          <div style={{fontSize:13,fontWeight:700,color:"var(--teal-l)",marginTop:2}}>{selected.marketing_action}</div>
+                        </div>
+                      </div>
+                    )}
+                    {selected.observations&&(
+                      <div style={{padding:14,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",fontSize:13,color:"var(--t1)",lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
+                        {selected.observations}
+                      </div>
+                    )}
                   </>)}
 
                   {/* Submitted by */}
