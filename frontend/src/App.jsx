@@ -948,6 +948,18 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
   const [draggingId,setDraggingId]=useState(null);
   const toast = useToast();
   const gfIdx = useRef(0);
+  // Lista de CS ativos (vinda do /team) para o dropdown de edição de task
+  const [csList,setCsList]=useState([]);
+  useEffect(()=>{
+    fetch(`${BACKEND_URL}/team`)
+      .then(r=>r.json())
+      .then(rows=>{
+        if(Array.isArray(rows)){
+          setCsList(rows.filter(m=>m.role==="cs"&&m.active!==false).map(m=>({name:m.name,email:m.email})));
+        }
+      })
+      .catch(err=>console.error("Failed to load team for task edit:",err));
+  },[]);
 
   useEffect(()=>{ try{localStorage.setItem("hypr_task_view",viewMode)}catch(e){} },[viewMode]);
   // Recalcula scope inicial quando time carrega (evita race)
@@ -1096,20 +1108,35 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
     const previous=tasks.find(t=>t.id===id);
     setTasks(ts=>ts.map(t=>t.id===id?{...t,...updated}:t));
     setSelectedTask(s=>s&&s.id===id?{...s,...updated}:s);
+    // Payload com chaves nos dois formatos para o backend (cobre snake_case e camelCase)
+    const merged={...previous,...updated};
+    const payload={
+      task:merged,
+      // Campos individuais explícitos para o backend persistir
+      cs: merged.cs,
+      csEmail: merged.csEmail,
+      cs_email: merged.csEmail,
+      cs_name: merged.cs,
+      briefing: merged.briefing,
+      deadline: merged.deadline,
+      budget: merged.budget,
+      products: merged.products,
+      features: merged.features,
+      editedBy: user?.name,
+      editedByEmail: user?.email,
+    };
+    console.log("[handleEditTask] PUT payload:",payload);
     toast("Task atualizada!");
     try{
       const res = await fetch(`${BACKEND_URL}/tasks/${id}`,{
         method:"PUT",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          task:{...previous,...updated},
-          editedBy: user?.name,
-          editedByEmail: user?.email,
-        })
+        body:JSON.stringify(payload)
       });
+      console.log("[handleEditTask] response status:",res.status);
       if(!res.ok){
         let msg=`Erro ${res.status}`;
-        try{ const body=await res.json(); if(body?.error) msg=body.error; }catch(_){}
+        try{ const body=await res.json(); console.error("[handleEditTask] error body:",body); if(body?.error) msg=body.error; }catch(_){}
         if(previous) setTasks(ts=>ts.map(t=>t.id===id?previous:t));
         if(previous) setSelectedTask(s=>s&&s.id===id?previous:s);
         toast(msg);
@@ -1243,7 +1270,7 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
-      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}} canEdit={canEditTask(selectedTask)} onSaveEdit={handleEditTask}/>}
+      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}} canEdit={canEditTask(selectedTask)} onSaveEdit={handleEditTask} csList={csList}/>}
     </div>
   );
 }
@@ -1399,7 +1426,7 @@ function TaskCard({task,onStart,onComplete,onReopen,onAddLink,onOpen}) {
 }
 
 // ──────────── Modal de detalhes da Task ────────────
-function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,canEdit,onSaveEdit}){
+function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,canEdit,onSaveEdit,csList=[]}){
   const st=getTaskStatus(task);
   const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
   const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
@@ -1409,6 +1436,7 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
     id:task.id,
     briefing:task.briefing||"",
     cs:task.cs||"",
+    csEmail:task.csEmail||task.cs_email||"",
     deadline:task.deadline||"",
     budget:task.budget||"",
     products:task.products||[],
@@ -1474,9 +1502,25 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
           <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:18}}>
             <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
               <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>CS Responsável</div>
-              {isEditing?(
-                <input className="fi" value={editForm.cs} onChange={e=>setEditForm(p=>({...p,cs:e.target.value}))} placeholder="Nome do CS" style={{fontSize:13}}/>
-              ):(<>
+              {isEditing?(<>
+                <select className="fs" style={{fontSize:13,width:"100%"}} value={editForm.csEmail}
+                  onChange={e=>{
+                    const email=e.target.value;
+                    const found=csList.find(c=>c.email===email);
+                    setEditForm(p=>({...p,csEmail:email,cs:found?found.name:p.cs}));
+                  }}>
+                  <option value="">— Selecione um CS —</option>
+                  {csList.map(cs=><option key={cs.email} value={cs.email}>{cs.name}</option>)}
+                  {editForm.csEmail && !csList.find(c=>c.email===editForm.csEmail) && (
+                    <option value={editForm.csEmail}>{editForm.cs||editForm.csEmail} (atual)</option>
+                  )}
+                </select>
+                {editForm.csEmail && !csList.find(c=>c.email===editForm.csEmail) && (
+                  <div style={{fontSize:10,color:"var(--yellow-s)",marginTop:4,display:"flex",alignItems:"center",gap:4}}>
+                    <I n="alert-circle" s={10} c="var(--yellow-s)"/>CS atual não está mais no time
+                  </div>
+                )}
+              </>):(<>
                 <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:600,color:"var(--t1)"}}>
                   <I n="user" s={13} c="var(--teal)"/>{task.cs||"—"}
                 </div>
