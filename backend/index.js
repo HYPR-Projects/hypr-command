@@ -476,46 +476,56 @@ app.put('/tasks/:id', async (req, res) => {
     const updates = req.body
     const now = new Date().toISOString()
 
-    // Helper de escape SQL seguro (mesmo padrão do PUT /checklists/:id)
-    const esc = v => {
-      if (v === null || v === undefined) return 'NULL'
-      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
-      if (typeof v === 'number') return String(v)
-      if (Array.isArray(v)) return `[${v.map(x=>`'${String(x).replace(/'/g,"\\'")}'`).join(',')}]`
-      return `'${String(v).replace(/'/g,"\\'")}'`
+    // Constrói SET clauses usando parâmetros nomeados do BigQuery — escape seguro
+    const sets = []
+    const params = { id }
+    const types = { id: 'STRING' }
+    const add = (col, val, type) => {
+      const key = `p_${col}`
+      sets.push(`${col} = @${key}`)
+      params[key] = val
+      types[key] = type
     }
 
-    const sets = []
     // Status / doc_link (uso original)
-    if (updates.status !== undefined) sets.push(`status = ${esc(updates.status)}`)
-    if (updates.doc_link !== undefined) sets.push(`doc_link = ${esc(updates.doc_link)}`)
+    if (updates.status !== undefined) add('status', updates.status, 'STRING')
+    if (updates.doc_link !== undefined) add('doc_link', updates.doc_link, 'STRING')
 
     // Campos editáveis pelo CS/CP/admin via modal de edição
     // Aceita tanto snake_case quanto camelCase
     const cs = updates.cs ?? updates.cs_name
-    if (cs !== undefined) sets.push(`cs = ${esc(cs)}`)
+    if (cs !== undefined) add('cs', cs, 'STRING')
     const csEmail = updates.cs_email ?? updates.csEmail
-    if (csEmail !== undefined) sets.push(`cs_email = ${esc(csEmail || null)}`)
-    if (updates.briefing !== undefined) sets.push(`briefing = ${esc(updates.briefing || null)}`)
+    if (csEmail !== undefined) add('cs_email', csEmail || null, 'STRING')
+    if (updates.briefing !== undefined) add('briefing', updates.briefing || null, 'STRING')
     if (updates.deadline !== undefined) {
-      // deadline pode ser string ISO ou objeto {value: 'YYYY-MM-DD'} do BQ
       const d = typeof updates.deadline === 'object' && updates.deadline?.value
         ? updates.deadline.value
         : updates.deadline
-      sets.push(`deadline = ${d ? `DATE '${String(d).slice(0,10)}'` : 'NULL'}`)
+      add('deadline', d ? String(d).slice(0,10) : null, 'DATE')
     }
     if (updates.budget !== undefined) {
       const b = updates.budget === null || updates.budget === '' ? null : parseFloat(updates.budget)
-      sets.push(`budget = ${b === null || isNaN(b) ? 'NULL' : b}`)
+      add('budget', (b === null || isNaN(b)) ? null : b, 'FLOAT64')
     }
-    if (updates.products !== undefined) sets.push(`products = ${esc(updates.products || [])}`)
-    if (updates.features !== undefined) sets.push(`features = ${esc(updates.features || [])}`)
-    if (updates.agency !== undefined) sets.push(`agency = ${esc(updates.agency || null)}`)
+    if (updates.products !== undefined) {
+      sets.push(`products = @p_products`)
+      params.p_products = updates.products || []
+      types.p_products = ['STRING']
+    }
+    if (updates.features !== undefined) {
+      sets.push(`features = @p_features`)
+      params.p_features = updates.features || []
+      types.p_features = ['STRING']
+    }
+    if (updates.agency !== undefined) add('agency', updates.agency || null, 'STRING')
 
-    sets.push(`updated_at = '${now}'`)
+    sets.push(`updated_at = @p_updated_at`)
+    params.p_updated_at = now
+    types.p_updated_at = 'STRING'
 
-    const sql = `UPDATE \`${PROJECT}.${DATASET}.tasks\` SET ${sets.join(', ')} WHERE id = '${id}'`
-    await bq.query({ query: sql, useLegacySql: false })
+    const sql = `UPDATE \`${PROJECT}.${DATASET}.tasks\` SET ${sets.join(', ')} WHERE id = @id`
+    await bq.query({ query: sql, params, types, useLegacySql: false })
 
     // Se foi conclusão, notifica o solicitante
     if (updates.status === 'completed' && updates.task) {
@@ -529,11 +539,10 @@ app.put('/tasks/:id', async (req, res) => {
       }
     }
 
-    // Se foi troca de CS responsável, notifica novo CS, CS anterior (se houver) e solicitante
+    // Se foi troca de CS responsável, notifica novo CS e CS anterior
     if (csEmail !== undefined && updates.task) {
       const t = updates.task
       const previousCsEmail = updates.previousCsEmail || null
-      // Notifica novo CS
       if (csEmail && csEmail !== previousCsEmail) {
         try {
           await sendEmail(
@@ -543,7 +552,6 @@ app.put('/tasks/:id', async (req, res) => {
           )
         } catch (e) { console.error('Email novo CS falhou:', e.message) }
       }
-      // Notifica CS anterior
       if (previousCsEmail && previousCsEmail !== csEmail) {
         try {
           await sendEmail(
