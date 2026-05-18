@@ -476,17 +476,48 @@ app.put('/tasks/:id', async (req, res) => {
     const updates = req.body
     const now = new Date().toISOString()
 
-    const setClauses = []
-    if (updates.status !== undefined) setClauses.push(`status = '${updates.status}'`)
-    if (updates.doc_link !== undefined) setClauses.push(`doc_link = '${updates.doc_link}'`)
-    setClauses.push(`updated_at = '${now}'`)
+    // Helper de escape SQL seguro (mesmo padrão do PUT /checklists/:id)
+    const esc = v => {
+      if (v === null || v === undefined) return 'NULL'
+      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
+      if (typeof v === 'number') return String(v)
+      if (Array.isArray(v)) return `[${v.map(x=>`'${String(x).replace(/'/g,"\\'")}'`).join(',')}]`
+      return `'${String(v).replace(/'/g,"\\'")}'`
+    }
 
-    await bq.query({
-      query: `UPDATE \`${PROJECT}.${DATASET}.tasks\` SET ${setClauses.join(', ')} WHERE id = '${id}'`,
-      useLegacySql: false
-    })
+    const sets = []
+    // Status / doc_link (uso original)
+    if (updates.status !== undefined) sets.push(`status = ${esc(updates.status)}`)
+    if (updates.doc_link !== undefined) sets.push(`doc_link = ${esc(updates.doc_link)}`)
 
-    // If completed, notify requester
+    // Campos editáveis pelo CS/CP/admin via modal de edição
+    // Aceita tanto snake_case quanto camelCase
+    const cs = updates.cs ?? updates.cs_name
+    if (cs !== undefined) sets.push(`cs = ${esc(cs)}`)
+    const csEmail = updates.cs_email ?? updates.csEmail
+    if (csEmail !== undefined) sets.push(`cs_email = ${esc(csEmail || null)}`)
+    if (updates.briefing !== undefined) sets.push(`briefing = ${esc(updates.briefing || null)}`)
+    if (updates.deadline !== undefined) {
+      // deadline pode ser string ISO ou objeto {value: 'YYYY-MM-DD'} do BQ
+      const d = typeof updates.deadline === 'object' && updates.deadline?.value
+        ? updates.deadline.value
+        : updates.deadline
+      sets.push(`deadline = ${d ? `DATE '${String(d).slice(0,10)}'` : 'NULL'}`)
+    }
+    if (updates.budget !== undefined) {
+      const b = updates.budget === null || updates.budget === '' ? null : parseFloat(updates.budget)
+      sets.push(`budget = ${b === null || isNaN(b) ? 'NULL' : b}`)
+    }
+    if (updates.products !== undefined) sets.push(`products = ${esc(updates.products || [])}`)
+    if (updates.features !== undefined) sets.push(`features = ${esc(updates.features || [])}`)
+    if (updates.agency !== undefined) sets.push(`agency = ${esc(updates.agency || null)}`)
+
+    sets.push(`updated_at = '${now}'`)
+
+    const sql = `UPDATE \`${PROJECT}.${DATASET}.tasks\` SET ${sets.join(', ')} WHERE id = '${id}'`
+    await bq.query({ query: sql, useLegacySql: false })
+
+    // Se foi conclusão, notifica o solicitante
     if (updates.status === 'completed' && updates.task) {
       const t = updates.task
       if (t.requesterEmail) {
@@ -498,8 +529,35 @@ app.put('/tasks/:id', async (req, res) => {
       }
     }
 
+    // Se foi troca de CS responsável, notifica novo CS, CS anterior (se houver) e solicitante
+    if (csEmail !== undefined && updates.task) {
+      const t = updates.task
+      const previousCsEmail = updates.previousCsEmail || null
+      // Notifica novo CS
+      if (csEmail && csEmail !== previousCsEmail) {
+        try {
+          await sendEmail(
+            csEmail,
+            `[HYPR Command] 🔁 Você foi designado para uma Task — ${t.type || ''} | ${t.client || ''}`,
+            `<p>Olá,</p><p>Você foi designado como CS responsável pela task <b>${t.type || ''} — ${t.client || ''}</b>.</p><p>Acesse o HYPR Command para conferir os detalhes.</p>`
+          )
+        } catch (e) { console.error('Email novo CS falhou:', e.message) }
+      }
+      // Notifica CS anterior
+      if (previousCsEmail && previousCsEmail !== csEmail) {
+        try {
+          await sendEmail(
+            previousCsEmail,
+            `[HYPR Command] ℹ️ Task reatribuída — ${t.type || ''} | ${t.client || ''}`,
+            `<p>Olá,</p><p>A task <b>${t.type || ''} — ${t.client || ''}</b> foi reatribuída para outro CS.</p>`
+          )
+        } catch (e) { console.error('Email CS anterior falhou:', e.message) }
+      }
+    }
+
     res.json({ ok: true })
   } catch (err) {
+    console.error('PUT /tasks/:id error:', err)
     res.status(500).json({ error: err.message })
   }
 })
@@ -519,7 +577,7 @@ app.post('/checklists', async (req, res) => {
       'ooh_link','audiences','pracas_type','pracas_detail','had_cs_meeting','marketplaces',
       'features','feature_volumes','pecas_link','redirect_urls','extra_urls','pi_link',
       'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
-      'submittedByEmail','short_token',
+      'submittedByEmail','short_token','observations','marketing_action',
       // praças variants kept out of extras (already mapped above)
       'praças_type','praças_state','praças_city','praças_other','praças_states','praças_cities',
       'praças_city_input','praças_city_state',
@@ -566,6 +624,8 @@ app.post('/checklists', async (req, res) => {
       submitted_by: f.submittedBy || null,
       submitted_by_email: f.submittedByEmail || null,
       short_token: f.short_token || null,
+      observations: f.observations || null,
+      marketing_action: f.marketing_action || null,
       extras: JSON.stringify(extras),
       created_at: now,
     }])
@@ -660,7 +720,7 @@ app.put('/checklists/:id', async (req, res) => {
       'ooh_link','audiences','pracas_type','pracas_detail','had_cs_meeting','marketplaces',
       'features','feature_volumes','pecas_link','redirect_urls','extra_urls','pi_link',
       'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
-      'submittedByEmail','short_token','id','created_at','updated_at','extras',
+      'submittedByEmail','short_token','id','created_at','updated_at','extras','observations','marketing_action',
       'praças_type','praças_state','praças_city','praças_other','praças_states','praças_cities',
       'praças_city_input','praças_city_state',
     ])
@@ -716,6 +776,8 @@ app.put('/checklists/:id', async (req, res) => {
     fld('proposta_link', f.proposta_link ?? null)
     fld('cs_name', f.cs_name ?? null)
     fld('cs_email', f.cs_email ?? null)
+    fld('observations', f.observations ?? null)
+    fld('marketing_action', f.marketing_action ?? null)
     sets.push(`extras = JSON '${JSON.stringify(extras).replace(/'/g,"\\'")}'`)
 
     const sql = `UPDATE \`${PROJECT}.${DATASET}.checklists\` SET ${sets.join(', ')} WHERE id = '${id}'`
