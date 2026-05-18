@@ -948,18 +948,28 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
   const [draggingId,setDraggingId]=useState(null);
   const toast = useToast();
   const gfIdx = useRef(0);
-  // Lista de CS ativos (vinda do /team) para o dropdown de edição de task
-  const [csList,setCsList]=useState([]);
-  useEffect(()=>{
-    fetch(`${BACKEND_URL}/team`)
-      .then(r=>r.json())
-      .then(rows=>{
-        if(Array.isArray(rows)){
-          setCsList(rows.filter(m=>m.role==="cs"&&m.active!==false).map(m=>({name:m.name,email:m.email})));
-        }
-      })
-      .catch(err=>console.error("Failed to load team for task edit:",err));
-  },[]);
+  // Lista de CS para o dropdown de edição de task.
+  // Fonte primária: o CS_LIST hardcoded (sem Greenfield/SA, que não são CS reais).
+  // Email: extraído das próprias tasks (mais confiável) ou montado pelo padrão nome.sobrenome@hypr.mobi
+  const csList = useMemo(()=>{
+    // Mapa name → email coletado das tasks existentes
+    const nameToEmail = new Map();
+    tasks.forEach(t=>{
+      const n = t.cs;
+      const e = t.csEmail || t.cs_email;
+      if(n && e && !nameToEmail.has(n)) nameToEmail.set(n, e);
+    });
+    const slugEmail = name => {
+      const slug = name.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g,"") // remove acentos
+        .replace(/[^a-z\s]/g,"")
+        .trim().split(/\s+/).join(".");
+      return `${slug}@hypr.mobi`;
+    };
+    return CS_LIST
+      .filter(n => n !== "Greenfield" && n !== "Solutions Architect")
+      .map(name => ({ name, email: nameToEmail.get(name) || slugEmail(name) }));
+  },[tasks]);
 
   useEffect(()=>{ try{localStorage.setItem("hypr_task_view",viewMode)}catch(e){} },[viewMode]);
   // Recalcula scope inicial quando time carrega (evita race)
