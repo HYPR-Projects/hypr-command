@@ -6,8 +6,8 @@ const CS_LIST = ["Beatriz Severine","Isaac Agiman","João Armelin","João Buzoli
 const GREENFIELD_QUEUE = CS_LIST.filter(c => c !== "Greenfield" && c !== "Solutions Architect");
 const SA_NAME = "Solutions Architect";
 const SA_EMAIL = "solutions@hypr.mobi";
-const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","Pós-Venda","Dados RMNF"];
-const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados RMNF": 3 };
+const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","Pós-Venda","Dados RMNF","Mapa Personalizado"];
+const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados RMNF": 3, "Mapa Personalizado": 3 };
 const CORE_PRODUCTS = ["O2O","OOH","RMN Digital","RMN Físico"];
 const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","RMNF","RMND"];
 const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context","Survey","Video Survey"];
