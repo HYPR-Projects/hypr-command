@@ -1432,16 +1432,26 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
   const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
   const [isEditing,setIsEditing]=useState(false);
   const [editForm,setEditForm]=useState(null);
-  const startEdit=()=>{ setEditForm({
-    id:task.id,
-    briefing:task.briefing||"",
-    cs:task.cs||"",
-    csEmail:task.csEmail||task.cs_email||"",
-    deadline:task.deadline||"",
-    budget:task.budget||"",
-    products:task.products||[],
-    features:task.features||[],
-  }); setIsEditing(true); };
+  const startEdit=()=>{
+    // Se a task tem cs (nome) mas não tem csEmail (legado/BQ NULL),
+    // tenta achar o email pelo nome dentro da csList
+    let csEmail=task.csEmail||task.cs_email||"";
+    if(!csEmail && task.cs){
+      const found=csList.find(c=>c.name===task.cs);
+      if(found) csEmail=found.email;
+    }
+    setEditForm({
+      id:task.id,
+      briefing:task.briefing||"",
+      cs:task.cs||"",
+      csEmail,
+      deadline:task.deadline||"",
+      budget:task.budget||"",
+      products:task.products||[],
+      features:task.features||[],
+    });
+    setIsEditing(true);
+  };
   const cancelEdit=()=>{ setIsEditing(false); setEditForm(null); };
   const saveEdit=()=>{
     onSaveEdit&&onSaveEdit({
@@ -1503,21 +1513,30 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
             <div style={{padding:12,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)"}}>
               <div style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:6}}>CS Responsável</div>
               {isEditing?(<>
-                <select className="fs" style={{fontSize:13,width:"100%"}} value={editForm.csEmail}
+                <select className="fs" style={{fontSize:13,width:"100%"}}
+                  value={editForm.csEmail || (editForm.cs?`__NAME__:${editForm.cs}`:"")}
                   onChange={e=>{
-                    const email=e.target.value;
+                    const v=e.target.value;
+                    if(v.startsWith("__NAME__:")) return; // opção fantasma, ignora
+                    const email=v;
                     const found=csList.find(c=>c.email===email);
                     setEditForm(p=>({...p,csEmail:email,cs:found?found.name:p.cs}));
                   }}>
                   <option value="">— Selecione um CS —</option>
                   {csList.map(cs=><option key={cs.email} value={cs.email}>{cs.name}</option>)}
+                  {/* Fallback: CS atual não foi encontrado no time (por email ou por nome) */}
+                  {editForm.cs && !editForm.csEmail && !csList.find(c=>c.name===editForm.cs) && (
+                    <option value={`__NAME__:${editForm.cs}`}>{editForm.cs} (atual — sem e-mail registrado)</option>
+                  )}
                   {editForm.csEmail && !csList.find(c=>c.email===editForm.csEmail) && (
-                    <option value={editForm.csEmail}>{editForm.cs||editForm.csEmail} (atual)</option>
+                    <option value={editForm.csEmail}>{editForm.cs||editForm.csEmail} (atual — fora do time)</option>
                   )}
                 </select>
-                {editForm.csEmail && !csList.find(c=>c.email===editForm.csEmail) && (
+                {((editForm.csEmail && !csList.find(c=>c.email===editForm.csEmail)) ||
+                  (editForm.cs && !editForm.csEmail && !csList.find(c=>c.name===editForm.cs))) && (
                   <div style={{fontSize:10,color:"var(--yellow-s)",marginTop:4,display:"flex",alignItems:"center",gap:4}}>
-                    <I n="alert-circle" s={10} c="var(--yellow-s)"/>CS atual não está mais no time
+                    <I n="alert-circle" s={10} c="var(--yellow-s)"/>
+                    {editForm.csEmail?"CS atual não está mais no time":"CS atual sem e-mail registrado"}
                   </div>
                 )}
               </>):(<>
