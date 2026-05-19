@@ -843,15 +843,26 @@ app.put('/checklists/:id', async (req, res) => {
       return isNaN(n) ? null : n
     }
 
+    // Para campos críticos (client, campaign_name, datas), só atualiza se o valor for válido.
+    // Se o frontend mandar null/vazio/objeto malformado, OMITE do SET — mantém o que está no BQ.
+    // Isso evita acidentes onde o edit modal não inclui o campo mas o frontend manda undefined/null.
     if (f.cp_name !== undefined) add('cp_name', f.cp_name || null, 'STRING')
     if (f.cp_email !== undefined) add('cp_email', f.cp_email || null, 'STRING')
     if (f.agency !== undefined) add('agency', f.agency || null, 'STRING')
     if (f.industry !== undefined) add('industry', f.industry || null, 'STRING')
     if (f.campaign_type !== undefined) add('campaign_type', f.campaign_type || null, 'STRING')
-    if (f.client !== undefined) add('client', f.client || null, 'STRING')
-    if (f.campaign_name !== undefined) add('campaign_name', f.campaign_name || null, 'STRING')
-    if (f.start_date !== undefined) add('start_date', normDate(f.start_date), 'DATE')
-    if (f.end_date !== undefined) add('end_date', normDate(f.end_date), 'DATE')
+    // client e campaign_name: só sobrescreve se vier valor não-vazio
+    if (f.client !== undefined && f.client) add('client', f.client, 'STRING')
+    if (f.campaign_name !== undefined && f.campaign_name) add('campaign_name', f.campaign_name, 'STRING')
+    // datas: só sobrescreve se a normalização produzir uma data válida (YYYY-MM-DD)
+    if (f.start_date !== undefined) {
+      const nd = normDate(f.start_date)
+      if (nd) add('start_date', nd, 'DATE')
+    }
+    if (f.end_date !== undefined) {
+      const nd = normDate(f.end_date)
+      if (nd) add('end_date', nd, 'DATE')
+    }
     if (f.investment !== undefined) add('investment', toNum(f.investment), 'FLOAT64')
     if (f.deal_dv360 !== undefined) add('deal_dv360', toBool(f.deal_dv360), 'BOOL')
     if (f.formats !== undefined) {
