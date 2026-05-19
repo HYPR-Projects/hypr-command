@@ -739,61 +739,98 @@ app.put('/checklists/:id', async (req, res) => {
       extras[key] = value
     }
 
-    // Build UPDATE statement
-    const esc = v => {
-      if (v === null || v === undefined) return 'NULL'
-      if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE'
-      if (typeof v === 'number') return String(v)
-      if (Array.isArray(v)) return `[${v.map(x=>`'${String(x).replace(/'/g,"\\'")}'`).join(',')}]`
-      return `'${String(v).replace(/'/g,"\\'")}'`
-    }
+    // Build UPDATE statement with named parameters (safe escape, handles dates/quotes/specials)
     const sets = []
-    const fld = (col, val) => { if (val !== undefined) sets.push(`${col} = ${esc(val)}`) }
+    const params = { id }
+    const types = { id: 'STRING' }
+    const add = (col, val, type) => {
+      const key = `p_${col}`
+      sets.push(`${col} = @${key}`)
+      params[key] = val
+      types[key] = type
+    }
+    // Normaliza datas: aceita string ISO, "YYYY-MM-DD", ou objeto {value: "YYYY-MM-DD"} (BQ DATE retornado pelo GET)
+    const normDate = v => {
+      if (!v) return null
+      if (typeof v === 'object' && v?.value) v = v.value
+      const s = String(v).slice(0, 10)
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null
+    }
+    const toBool = v => v === 'Sim' || v === true || v === 'true'
+    const toNum = v => {
+      if (v === null || v === undefined || v === '') return null
+      const n = parseFloat(v)
+      return isNaN(n) ? null : n
+    }
+    const toInt = v => {
+      if (v === null || v === undefined || v === '') return null
+      const n = parseInt(v)
+      return isNaN(n) ? null : n
+    }
 
-    fld('cp_name', f.cp_name ?? null)
-    fld('cp_email', f.cp_email ?? null)
-    fld('agency', f.agency ?? null)
-    fld('industry', f.industry ?? null)
-    fld('campaign_type', f.campaign_type ?? null)
-    if (f.client !== undefined) fld('client', f.client)
-    if (f.campaign_name !== undefined) fld('campaign_name', f.campaign_name)
-    if (f.start_date !== undefined) sets.push(`start_date = ${f.start_date ? `DATE '${f.start_date}'` : 'NULL'}`)
-    if (f.end_date !== undefined) sets.push(`end_date = ${f.end_date ? `DATE '${f.end_date}'` : 'NULL'}`)
-    if (f.investment !== undefined) sets.push(`investment = ${f.investment ? parseFloat(f.investment) : 'NULL'}`)
-    if (f.deal_dv360 !== undefined) sets.push(`deal_dv360 = ${f.deal_dv360 === 'Sim' || f.deal_dv360 === true ? 'TRUE' : 'FALSE'}`)
-    if (f.formats !== undefined) sets.push(`formats = ${esc(f.formats || [])}`)
-    if (f.cpm !== undefined) sets.push(`cpm = ${f.cpm ? parseFloat(f.cpm) : 'NULL'}`)
-    if (f.cpcv !== undefined) sets.push(`cpcv = ${f.cpcv ? parseFloat(f.cpcv) : 'NULL'}`)
-    if (f.products !== undefined) sets.push(`products = ${esc(f.products || [])}`)
-    if (f.o2o_impressoes !== undefined) sets.push(`o2o_impressoes = ${f.o2o_impressoes ? parseInt(f.o2o_impressoes) : 'NULL'}`)
-    if (f.o2o_views !== undefined) sets.push(`o2o_views = ${f.o2o_views ? parseInt(f.o2o_views) : 'NULL'}`)
-    if (f.has_bonus !== undefined) sets.push(`has_bonus = ${f.has_bonus === 'Sim' || f.has_bonus === true ? 'TRUE' : 'FALSE'}`)
-    if (f.bonus_o2o_impressoes !== undefined) sets.push(`bonus_o2o_impressoes = ${f.bonus_o2o_impressoes ? parseInt(f.bonus_o2o_impressoes) : 'NULL'}`)
-    if (f.bonus_o2o_views !== undefined) sets.push(`bonus_o2o_views = ${f.bonus_o2o_views ? parseInt(f.bonus_o2o_views) : 'NULL'}`)
-    fld('ooh_link', f.ooh_link ?? null)
-    fld('audiences', f.audiences ?? null)
-    if (f.pracas_type !== undefined || f.praças_type !== undefined) fld('pracas_type', f.pracas_type || f.praças_type || null)
-    if (f.pracas_detail !== undefined) fld('pracas_detail', f.pracas_detail ?? null)
-    if (f.had_cs_meeting !== undefined) sets.push(`had_cs_meeting = ${f.had_cs_meeting === 'Sim' || f.had_cs_meeting === true ? 'TRUE' : 'FALSE'}`)
-    if (f.marketplaces !== undefined) sets.push(`marketplaces = ${esc(f.marketplaces || [])}`)
-    if (f.features !== undefined) sets.push(`features = ${esc(f.features || [])}`)
-    if (f.feature_volumes !== undefined) sets.push(`feature_volumes = JSON '${JSON.stringify(f.feature_volumes || {}).replace(/'/g,"\\'")}'`)
-    fld('pecas_link', f.pecas_link ?? null)
-    if (f.extra_urls !== undefined) sets.push(`redirect_urls = ${esc((f.extra_urls || []).filter(Boolean))}`)
-    fld('pi_link', f.pi_link ?? null)
-    fld('proposta_link', f.proposta_link ?? null)
-    fld('cs_name', f.cs_name ?? null)
-    fld('cs_email', f.cs_email ?? null)
-    fld('observations', f.observations ?? null)
-    fld('marketing_action', f.marketing_action ?? null)
-    sets.push(`extras = JSON '${JSON.stringify(extras).replace(/'/g,"\\'")}'`)
+    if (f.cp_name !== undefined) add('cp_name', f.cp_name || null, 'STRING')
+    if (f.cp_email !== undefined) add('cp_email', f.cp_email || null, 'STRING')
+    if (f.agency !== undefined) add('agency', f.agency || null, 'STRING')
+    if (f.industry !== undefined) add('industry', f.industry || null, 'STRING')
+    if (f.campaign_type !== undefined) add('campaign_type', f.campaign_type || null, 'STRING')
+    if (f.client !== undefined) add('client', f.client || null, 'STRING')
+    if (f.campaign_name !== undefined) add('campaign_name', f.campaign_name || null, 'STRING')
+    if (f.start_date !== undefined) add('start_date', normDate(f.start_date), 'DATE')
+    if (f.end_date !== undefined) add('end_date', normDate(f.end_date), 'DATE')
+    if (f.investment !== undefined) add('investment', toNum(f.investment), 'FLOAT64')
+    if (f.deal_dv360 !== undefined) add('deal_dv360', toBool(f.deal_dv360), 'BOOL')
+    if (f.formats !== undefined) {
+      sets.push(`formats = @p_formats`); params.p_formats = f.formats || []; types.p_formats = ['STRING']
+    }
+    if (f.cpm !== undefined) add('cpm', toNum(f.cpm), 'FLOAT64')
+    if (f.cpcv !== undefined) add('cpcv', toNum(f.cpcv), 'FLOAT64')
+    if (f.products !== undefined) {
+      sets.push(`products = @p_products`); params.p_products = f.products || []; types.p_products = ['STRING']
+    }
+    if (f.o2o_impressoes !== undefined) add('o2o_impressoes', toInt(f.o2o_impressoes), 'INT64')
+    if (f.o2o_views !== undefined) add('o2o_views', toInt(f.o2o_views), 'INT64')
+    if (f.has_bonus !== undefined) add('has_bonus', toBool(f.has_bonus), 'BOOL')
+    if (f.bonus_o2o_impressoes !== undefined) add('bonus_o2o_impressoes', toInt(f.bonus_o2o_impressoes), 'INT64')
+    if (f.bonus_o2o_views !== undefined) add('bonus_o2o_views', toInt(f.bonus_o2o_views), 'INT64')
+    if (f.ooh_link !== undefined) add('ooh_link', f.ooh_link || null, 'STRING')
+    if (f.audiences !== undefined) add('audiences', f.audiences || null, 'STRING')
+    if (f.pracas_type !== undefined || f.praças_type !== undefined) add('pracas_type', f.pracas_type || f.praças_type || null, 'STRING')
+    if (f.pracas_detail !== undefined) add('pracas_detail', f.pracas_detail || null, 'STRING')
+    if (f.had_cs_meeting !== undefined) add('had_cs_meeting', toBool(f.had_cs_meeting), 'BOOL')
+    if (f.marketplaces !== undefined) {
+      sets.push(`marketplaces = @p_marketplaces`); params.p_marketplaces = f.marketplaces || []; types.p_marketplaces = ['STRING']
+    }
+    if (f.features !== undefined) {
+      sets.push(`features = @p_features`); params.p_features = f.features || []; types.p_features = ['STRING']
+    }
+    if (f.feature_volumes !== undefined) {
+      sets.push(`feature_volumes = PARSE_JSON(@p_feature_volumes)`)
+      params.p_feature_volumes = JSON.stringify(f.feature_volumes || {})
+      types.p_feature_volumes = 'STRING'
+    }
+    if (f.pecas_link !== undefined) add('pecas_link', f.pecas_link || null, 'STRING')
+    if (f.extra_urls !== undefined) {
+      sets.push(`redirect_urls = @p_redirect_urls`)
+      params.p_redirect_urls = (f.extra_urls || []).filter(Boolean)
+      types.p_redirect_urls = ['STRING']
+    }
+    if (f.pi_link !== undefined) add('pi_link', f.pi_link || null, 'STRING')
+    if (f.proposta_link !== undefined) add('proposta_link', f.proposta_link || null, 'STRING')
+    if (f.cs_name !== undefined) add('cs_name', f.cs_name || null, 'STRING')
+    if (f.cs_email !== undefined) add('cs_email', f.cs_email || null, 'STRING')
+    if (f.observations !== undefined) add('observations', f.observations || null, 'STRING')
+    if (f.marketing_action !== undefined) add('marketing_action', f.marketing_action || null, 'STRING')
 
-    const sql = `UPDATE \`${PROJECT}.${DATASET}.checklists\` SET ${sets.join(', ')} WHERE id = '${id}'`
-    await bq.query({ query: sql, useLegacySql: false })
+    sets.push(`extras = PARSE_JSON(@p_extras)`)
+    params.p_extras = JSON.stringify(extras)
+    types.p_extras = 'STRING'
+
+    const sql = `UPDATE \`${PROJECT}.${DATASET}.checklists\` SET ${sets.join(', ')} WHERE id = @id`
+    await bq.query({ query: sql, params, types, useLegacySql: false })
 
     res.json({ ok: true })
   } catch (err) {
-    console.error(err)
+    console.error('PUT /checklists/:id error:', err)
     res.status(500).json({ error: err.message })
   }
 })
