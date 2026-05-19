@@ -431,17 +431,41 @@ app.post('/tasks', async (req, res) => {
     const now = new Date().toISOString()
     const slaLabel = t.sla || '—'
 
-    // Save to BigQuery
-    await bq.dataset(DATASET).table('tasks').insert([{
-      id, type: t.type, client: t.client, agency: t.agency || null,
+    // Save to BigQuery via DML INSERT (evita streaming buffer → permite UPDATE imediato)
+    const normDateT = v => {
+      if (!v) return null
+      if (typeof v === 'object' && v?.value) v = v.value
+      const s = String(v).slice(0, 10)
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null
+    }
+    const tParams = {
+      id, type: t.type || null, client: t.client || null, agency: t.agency || null,
       products: t.products || [], features: t.features || [],
       budget: t.budget ? parseFloat(t.budget) : null,
-      briefing: t.briefing, cs: t.cs, cs_email: t.csEmail || null,
-      status: 'open', deadline: t.deadline, doc_link: null,
+      briefing: t.briefing || null, cs: t.cs || null, cs_email: t.csEmail || null,
+      status: 'open', deadline: normDateT(t.deadline), doc_link: null,
       requested_by: t.requestedBy || null,
       requester_email: t.requesterEmail || null,
       sla: slaLabel, created_at: now, updated_at: now,
-    }])
+    }
+    const tTypes = {
+      id: 'STRING', type: 'STRING', client: 'STRING', agency: 'STRING',
+      products: ['STRING'], features: ['STRING'],
+      budget: 'FLOAT64', briefing: 'STRING', cs: 'STRING', cs_email: 'STRING',
+      status: 'STRING', deadline: 'DATE', doc_link: 'STRING',
+      requested_by: 'STRING', requester_email: 'STRING',
+      sla: 'STRING', created_at: 'STRING', updated_at: 'STRING',
+    }
+    const tSql = `
+      INSERT INTO \`${PROJECT}.${DATASET}.tasks\` (
+        id, type, client, agency, products, features, budget, briefing, cs, cs_email,
+        status, deadline, doc_link, requested_by, requester_email, sla, created_at, updated_at
+      ) VALUES (
+        @id, @type, @client, @agency, @products, @features, @budget, @briefing, @cs, @cs_email,
+        @status, @deadline, @doc_link, @requested_by, @requester_email, @sla, @created_at, @updated_at
+      )
+    `
+    await bq.query({ query: tSql, params: tParams, types: tTypes, useLegacySql: false })
 
     const taskData = { ...t, id, sla: slaLabel }
 
@@ -597,14 +621,25 @@ app.post('/checklists', async (req, res) => {
       extras[key] = value
     }
 
-    // Save to BigQuery
-    await bq.dataset(DATASET).table('checklists').insert([{
-      id: crypto.randomUUID(),
-      cp_name: f.cp_name || null, cp_email: f.cp_email || null,
-      agency: f.agency || null, industry: f.industry || null,
+    // Save to BigQuery via DML INSERT (não usa streaming buffer → permite UPDATE imediato)
+    const checklistId = crypto.randomUUID()
+    const normDate = v => {
+      if (!v) return null
+      if (typeof v === 'object' && v?.value) v = v.value
+      const s = String(v).slice(0, 10)
+      return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null
+    }
+    const insertParams = {
+      id: checklistId,
+      cp_name: f.cp_name || null,
+      cp_email: f.cp_email || null,
+      agency: f.agency || null,
+      industry: f.industry || null,
       campaign_type: f.campaign_type || null,
-      client: f.client, campaign_name: f.campaign_name,
-      start_date: f.start_date || null, end_date: f.end_date || null,
+      client: f.client || null,
+      campaign_name: f.campaign_name || null,
+      start_date: normDate(f.start_date),
+      end_date: normDate(f.end_date),
       investment: f.investment ? parseFloat(f.investment) : null,
       deal_dv360: f.deal_dv360 === 'Sim' || f.deal_dv360 === true,
       formats: f.formats || [],
@@ -628,7 +663,8 @@ app.post('/checklists', async (req, res) => {
       redirect_urls: (f.extra_urls || []).filter(Boolean),
       pi_link: f.pi_link || null,
       proposta_link: f.proposta_link || null,
-      cs_name: f.cs_name || null, cs_email: f.cs_email || null,
+      cs_name: f.cs_name || null,
+      cs_email: f.cs_email || null,
       submitted_by: f.submittedBy || null,
       submitted_by_email: f.submittedByEmail || null,
       short_token: f.short_token || null,
@@ -636,7 +672,46 @@ app.post('/checklists', async (req, res) => {
       marketing_action: f.marketing_action || null,
       extras: JSON.stringify(extras),
       created_at: now,
-    }])
+    }
+    const insertTypes = {
+      id: 'STRING', cp_name: 'STRING', cp_email: 'STRING', agency: 'STRING', industry: 'STRING',
+      campaign_type: 'STRING', client: 'STRING', campaign_name: 'STRING',
+      start_date: 'DATE', end_date: 'DATE',
+      investment: 'FLOAT64', deal_dv360: 'BOOL',
+      formats: ['STRING'], cpm: 'FLOAT64', cpcv: 'FLOAT64',
+      products: ['STRING'],
+      o2o_impressoes: 'INT64', o2o_views: 'INT64', has_bonus: 'BOOL',
+      bonus_o2o_impressoes: 'INT64', bonus_o2o_views: 'INT64',
+      ooh_link: 'STRING', audiences: 'STRING',
+      pracas_type: 'STRING', pracas_detail: 'STRING', had_cs_meeting: 'BOOL',
+      marketplaces: ['STRING'], features: ['STRING'],
+      feature_volumes: 'STRING', pecas_link: 'STRING',
+      redirect_urls: ['STRING'], pi_link: 'STRING', proposta_link: 'STRING',
+      cs_name: 'STRING', cs_email: 'STRING',
+      submitted_by: 'STRING', submitted_by_email: 'STRING', short_token: 'STRING',
+      observations: 'STRING', marketing_action: 'STRING',
+      extras: 'STRING', created_at: 'STRING',
+    }
+    const insertSql = `
+      INSERT INTO \`${PROJECT}.${DATASET}.checklists\` (
+        id, cp_name, cp_email, agency, industry, campaign_type, client, campaign_name,
+        start_date, end_date, investment, deal_dv360, formats, cpm, cpcv, products,
+        o2o_impressoes, o2o_views, has_bonus, bonus_o2o_impressoes, bonus_o2o_views,
+        ooh_link, audiences, pracas_type, pracas_detail, had_cs_meeting, marketplaces,
+        features, feature_volumes, pecas_link, redirect_urls, pi_link, proposta_link,
+        cs_name, cs_email, submitted_by, submitted_by_email, short_token,
+        observations, marketing_action, extras, created_at
+      ) VALUES (
+        @id, @cp_name, @cp_email, @agency, @industry, @campaign_type, @client, @campaign_name,
+        @start_date, @end_date, @investment, @deal_dv360, @formats, @cpm, @cpcv, @products,
+        @o2o_impressoes, @o2o_views, @has_bonus, @bonus_o2o_impressoes, @bonus_o2o_views,
+        @ooh_link, @audiences, @pracas_type, @pracas_detail, @had_cs_meeting, @marketplaces,
+        @features, PARSE_JSON(@feature_volumes), @pecas_link, @redirect_urls, @pi_link, @proposta_link,
+        @cs_name, @cs_email, @submitted_by, @submitted_by_email, @short_token,
+        @observations, @marketing_action, PARSE_JSON(@extras), @created_at
+      )
+    `
+    await bq.query({ query: insertSql, params: insertParams, types: insertTypes, useLegacySql: false })
 
     const emailData = {
       client: f.client, agency: f.agency,
