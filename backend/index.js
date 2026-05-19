@@ -548,7 +548,11 @@ app.put('/tasks/:id', async (req, res) => {
     params.p_updated_at = now
     types.p_updated_at = 'STRING'
 
-    const sql = `UPDATE \`${PROJECT}.${DATASET}.tasks\` SET ${sets.join(', ')} WHERE id = @id`
+    // Escapa o id como literal no WHERE (mesma razão do PUT /checklists)
+    const safeIdT = String(id).replace(/'/g, "''")
+    const sql = `UPDATE \`${PROJECT}.${DATASET}.tasks\` SET ${sets.join(', ')} WHERE id = '${safeIdT}'`
+    delete params.id
+    delete types.id
     await bq.query({ query: sql, params, types, useLegacySql: false })
 
     // Se foi conclusão, notifica o solicitante
@@ -911,7 +915,14 @@ app.put('/checklists/:id', async (req, res) => {
     params.p_extras = JSON.stringify(extras)
     types.p_extras = 'STRING'
 
-    const sql = `UPDATE \`${PROJECT}.${DATASET}.checklists\` SET ${sets.join(', ')} WHERE id = @id`
+    // Escapa o id como literal no WHERE — parameter binding em DML
+    // tem comportamento esquisito no BQ (retorna 0 rows affected mesmo
+    // com id válido). UUID é seguro escapar como literal.
+    const safeId = String(id).replace(/'/g, "''")
+    const sql = `UPDATE \`${PROJECT}.${DATASET}.checklists\` SET ${sets.join(', ')} WHERE id = '${safeId}'`
+    // Remove o id do params já que agora vai como literal
+    delete params.id
+    delete types.id
     await bq.query({ query: sql, params, types, useLegacySql: false })
 
     res.json({ ok: true })
