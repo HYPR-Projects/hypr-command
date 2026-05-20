@@ -1886,6 +1886,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const showO2O=f.products.includes("O2O"),showOOH=f.products.includes("OOH"),showRMND=f.products.includes("RMND"),showRMNF=f.products.includes("RMNF");
   const hasBonus=f.has_bonus==="Sim",hasVideo=f.formats.includes("Video"),hasDisplay=f.formats.includes("Display");
   const [validationError,setValidationError]=useState(null);
+  const [requiredErrors,setRequiredErrors]=useState(null); // {missing: [{label, section}]}
 
   // Investment validation
   const validateInvestment = () => {
@@ -1945,9 +1946,78 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     return null;
   };
 
-  const handleReset=()=>{sF(INIT);sSub(false);setValidationError(null)};
+  const handleReset=()=>{sF(INIT);sSub(false);setValidationError(null);setRequiredErrors(null)};
+
+  // Validação de campos obrigatórios — chamada antes do submit
+  const validateRequired = () => {
+    const missing = [];
+
+    // Seção 1
+    if (!f.client?.trim()) missing.push({ label: "Cliente", section: "1. Informações Gerais" });
+    if (!f.campaign_name?.trim()) missing.push({ label: "Campanha", section: "1. Informações Gerais" });
+    if (!f.industry?.trim()) missing.push({ label: "Indústria", section: "1. Informações Gerais" });
+    if (!f.campaign_type?.trim()) missing.push({ label: "Tipo de Campanha", section: "1. Informações Gerais" });
+    if (!f.start_date) missing.push({ label: "Data de Início", section: "1. Informações Gerais" });
+    if (!f.end_date) missing.push({ label: "Data Final", section: "1. Informações Gerais" });
+    if (!f.investment || parseFloat(f.investment) <= 0) missing.push({ label: "Investimento", section: "1. Informações Gerais" });
+
+    // Seção 2: Formatos
+    if (!Array.isArray(f.formats) || f.formats.length === 0) {
+      missing.push({ label: "Pelo menos 1 formato (Display ou Video)", section: "2. Formatos e Métricas" });
+    }
+
+    // Seção 3: Produtos Core + Volumetria
+    const products = f.products || [];
+    if (products.length === 0) {
+      missing.push({ label: "Pelo menos 1 Produto Core", section: "3. Produtos Core e Volumetria" });
+    } else {
+      products.forEach(prod => {
+        const imp = parseFloat(f[`${prod}_imp`]) || 0;
+        const views = parseFloat(f[`${prod}_views`]) || 0;
+        if (hasDisplay && !hasVideo && imp <= 0) {
+          missing.push({ label: `Volumetria (impressões) para ${prod}`, section: "3. Produtos Core e Volumetria" });
+        } else if (hasVideo && !hasDisplay && views <= 0) {
+          missing.push({ label: `Volumetria (views) para ${prod}`, section: "3. Produtos Core e Volumetria" });
+        } else if (hasDisplay && hasVideo && imp <= 0 && views <= 0) {
+          missing.push({ label: `Volumetria para ${prod} (impressões ou views)`, section: "3. Produtos Core e Volumetria" });
+        }
+      });
+    }
+
+    // Seção 4: Praças
+    const pracasType = f.praças_type || f.pracas_type;
+    if (!pracasType) {
+      missing.push({ label: "Tipo de Praça", section: "4. Audiências, Features e Praças" });
+    } else {
+      if (pracasType === "Estado" && (!Array.isArray(f.praças_states) || f.praças_states.length === 0)) {
+        missing.push({ label: "Estados selecionados", section: "4. Audiências, Features e Praças" });
+      }
+      if (pracasType === "Cidade" && (!Array.isArray(f.praças_cities) || f.praças_cities.length === 0)) {
+        missing.push({ label: "Cidades selecionadas", section: "4. Audiências, Features e Praças" });
+      }
+      if (pracasType === "Outro" && !f.praças_other?.trim()) {
+        missing.push({ label: "Detalhamento de praças (Outro)", section: "4. Audiências, Features e Praças" });
+      }
+    }
+
+    // Seção 5: Links e Documentos — todos obrigatórios
+    if (!f.pecas_link?.trim()) missing.push({ label: "Link das Peças", section: "5. Links e Documentos" });
+    const validUrls = (f.extra_urls || []).filter(u => u && u.trim());
+    if (validUrls.length === 0) missing.push({ label: "Pelo menos 1 URL de Direcionamento", section: "5. Links e Documentos" });
+    if (!f.pi_link?.trim()) missing.push({ label: "Link do PI", section: "5. Links e Documentos" });
+    if (!f.proposta_link?.trim()) missing.push({ label: "Link da Proposta", section: "5. Links e Documentos" });
+
+    return missing.length > 0 ? missing : null;
+  };
+
   const handleSubmit=async()=>{
-    // Validate investment
+    // 1) Valida campos obrigatórios PRIMEIRO
+    const missing = validateRequired();
+    if (missing) {
+      setRequiredErrors(missing);
+      return;
+    }
+    // 2) Valida investimento vs volumetria (se passou no required)
     const error = validateInvestment();
     if (error) {
       setValidationError(error);
@@ -2242,10 +2312,10 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
 
       <Sec title="5. Links e Documentos">
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
-          <CF l="Link das peças"><input className="fi" placeholder="Link do Drive..." value={f.pecas_link} onChange={e=>set("pecas_link",e.target.value)}/><div style={{marginTop:8,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}><a href="https://drive.google.com/drive/folders/1wVsxLY9EsKihkEE6ceTiF07rpf5aVX-t" target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:600,color:"var(--teal)",textDecoration:"none",padding:"6px 10px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)"}}><I n="folder" s={13}/>Pasta de upload de peças<I n="external" s={11}/></a><div className="disc" style={{margin:0}}><I n="alert-triangle" s={13} c="var(--yellow)"/>Verificar peso máximo das peças.</div></div></CF>
-          <CF l="URLs de direcionamento"><div style={{display:"flex",flexDirection:"column",gap:8}}>{f.extra_urls.map((u,i)=><div key={i} style={{display:"flex",gap:8}}><input className="fi" placeholder="https://..." value={u} onChange={e=>{const a=[...f.extra_urls];a[i]=e.target.value;set("extra_urls",a)}}/>{f.extra_urls.length>1&&<button className="btn bg" onClick={()=>set("extra_urls",f.extra_urls.filter((_,j)=>j!==i))}><I n="x" s={14}/></button>}</div>)}<button className="btn bs" style={{alignSelf:"flex-start",fontSize:12}} onClick={()=>set("extra_urls",[...f.extra_urls,""])}><I n="plus" s={12}/>Adicionar URL</button></div></CF>
-          <CF l="Link do PI"><input className="fi" value={f.pi_link} onChange={e=>set("pi_link",e.target.value)}/><div style={{marginTop:8}}><a href="https://drive.google.com/drive/folders/19oeOni4mwJHSnt7GSP5tTpW8xM-hIslx" target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:600,color:"var(--teal)",textDecoration:"none",padding:"6px 10px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)"}}><I n="folder" s={13}/>Pasta de faturamento (PIs)<I n="external" s={11}/></a></div></CF>
-          <CF l="Link da Proposta"><input className="fi" value={f.proposta_link} onChange={e=>set("proposta_link",e.target.value)}/></CF>
+          <CF l="Link das peças" req><input className="fi" placeholder="Link do Drive..." value={f.pecas_link} onChange={e=>set("pecas_link",e.target.value)}/><div style={{marginTop:8,display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}><a href="https://drive.google.com/drive/folders/1wVsxLY9EsKihkEE6ceTiF07rpf5aVX-t" target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:600,color:"var(--teal)",textDecoration:"none",padding:"6px 10px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)"}}><I n="folder" s={13}/>Pasta de upload de peças<I n="external" s={11}/></a><div className="disc" style={{margin:0}}><I n="alert-triangle" s={13} c="var(--yellow)"/>Verificar peso máximo das peças.</div></div></CF>
+          <CF l="URLs de direcionamento" req><div style={{display:"flex",flexDirection:"column",gap:8}}>{f.extra_urls.map((u,i)=><div key={i} style={{display:"flex",gap:8}}><input className="fi" placeholder="https://..." value={u} onChange={e=>{const a=[...f.extra_urls];a[i]=e.target.value;set("extra_urls",a)}}/>{f.extra_urls.length>1&&<button className="btn bg" onClick={()=>set("extra_urls",f.extra_urls.filter((_,j)=>j!==i))}><I n="x" s={14}/></button>}</div>)}<button className="btn bs" style={{alignSelf:"flex-start",fontSize:12}} onClick={()=>set("extra_urls",[...f.extra_urls,""])}><I n="plus" s={12}/>Adicionar URL</button></div></CF>
+          <CF l="Link do PI" req><input className="fi" value={f.pi_link} onChange={e=>set("pi_link",e.target.value)}/><div style={{marginTop:8}}><a href="https://drive.google.com/drive/folders/19oeOni4mwJHSnt7GSP5tTpW8xM-hIslx" target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:600,color:"var(--teal)",textDecoration:"none",padding:"6px 10px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)"}}><I n="folder" s={13}/>Pasta de faturamento (PIs)<I n="external" s={11}/></a></div></CF>
+          <CF l="Link da Proposta" req><input className="fi" value={f.proposta_link} onChange={e=>set("proposta_link",e.target.value)}/></CF>
         </div>
       </Sec>
 
@@ -2301,6 +2371,44 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           <button className="btn bp" onClick={handleSubmit}><I n="send" s={14}/>Enviar Checklist</button>
         </div>
       </div>
+
+      {/* Required Fields Error Modal */}
+      {requiredErrors&&(
+        <div className="mo" onClick={e=>e.target===e.currentTarget&&setRequiredErrors(null)}>
+          <div className="ml" style={{maxWidth:560}}>
+            <div className="mh" style={{background:"rgba(239,68,68,0.08)",borderBottom:"2px solid var(--red)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{width:36,height:36,borderRadius:"50%",background:"var(--red)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <I n="alert-triangle" s={18} c="#fff"/>
+                </div>
+                <div>
+                  <div style={{fontFamily:"var(--fd)",fontSize:16,fontWeight:800,color:"var(--t1)"}}>Campos obrigatórios não preenchidos</div>
+                  <div style={{fontSize:12,color:"var(--t2)",marginTop:2}}>Preencha os campos abaixo antes de enviar o checklist.</div>
+                </div>
+              </div>
+              <button className="btn bg" onClick={()=>setRequiredErrors(null)} style={{padding:"6px 10px"}}><I n="x" s={16}/></button>
+            </div>
+            <div className="mb" style={{padding:"18px 22px",maxHeight:"60vh",overflowY:"auto"}}>
+              {(() => {
+                // Agrupa por seção
+                const bySection = {};
+                requiredErrors.forEach(e => { (bySection[e.section] = bySection[e.section] || []).push(e.label); });
+                return Object.entries(bySection).map(([section,labels],i) => (
+                  <div key={i} style={{marginBottom:14}}>
+                    <div style={{fontFamily:"var(--fd)",fontSize:12,fontWeight:700,color:"var(--teal)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:6}}>{section}</div>
+                    <ul style={{margin:0,paddingLeft:18,fontSize:13,color:"var(--t1)",lineHeight:1.7}}>
+                      {labels.map((l,j)=><li key={j}>{l}</li>)}
+                    </ul>
+                  </div>
+                ));
+              })()}
+            </div>
+            <div className="mf" style={{display:"flex",justifyContent:"flex-end",gap:8,padding:"12px 22px",borderTop:"1px solid var(--bdr)"}}>
+              <button className="btn bp" onClick={()=>setRequiredErrors(null)}><I n="check" s={14}/>Entendi</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Validation Error Modal */}
       {validationError&&(
