@@ -859,13 +859,15 @@ app.put('/checklists/:id', async (req, res) => {
     if (f.client !== undefined && f.client) add('client', f.client, 'STRING')
     if (f.campaign_name !== undefined && f.campaign_name) add('campaign_name', f.campaign_name, 'STRING')
     // datas: só sobrescreve se a normalização produzir uma data válida (YYYY-MM-DD)
+    // Usa LITERAL (validado por regex acima) em vez de parameter binding —
+    // parameter binding pra DATE no SDK Node às vezes não aplica o UPDATE
     if (f.start_date !== undefined) {
       const nd = normDate(f.start_date)
-      if (nd) add('start_date', nd, 'DATE')
+      if (nd) sets.push(`start_date = DATE '${nd}'`)
     }
     if (f.end_date !== undefined) {
       const nd = normDate(f.end_date)
-      if (nd) add('end_date', nd, 'DATE')
+      if (nd) sets.push(`end_date = DATE '${nd}'`)
     }
     if (f.investment !== undefined) add('investment', toNum(f.investment), 'FLOAT64')
     if (f.deal_dv360 !== undefined) add('deal_dv360', toBool(f.deal_dv360), 'BOOL')
@@ -923,7 +925,12 @@ app.put('/checklists/:id', async (req, res) => {
     // Remove o id do params já que agora vai como literal
     delete params.id
     delete types.id
-    await bq.query({ query: sql, params, types, useLegacySql: false })
+    console.log('[PUT /checklists] SQL:', sql)
+    console.log('[PUT /checklists] PARAMS:', JSON.stringify(params))
+    const [job] = await bq.createQueryJob({ query: sql, params, types, useLegacySql: false })
+    await job.getQueryResults()
+    const [meta] = await job.getMetadata()
+    console.log('[PUT /checklists] numDmlAffectedRows:', meta.statistics?.query?.numDmlAffectedRows)
 
     res.json({ ok: true })
   } catch (err) {
