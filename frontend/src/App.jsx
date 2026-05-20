@@ -2442,20 +2442,31 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
   const [filterCP,setFilterCP]=useState(""); // email do CP que enviou
   const [collapsedMonths,setCollapsedMonths]=useState({});
   const [deleteConfirm,setDeleteConfirm]=useState(null); // checklist sendo deletado
-  const [csList,setCsList]=useState([]); // [{name,email}] vindo de /team
+  const [csList,setCsList]=useState([]); // [{name,email}] derivado de CS_LIST + checklists existentes
   const toast=useToast();
 
-  // Carrega lista de CS uma vez (para o dropdown do editar)
+  // Lista de CS pro dropdown do editar — sem depender de /team (que retorna 404)
+  // Fonte: CS_LIST hardcoded (sem Greenfield/SA), com email extraído dos checklists existentes
+  // ou montado pelo padrão nome.sobrenome@hypr.mobi
   useEffect(()=>{
-    fetch(`${BACKEND_URL}/team`)
-      .then(r=>r.json())
-      .then(rows=>{
-        if(Array.isArray(rows)){
-          setCsList(rows.filter(m=>m.role==="cs"&&m.active!==false).map(m=>({name:m.name,email:m.email})));
-        }
-      })
-      .catch(err=>console.error("Failed to load team:",err));
-  },[]);
+    const nameToEmail = new Map();
+    checklists.forEach(c=>{
+      const n = c.cs_name;
+      const e = c.cs_email;
+      if(n && e && !nameToEmail.has(n)) nameToEmail.set(n, e);
+    });
+    const slugEmail = name => {
+      const slug = name.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+        .replace(/[^a-z\s]/g,"")
+        .trim().split(/\s+/).join(".");
+      return `${slug}@hypr.mobi`;
+    };
+    const list = CS_LIST
+      .filter(n => n !== "Greenfield" && n !== "Solutions Architect")
+      .map(name => ({ name, email: nameToEmail.get(name) || slugEmail(name) }));
+    setCsList(list);
+  },[checklists]);
 
   const now = new Date();
 
