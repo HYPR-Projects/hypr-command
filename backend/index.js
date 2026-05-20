@@ -443,7 +443,7 @@ app.post('/tasks', async (req, res) => {
       products: t.products || [], features: t.features || [],
       budget: t.budget ? parseFloat(t.budget) : null,
       briefing: t.briefing || null, cs: t.cs || null, cs_email: t.csEmail || null,
-      status: 'open', deadline: normDateT(t.deadline), doc_link: null,
+      status: 'open', doc_link: null,
       requested_by: t.requestedBy || null,
       requester_email: t.requesterEmail || null,
       sla: slaLabel, created_at: now, updated_at: now,
@@ -452,17 +452,20 @@ app.post('/tasks', async (req, res) => {
       id: 'STRING', type: 'STRING', client: 'STRING', agency: 'STRING',
       products: ['STRING'], features: ['STRING'],
       budget: 'FLOAT64', briefing: 'STRING', cs: 'STRING', cs_email: 'STRING',
-      status: 'STRING', deadline: 'DATE', doc_link: 'STRING',
+      status: 'STRING', doc_link: 'STRING',
       requested_by: 'STRING', requester_email: 'STRING',
       sla: 'STRING', created_at: 'STRING', updated_at: 'STRING',
     }
+    // deadline como literal (parameter binding DATE bugado no SDK Node)
+    const deadlineNorm = normDateT(t.deadline)
+    const deadlineLiteral = deadlineNorm ? `DATE '${deadlineNorm}'` : 'NULL'
     const tSql = `
       INSERT INTO \`${PROJECT}.${DATASET}.tasks\` (
         id, type, client, agency, products, features, budget, briefing, cs, cs_email,
         status, deadline, doc_link, requested_by, requester_email, sla, created_at, updated_at
       ) VALUES (
         @id, @type, @client, @agency, @products, @features, @budget, @briefing, @cs, @cs_email,
-        @status, @deadline, @doc_link, @requested_by, @requester_email, @sla, @created_at, @updated_at
+        @status, ${deadlineLiteral}, @doc_link, @requested_by, @requester_email, @sla, @created_at, @updated_at
       )
     `
     await bq.query({ query: tSql, params: tParams, types: tTypes, useLegacySql: false })
@@ -526,7 +529,13 @@ app.put('/tasks/:id', async (req, res) => {
       const d = typeof updates.deadline === 'object' && updates.deadline?.value
         ? updates.deadline.value
         : updates.deadline
-      add('deadline', d ? String(d).slice(0,10) : null, 'DATE')
+      const ds = d ? String(d).slice(0, 10) : null
+      // literal em vez de parameter binding (DATE bugado no SDK)
+      if (ds && /^\d{4}-\d{2}-\d{2}$/.test(ds)) {
+        sets.push(`deadline = DATE '${ds}'`)
+      } else if (d === null || d === '') {
+        sets.push(`deadline = NULL`)
+      }
     }
     if (updates.budget !== undefined) {
       const b = updates.budget === null || updates.budget === '' ? null : parseFloat(updates.budget)
@@ -642,8 +651,6 @@ app.post('/checklists', async (req, res) => {
       campaign_type: f.campaign_type || null,
       client: f.client || null,
       campaign_name: f.campaign_name || null,
-      start_date: normDate(f.start_date),
-      end_date: normDate(f.end_date),
       investment: f.investment ? parseFloat(f.investment) : null,
       deal_dv360: f.deal_dv360 === 'Sim' || f.deal_dv360 === true,
       formats: f.formats || [],
@@ -680,7 +687,6 @@ app.post('/checklists', async (req, res) => {
     const insertTypes = {
       id: 'STRING', cp_name: 'STRING', cp_email: 'STRING', agency: 'STRING', industry: 'STRING',
       campaign_type: 'STRING', client: 'STRING', campaign_name: 'STRING',
-      start_date: 'DATE', end_date: 'DATE',
       investment: 'FLOAT64', deal_dv360: 'BOOL',
       formats: ['STRING'], cpm: 'FLOAT64', cpcv: 'FLOAT64',
       products: ['STRING'],
@@ -696,6 +702,11 @@ app.post('/checklists', async (req, res) => {
       observations: 'STRING', marketing_action: 'STRING',
       extras: 'STRING', created_at: 'STRING',
     }
+    // Datas como literal (parameter binding de DATE bugado no SDK Node)
+    const startDateNorm = normDate(f.start_date)
+    const endDateNorm = normDate(f.end_date)
+    const startDateLiteral = startDateNorm ? `DATE '${startDateNorm}'` : 'NULL'
+    const endDateLiteral = endDateNorm ? `DATE '${endDateNorm}'` : 'NULL'
     const insertSql = `
       INSERT INTO \`${PROJECT}.${DATASET}.checklists\` (
         id, cp_name, cp_email, agency, industry, campaign_type, client, campaign_name,
@@ -707,7 +718,7 @@ app.post('/checklists', async (req, res) => {
         observations, marketing_action, extras, created_at
       ) VALUES (
         @id, @cp_name, @cp_email, @agency, @industry, @campaign_type, @client, @campaign_name,
-        @start_date, @end_date, @investment, @deal_dv360, @formats, @cpm, @cpcv, @products,
+        ${startDateLiteral}, ${endDateLiteral}, @investment, @deal_dv360, @formats, @cpm, @cpcv, @products,
         @o2o_impressoes, @o2o_views, @has_bonus, @bonus_o2o_impressoes, @bonus_o2o_views,
         @ooh_link, @audiences, @pracas_type, @pracas_detail, @had_cs_meeting, @marketplaces,
         @features, PARSE_JSON(@feature_volumes), @pecas_link, @redirect_urls, @pi_link, @proposta_link,
@@ -715,6 +726,7 @@ app.post('/checklists', async (req, res) => {
         @observations, @marketing_action, PARSE_JSON(@extras), @created_at
       )
     `
+    console.log('[POST /checklists] start_date literal:', startDateLiteral, '| end_date literal:', endDateLiteral)
     await bq.query({ query: insertSql, params: insertParams, types: insertTypes, useLegacySql: false })
 
     const emailData = {
