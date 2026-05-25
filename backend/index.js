@@ -624,8 +624,7 @@ app.post('/checklists', async (req, res) => {
       'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
       'submittedByEmail','short_token','observations','marketing_action',
       // praças variants kept out of extras (already mapped above)
-      'praças_type','praças_state','praças_city','praças_other','praças_states','praças_cities',
-      'praças_city_input','praças_city_state',
+      'praças_type','pracas_type','pracas_detail',
     ])
     const extras = {}
     for (const [key, value] of Object.entries(f)) {
@@ -665,7 +664,12 @@ app.post('/checklists', async (req, res) => {
       ooh_link: f.ooh_link || null,
       audiences: f.audiences || null,
       pracas_type: f.pracas_type || f.praças_type || null,
-      pracas_detail: f.pracas_detail || f.praças_state || f.praças_city || f.praças_other || null,
+      pracas_detail: (() => {
+        // Tenta encontrar o melhor detalhe baseado no tipo selecionado
+        if (Array.isArray(f.praças_states) && f.praças_states.length > 0) return f.praças_states.join(', ');
+        if (Array.isArray(f.praças_cities) && f.praças_cities.length > 0) return f.praças_cities.join(', ');
+        return f.pracas_detail || f.praças_other || f.praças_state || f.praças_city || null;
+      })(),
       had_cs_meeting: f.had_cs_meeting === 'Sim' || f.had_cs_meeting === true,
       marketplaces: f.marketplaces || [],
       features: f.features || [],
@@ -740,7 +744,11 @@ app.post('/checklists', async (req, res) => {
       cpcv: f.cpcv ? parseFloat(f.cpcv) : null,
       products: f.products, features: f.features,
       audiences: f.audiences,
-      pracasDetail: f.pracas_detail || f.praças_state || f.praças_city || f.praças_other || null,
+      pracasDetail: (() => {
+        if (Array.isArray(f.praças_states) && f.praças_states.length > 0) return f.praças_states.join(', ');
+        if (Array.isArray(f.praças_cities) && f.praças_cities.length > 0) return f.praças_cities.join(', ');
+        return f.pracas_detail || f.praças_other || f.praças_state || f.praças_city || null;
+      })(),
       csName: f.cs_name, csEmail: f.cs_email,
       submittedBy: f.submittedBy || f.cp_name,
       submittedByEmail: f.submittedByEmail || f.cp_email,
@@ -820,8 +828,7 @@ app.put('/checklists/:id', async (req, res) => {
       'features','feature_volumes','pecas_link','redirect_urls','extra_urls','pi_link',
       'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
       'submittedByEmail','short_token','id','created_at','updated_at','extras','observations','marketing_action',
-      'praças_type','praças_state','praças_city','praças_other','praças_states','praças_cities',
-      'praças_city_input','praças_city_state',
+      'praças_type','pracas_type','pracas_detail',
     ])
     const extras = {}
     for (const [key, value] of Object.entries(f)) {
