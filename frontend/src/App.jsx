@@ -3188,9 +3188,82 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                     </div>
                   ))}
 
-                  {/* Audiências */}
-                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>5. Audiências</div>
+                  {/* Audiências e Praças */}
+                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>5. Audiências e Praças</div>
                   <CF l="Audiências"><textarea className="ft" rows={3} value={editData.audiences||""} onChange={e=>setEditData(p=>({...p,audiences:e.target.value}))}/></CF>
+
+                  <CF l="Tipo de Praça">
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {["Brasil","Estado","Cidade","Outro"].map(opt=>{
+                        const cur=editData.praças_type||editData.pracas_type||"";
+                        return(
+                          <button key={opt} className={`btn ${cur===opt?"bp":"bs"}`} style={{fontSize:11,padding:"4px 12px"}}
+                            onClick={()=>setEditData(p=>({...p,praças_type:opt,pracas_type:opt}))}>{opt}</button>
+                        );
+                      })}
+                    </div>
+                  </CF>
+
+                  {(editData.praças_type||editData.pracas_type)==="Estado"&&(
+                    <CF l="Estados">
+                      <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                        {BRAZIL_STATES.map(s=>{
+                          const sel=(editData.praças_states||[]).includes(s);
+                          return(
+                            <span key={s} className={`chip${sel?" sel":""}`} style={{fontSize:11,padding:"3px 10px",cursor:"pointer"}}
+                              onClick={()=>setEditData(p=>{
+                                const arr=p.praças_states||[];
+                                return{...p,praças_states:arr.includes(s)?arr.filter(x=>x!==s):[...arr,s]};
+                              })}>{s}</span>
+                          );
+                        })}
+                      </div>
+                      {(editData.praças_states||[]).length>0&&<div style={{fontSize:11,color:"var(--teal)",marginTop:6}}>{editData.praças_states.length} estado(s) selecionado(s)</div>}
+                    </CF>
+                  )}
+
+                  {(editData.praças_type||editData.pracas_type)==="Cidade"&&(
+                    <CF l="Cidades">
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        <div style={{display:"flex",gap:6}}>
+                          <input className="fi" placeholder="Nome da cidade" value={editData._cityTmp||""}
+                            onChange={e=>setEditData(p=>({...p,_cityTmp:e.target.value}))}
+                            onKeyDown={e=>{
+                              if(e.key==="Enter"&&editData._cityTmp&&editData._cityState){
+                                e.preventDefault();
+                                const city=`${editData._cityTmp} (${editData._cityState})`;
+                                setEditData(p=>({...p,praças_cities:[...(p.praças_cities||[]),city],_cityTmp:""}));
+                              }
+                            }}/>
+                          <select className="fs" style={{maxWidth:80}} value={editData._cityState||""} onChange={e=>setEditData(p=>({...p,_cityState:e.target.value}))}>
+                            <option value="">UF</option>
+                            {BRAZIL_STATES.map(s=><option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <button className="btn bs" style={{fontSize:11,whiteSpace:"nowrap"}} onClick={()=>{
+                            if(editData._cityTmp&&editData._cityState){
+                              const city=`${editData._cityTmp} (${editData._cityState})`;
+                              setEditData(p=>({...p,praças_cities:[...(p.praças_cities||[]),city],_cityTmp:""}));
+                            }
+                          }}><I n="plus" s={12}/>Adicionar</button>
+                        </div>
+                        {(editData.praças_cities||[]).length>0&&(
+                          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                            {editData.praças_cities.map((c,i)=>(
+                              <span key={i} className="chip sel" style={{fontSize:11,padding:"3px 10px",display:"flex",gap:4,alignItems:"center"}}>
+                                {c}<span style={{cursor:"pointer",fontWeight:700}} onClick={()=>setEditData(p=>({...p,praças_cities:p.praças_cities.filter((_,j)=>j!==i)}))}>×</span>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </CF>
+                  )}
+
+                  {(editData.praças_type||editData.pracas_type)==="Outro"&&(
+                    <CF l="Detalhe (Outro)">
+                      <input className="fi" value={editData.praças_other||""} onChange={e=>setEditData(p=>({...p,praças_other:e.target.value}))}/>
+                    </CF>
+                  )}
 
                   {/* Observações */}
                   <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>6. Observações e Ação de Marketing</div>
