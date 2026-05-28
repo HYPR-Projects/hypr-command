@@ -3423,7 +3423,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
 
                   {/* Praças */}
                   <div className="g2" style={{gap:10}}>
-                    <D l="Praças" v={selected.praças_type==="Brasil"?"Brasil":selected.praças_type==="Estado"?(selected.praças_states||[]).length>0?`Estados: ${(selected.praças_states||[]).join(", ")}`:`Estado: ${selected.praças_state||"—"}`:selected.praças_type==="Cidade"?(selected.praças_cities||[]).length>0?(selected.praças_cities||[]).join(", "):`${selected.praças_state||""} — ${selected.praças_city||""}`:selected.praças_other||selected.praças_type||"—"}/>
+                    <D l="Praças" v={(()=>{const t=selected.pracas_type||selected.praças_type||"";const d=selected.pracas_detail||"";if(t==="Brasil")return d||"Brasil";if(t==="Estado")return d?`Estados: ${d}`:((selected.praças_states||[]).length>0?`Estados: ${(selected.praças_states||[]).join(", ")}`:"—");if(t==="Cidade")return d||((selected.praças_cities||[]).length>0?(selected.praças_cities||[]).join(", "):"—");if(t==="Outro")return d||selected.praças_other||"—";return t||"—";})()}/>
                     <D l="Reunião pré-campanha com CS" v={selected.had_cs_meeting==="Sim"||selected.had_cs_meeting===true?"Sim":"Não"}/>
                   </div>
 
