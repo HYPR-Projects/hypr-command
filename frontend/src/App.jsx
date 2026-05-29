@@ -504,6 +504,82 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
   .acc-h{padding:14px 16px;flex-wrap:wrap;gap:10px}
 }
 
+/* ════════════════════════════════════════════════════════════════
+   MOBILE PHASE 3 — Forms & Modals (create/edit)
+   Tudo dentro de @media (max-width:768px) — zero efeito desktop
+   ════════════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+
+  /* ── CHIPS NOS FORMS (Features, Estados, etc) ─────────────── */
+  /* Tap targets maiores pra clicar mais fácil */
+  .chip{min-height:34px;padding:7px 14px;font-size:12px}
+
+  /* ── FORM ERGONOMICS DENTRO DE MODAIS ─────────────────────── */
+  .mb{gap:14px}
+  .fl{font-size:11px}
+  .ft{min-height:80px}
+
+  /* Disclaimer mais compacto */
+  .disc{font-size:11px;padding:8px 10px}
+
+  /* Inputs e textareas — quebram URLs e textos longos */
+  .ml input,.ml textarea,.fi,.ft{word-break:break-word;overflow-wrap:break-word}
+
+  /* Modal title — quebra linha sem overflow */
+  .mt{word-break:break-word;line-height:1.3;font-size:16px}
+
+  /* Botão de fechar do header — tap target maior */
+  .mh button.bg{min-width:40px;min-height:40px;padding:8px}
+
+  /* Sec card padding menor em mobile */
+  .page-enter > .card{padding:14px}
+
+  /* ── STICKY FOOTERS ────────────────────────────────────────── */
+  /* Classe aplicada via className no JSX em modais de criação/edição.
+     Funciona em 2 contextos: dentro de .mb (NewTaskModal) ou fora de .mb (TaskDetailModal).
+     Em desktop não tem efeito (regra dentro de media query mobile). */
+  .mb > .modal-sticky-footer{
+    position:sticky !important;
+    bottom:0 !important;
+    background:var(--bg-card) !important;
+    margin:14px -18px -24px !important;
+    padding:14px 18px !important;
+    border-top:1px solid var(--bdr) !important;
+    box-shadow:0 -2px 8px rgba(0,0,0,0.08) !important;
+    z-index:10;
+  }
+  /* Quando .modal-sticky-footer é filho direto de .ml (não dentro de .mb) — TaskDetailModal */
+  .ml > .modal-sticky-footer{
+    position:sticky !important;
+    bottom:0 !important;
+    z-index:10;
+    box-shadow:0 -2px 8px rgba(0,0,0,0.08);
+  }
+  .modal-sticky-footer > button{
+    flex:1;
+    min-height:44px;
+    font-size:14px;
+    padding:12px 16px;
+  }
+
+  /* Page-level sticky footer (Novo Checklist - Enviar Checklist) */
+  .page-sticky-footer{
+    position:sticky !important;
+    bottom:0;
+    z-index:20;
+    margin-left:-12px;
+    margin-right:-12px;
+    border-radius:0 !important;
+    border-left:none !important;
+    border-right:none !important;
+    border-bottom:none !important;
+    box-shadow:0 -4px 12px rgba(0,0,0,0.08);
+  }
+
+  /* Input date — altura confortável */
+  input[type="date"]{min-height:44px}
+}
+
 /* Recharts custom */
 .recharts-cartesian-grid-horizontal line,.recharts-cartesian-grid-vertical line{stroke:var(--bdr) !important}
 `;
@@ -1842,7 +1918,7 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
         </div>
 
         {/* Footer com ações */}
-        <div style={{padding:"14px 24px",borderTop:"1px solid var(--bdr)",display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap",flexShrink:0,background:"var(--bg-card)"}}>
+        <div className="modal-sticky-footer" style={{padding:"14px 24px",borderTop:"1px solid var(--bdr)",display:"flex",justifyContent:"flex-end",gap:8,flexWrap:"wrap",flexShrink:0,background:"var(--bg-card)"}}>
           {isEditing?(<>
             <button className="btn bs" style={{fontSize:12}} onClick={cancelEdit}>Cancelar</button>
             <button className="btn bp" style={{fontSize:12}} onClick={saveEdit}><I n="check" s={13}/>Salvar Alterações</button>
@@ -1983,7 +2059,7 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
             </div>
           </div>
           {f.slaDate&&(<div><div style={{height:1,background:"var(--bdr)",margin:"8px 0 16px"}}/><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}><div><div style={{fontSize:13,fontWeight:600}}>Data prevista</div><div style={{fontSize:12,color:"var(--t3)"}}>SLA: {SLA_DAYS[f.type]} dias úteis</div></div><div style={{padding:"8px 16px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)",fontSize:14,fontWeight:700,color:"var(--teal-l)",fontFamily:"var(--fd)"}}>{fmtDate(sla)}</div></div><div style={{fontSize:12,color:"var(--t3)",marginBottom:8}}>SLA personalizado?</div><input type="date" className="fi" style={{width:200}} value={f.customDeadline||f.slaDate} min={new Date().toISOString().split("T")[0]} onChange={e=>set("customDeadline",e.target.value)}/>{f.customDeadline&&f.customDeadline!==f.slaDate&&<div className="disc" style={{marginTop:10}}><I n="alert-triangle" s={14} c="var(--yellow)"/><span>Data fora do SLA padrão. Alinhe com o CS.</span></div>}</div>)}
-          <div style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
+          <div className="modal-sticky-footer" style={{display:"flex",gap:10,justifyContent:"flex-end",marginTop:8}}>
             <button className="btn bs" onClick={onClose}>Cancelar</button>
             <button className="btn bp" disabled={!valid} onClick={()=>{
               onSubmit({
@@ -2037,7 +2113,7 @@ function DocLinkModal({task,onClose,onSave}) {
         <div className="mb">
           <div className="fg"><label className="fl">Link do Google Presentation / Drive</label><input className="fi" placeholder="https://docs.google.com/..." value={link} onChange={e=>sL(e.target.value)}/></div>
           <div className="disc"><I n="file-text" s={14} c="var(--yellow)"/>O link ficará disponível para o vendedor na lista de tasks.</div>
-          <div style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button className="btn bs" onClick={onClose}>Cancelar</button><button className="btn bp" onClick={()=>onSave(link)}><I n="link" s={14}/>Salvar</button></div>
+          <div className="modal-sticky-footer" style={{display:"flex",gap:10,justifyContent:"flex-end"}}><button className="btn bs" onClick={onClose}>Cancelar</button><button className="btn bp" onClick={()=>onSave(link)}><I n="link" s={14}/>Salvar</button></div>
         </div>
       </div>
     </div>
@@ -2557,7 +2633,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           )}
         </div>
       </div>
-      <div className="card" style={{padding:20,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+      <div className="card page-sticky-footer" style={{padding:20,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
         <span style={{fontSize:12,color:"var(--t3)"}}>Verifique todas as informações antes de enviar.</span>
         <div style={{display:"flex",gap:8}}>
           <button className="btn bs" onClick={handleReset}><I n="rotate" s={14}/>Limpar</button>
@@ -2596,7 +2672,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
                 ));
               })()}
             </div>
-            <div className="mf" style={{display:"flex",justifyContent:"flex-end",gap:8,padding:"12px 22px",borderTop:"1px solid var(--bdr)"}}>
+            <div className="mf modal-sticky-footer" style={{display:"flex",justifyContent:"flex-end",gap:8,padding:"12px 22px",borderTop:"1px solid var(--bdr)"}}>
               <button className="btn bp" onClick={()=>setRequiredErrors(null)}><I n="check" s={14}/>Entendi</button>
             </div>
           </div>
