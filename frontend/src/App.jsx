@@ -580,6 +580,125 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
   input[type="date"]{min-height:44px}
 }
 
+/* ════════════════════════════════════════════════════════════════
+   MOBILE PHASE 4 — Polish (Admin, Proposal list, Task List view)
+   Generaliza o tratamento responsivo de tabela → cards
+   ════════════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* Aplica o mesmo tratamento já provado (Fase 2) em todas as 4 tabelas-lista */
+  table.task-table,table.admin-table,table.prop-table{
+    /* Anula o minWidth inline que algumas têm (ex: prop-table tem minWidth:800) */
+    min-width:0 !important;
+  }
+  table.task-table thead,table.admin-table thead,table.prop-table thead{display:none}
+  table.task-table,table.task-table tbody,table.task-table tr,table.task-table td,
+  table.admin-table,table.admin-table tbody,table.admin-table tr,table.admin-table td,
+  table.prop-table,table.prop-table tbody,table.prop-table tr,table.prop-table td{
+    display:block;width:100%
+  }
+  table.task-table tr,table.admin-table tr,table.prop-table tr{
+    background:var(--bg-card);
+    border:1px solid var(--bdr-card);
+    border-radius:12px;
+    margin:0 12px 10px;
+    padding:14px 14px 12px;
+    box-shadow:var(--sh-sm);
+    position:relative;
+    cursor:pointer;
+  }
+  table.task-table tr:hover,table.admin-table tr:hover,table.prop-table tr:hover{background:var(--bg-card) !important}
+  table.task-table td,table.admin-table td,table.prop-table td{
+    border:none !important;
+    padding:6px 0 !important;
+    text-align:left !important;
+    display:flex !important;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    min-height:auto;
+    white-space:normal !important;
+    max-width:none !important;
+  }
+
+  /* Cabeçalho do card (primeira td: Cliente/Usuário) — quebra linha visual */
+  table.task-table td[data-cell-label="cliente"],
+  table.admin-table td[data-cell-label="usuário"],
+  table.prop-table td[data-cell-label="cliente"]{
+    border-bottom:1px solid var(--bdr-card) !important;
+    padding-bottom:10px !important;
+    margin-bottom:4px;
+    display:block !important;
+    padding-right:36px !important;
+  }
+
+  /* Label antes do valor (data-cell-label) — exceto cliente/usuário e actions */
+  table.task-table td[data-cell-label]:not([data-cell-label="cliente"]):not([data-cell-label="actions"])::before,
+  table.admin-table td[data-cell-label]:not([data-cell-label="usuário"]):not([data-cell-label="actions"])::before,
+  table.prop-table td[data-cell-label]:not([data-cell-label="cliente"]):not([data-cell-label="actions"])::before{
+    content:attr(data-cell-label);
+    font-size:10px;
+    font-weight:700;
+    color:var(--t3);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    flex-shrink:0;
+  }
+
+  /* Valor alinhado à direita pode quebrar */
+  table.task-table td > *,
+  table.admin-table td > *,
+  table.prop-table td > *{
+    text-align:right;
+    overflow:visible;
+    text-overflow:unset;
+    white-space:normal;
+    max-width:100%;
+    word-break:break-word;
+  }
+
+  /* AdminPanel: select de role precisa ficar largo e bonito */
+  table.admin-table td[data-cell-label="função"] select{
+    min-width:140px !important;
+    flex:1;
+    text-align:left;
+  }
+
+  /* TaskListView e ProposalBuilder: botões de ação (última td) — full width sticky bottom */
+  table.task-table td[data-cell-label="actions"],
+  table.admin-table td[data-cell-label="actions"],
+  table.prop-table td[data-cell-label="actions"]{
+    border-top:1px solid var(--bdr-card);
+    margin-top:8px;
+    padding-top:10px !important;
+    justify-content:flex-end;
+    flex-wrap:wrap;
+    gap:6px;
+  }
+  /* AdminPanel actions: botão de remover discreto, vai pro canto sup direito */
+  table.admin-table td[data-cell-label="actions"]{
+    position:absolute;
+    top:10px;
+    right:10px;
+    padding:0 !important;
+    margin:0;
+    border-top:none;
+    width:auto !important;
+    display:block !important;
+  }
+  /* ProposalBuilder actions também canto sup direito (botão pequeno de excluir) */
+  table.prop-table td[data-cell-label="actions"]{
+    position:absolute;
+    top:10px;
+    right:10px;
+    padding:0 !important;
+    margin:0;
+    border-top:none;
+    width:auto !important;
+    display:block !important;
+  }
+
+}
+
 /* Recharts custom */
 .recharts-cartesian-grid-horizontal line,.recharts-cartesian-grid-vertical line{stroke:var(--bdr) !important}
 `;
@@ -1544,7 +1663,7 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen}){
   return (
     <div className="card" style={{padding:0,overflow:"hidden"}}>
       <div style={{overflowX:"auto"}}>
-        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+        <table className="task-table" style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead>
             <tr style={{borderBottom:"1px solid var(--bdr)",background:"var(--bg3)"}}>
               {["Cliente","Tipo","CS","Solicitante","Prazo","Status","Doc","Ação"].map(h=>(
@@ -1563,25 +1682,25 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen}){
                   onClick={()=>onOpen&&onOpen(t)}
                   onMouseEnter={e=>{if(onOpen)e.currentTarget.style.background="var(--bg3)"}}
                   onMouseLeave={e=>{e.currentTarget.style.background="transparent"}}>
-                  <td style={{padding:"12px 14px"}}>
+                  <td data-cell-label="cliente" style={{padding:"12px 14px"}}>
                     <div style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{t.client}</div>
                     {t.budget>0&&<div style={{fontSize:11,color:"var(--t3)",marginTop:1}}>R$ {Number(t.budget).toLocaleString("pt-BR")}</div>}
                   </td>
-                  <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)"}}>{t.type}</td>
-                  <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{shortName(t.cs)}</td>
-                  <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{shortName(t.requestedBy)}</td>
-                  <td style={{padding:"12px 14px",fontSize:12,color:st==="Atrasada"?"var(--red)":"var(--t2)",whiteSpace:"nowrap"}}>{fmtDate(t.deadline)}</td>
-                  <td style={{padding:"12px 14px",textAlign:"center"}}>
+                  <td data-cell-label="tipo" style={{padding:"12px 14px",fontSize:12,color:"var(--t2)"}}>{t.type}</td>
+                  <td data-cell-label="cs" style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{shortName(t.cs)}</td>
+                  <td data-cell-label="solicitante" style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{shortName(t.requestedBy)}</td>
+                  <td data-cell-label="prazo" style={{padding:"12px 14px",fontSize:12,color:st==="Atrasada"?"var(--red)":"var(--t2)",whiteSpace:"nowrap"}}>{fmtDate(t.deadline)}</td>
+                  <td data-cell-label="status" style={{padding:"12px 14px",textAlign:"center"}}>
                     <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:stBg,color:stColor}}>{st}</span>
                   </td>
-                  <td style={{padding:"12px 14px",textAlign:"center"}}>
+                  <td data-cell-label="doc" style={{padding:"12px 14px",textAlign:"center"}}>
                     {t.docLink?(
                       <a href={t.docLink} target="_blank" rel="noreferrer" style={{color:"var(--teal)",display:"inline-flex",alignItems:"center",gap:4,fontSize:11,textDecoration:"none"}} onClick={e=>e.stopPropagation()}><I n="external" s={11}/>Abrir</a>
                     ):(
                       <button className="btn bs" style={{fontSize:10,padding:"3px 8px"}} onClick={e=>{e.stopPropagation();onAddLink(t)}}><I n="link" s={11}/>Anexar</button>
                     )}
                   </td>
-                  <td style={{padding:"12px 14px",textAlign:"center",whiteSpace:"nowrap"}}>
+                  <td data-cell-label="actions" style={{padding:"12px 14px",textAlign:"center",whiteSpace:"nowrap"}}>
                     {isTaskOpen(t)&&(
                       <button className="btn bs" style={{fontSize:10,padding:"3px 8px",marginRight:4}} onClick={e=>{e.stopPropagation();onStart(t.id)}}><I n="play" s={11}/>Iniciar</button>
                     )}
@@ -4584,7 +4703,7 @@ function ProposalBuilder() {
           </div>
         ) : (
           <div className="card" style={{ overflow: 'hidden' }}>
-            <table className="dt" style={{ minWidth: 800 }}>
+            <table className="dt prop-table" style={{ minWidth: 800 }}>
               <thead>
                 <tr>
                   <th>Cliente</th>
@@ -4600,18 +4719,18 @@ function ProposalBuilder() {
               <tbody>
                 {proposals.map(p => (
                   <tr key={p.id}>
-                    <td style={{ fontWeight: 600 }}>{p.client}</td>
-                    <td>{p.agency || '—'}</td>
-                    <td style={{ color: 'var(--t2)', fontSize: 12 }}>{p.proposal_title || '—'}</td>
-                    <td style={{ fontWeight: 700, color: 'var(--teal)' }}>{fmtCurrency(parseFloat(p.total_gross_value) || 0)}</td>
-                    <td>
+                    <td data-cell-label="cliente" style={{ fontWeight: 600 }}>{p.client}</td>
+                    <td data-cell-label="agência">{p.agency || '—'}</td>
+                    <td data-cell-label="título" style={{ color: 'var(--t2)', fontSize: 12 }}>{p.proposal_title || '—'}</td>
+                    <td data-cell-label="valor bruto" style={{ fontWeight: 700, color: 'var(--teal)' }}>{fmtCurrency(parseFloat(p.total_gross_value) || 0)}</td>
+                    <td data-cell-label="status">
                       <span className={`badge ${p.status === 'sent' ? 'b-teal' : p.status === 'approved' ? 'b-grn' : 'b-ylw'}`}>
                         {p.status === 'sent' ? 'Enviada' : p.status === 'approved' ? 'Aprovada' : 'Rascunho'}
                       </span>
                     </td>
-                    <td style={{ fontSize: 12, color: 'var(--t2)' }}>{p.created_by}</td>
-                    <td style={{ fontSize: 12, color: 'var(--t3)' }}>{p.created_at ? new Date(p.created_at?.value || p.created_at).toLocaleDateString('pt-BR') : '—'}</td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td data-cell-label="criado por" style={{ fontSize: 12, color: 'var(--t2)' }}>{p.created_by}</td>
+                    <td data-cell-label="data" style={{ fontSize: 12, color: 'var(--t3)' }}>{p.created_at ? new Date(p.created_at?.value || p.created_at).toLocaleDateString('pt-BR') : '—'}</td>
+                    <td data-cell-label="actions" style={{ textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                         <button className="btn bg" style={{ padding: '5px 8px', fontSize: 11 }} title="Excluir" onClick={() => deleteProposal(p.id)}>
                           <I n="x" s={12} c="var(--red)" />
@@ -5208,7 +5327,7 @@ function AdminPanel() {
           <div className="empty"><I n="users" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhum usuário encontrado</h3></div>
         ) : (
           <div style={{overflowX:"auto"}}>
-            <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            <table className="admin-table" style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
               <thead>
                 <tr style={{borderBottom:"1px solid var(--bdr)",background:"var(--bg3)"}}>
                   {["Usuário","E-mail","Função","",""].map((h,i)=>(
@@ -5225,7 +5344,7 @@ function AdminPanel() {
                   const isBusy = busy === m.email;
                   return (
                     <tr key={m.email} style={{borderBottom:"1px solid var(--bdr-card)",opacity:isBusy?.5:1}}>
-                      <td style={{padding:"12px 14px"}}>
+                      <td data-cell-label="usuário" style={{padding:"12px 14px"}}>
                         <div style={{display:"flex",alignItems:"center",gap:10}}>
                           <div style={{width:34,height:34,borderRadius:"50%",background:ROLE_COLOR_MAP[m.role]||"var(--teal)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{initials}</div>
                           <div style={{minWidth:0}}>
@@ -5233,8 +5352,8 @@ function AdminPanel() {
                           </div>
                         </div>
                       </td>
-                      <td style={{padding:"12px 14px",fontSize:12,color:"var(--t2)"}}>{m.email}</td>
-                      <td style={{padding:"12px 14px"}}>
+                      <td data-cell-label="e-mail" style={{padding:"12px 14px",fontSize:12,color:"var(--t2)"}}>{m.email}</td>
+                      <td data-cell-label="função" style={{padding:"12px 14px"}}>
                         <select
                           className="fs"
                           value={displayedRole||""}
@@ -5244,10 +5363,10 @@ function AdminPanel() {
                           {ROLE_OPTIONS.map(r=><option key={r.value} value={r.value}>{r.label}</option>)}
                         </select>
                       </td>
-                      <td style={{padding:"12px 14px",fontSize:11,color:"var(--t3)",maxWidth:240}}>
+                      <td data-cell-label="descrição" style={{padding:"12px 14px",fontSize:11,color:"var(--t3)",maxWidth:240}}>
                         {ROLE_OPTIONS.find(r=>r.value===displayedRole)?.desc}
                       </td>
-                      <td style={{padding:"12px 14px",textAlign:"right"}}>
+                      <td data-cell-label="actions" style={{padding:"12px 14px",textAlign:"right"}}>
                         {!isCurrentUser&&(
                           <button title="Remover usuário" disabled={isBusy}
                             style={{background:"transparent",border:"none",padding:6,cursor:isBusy?"not-allowed":"pointer",color:"var(--t3)",borderRadius:6,display:"inline-flex",alignItems:"center"}}
