@@ -402,6 +402,28 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
   /* Utility: força grid 1 coluna em mobile (aplicado via className="mob-stack-1") */
   .mob-stack-1{
     grid-template-columns:1fr !important;
+    min-width:0;
+  }
+  /* TaskCard fix: quebra texto longo (URLs, palavras sem espaço) que estavam
+     forçando o card a exceder a largura da tela */
+  .mob-stack-1 > .card{
+    min-width:0;
+    max-width:100%;
+    overflow:hidden;
+    word-wrap:break-word;
+    overflow-wrap:break-word;
+  }
+  .mob-stack-1 > .card *{
+    min-width:0;
+    max-width:100%;
+    overflow-wrap:break-word;
+    word-break:break-word;
+  }
+  /* Briefing do TaskCard usa -webkit-box pra clamp em 3 linhas — preserva,
+     mas garante que dentro da box o texto quebra */
+  .mob-stack-1 > .card div[style*="-webkit-box"]{
+    word-break:break-word !important;
+    overflow-wrap:break-word !important;
   }
 
   /* Inputs e selects da barra de filtros — sempre 100% em mobile (sobreescreve width inline) */
