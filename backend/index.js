@@ -148,6 +148,7 @@ function emailTaskCreatedCP(t) {
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
         ${emailRow('Task', `<strong>#${t.id}</strong> — ${t.type}`)}
         ${emailRow('Cliente', `<strong>${t.client}</strong> ${t.agency ? `<span style="color:#8DA0AE;font-size:12px;">(${t.agency})</span>` : ''}`)}
+        ${(t.campaign_name || t.campaignName) ? emailRow('Campanha', `<strong>${t.campaign_name || t.campaignName}</strong>`) : ''}
         ${emailRow('CS Responsável', `<strong>${t.cs}</strong><br/><span style="color:#3397B9;font-size:12px;">${t.csEmail || '—'}</span>`)}
         ${emailRow('Produtos', productTags(t.products))}
         ${emailRow('Investimento', `<strong style="font-size:15px;">${fmtCurrency(t.budget)}</strong>`)}
@@ -183,6 +184,7 @@ function emailTaskCreatedCS(t) {
       <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
         ${emailRow('Task', `<strong>#${t.id}</strong> — ${t.type}`)}
         ${emailRow('Cliente', `<strong>${t.client}</strong> ${t.agency ? `<span style="color:#8DA0AE;font-size:12px;">(${t.agency})</span>` : ''}`)}
+        ${(t.campaign_name || t.campaignName) ? emailRow('Campanha', `<strong>${t.campaign_name || t.campaignName}</strong>`) : ''}
         ${emailRow('Solicitado por', `<strong>${t.requestedBy}</strong><br/><span style="color:#3397B9;font-size:12px;">${t.requesterEmail}</span>`)}
         ${emailRow('Produtos', productTags(t.products))}
         ${(t.features || []).length > 0 ? emailRow('Features', featureTags(t.features)) : ''}
@@ -440,6 +442,7 @@ app.post('/tasks', async (req, res) => {
     }
     const tParams = {
       id, type: t.type || null, client: t.client || null, agency: t.agency || null,
+      campaign_name: t.campaign_name || t.campaignName || null,
       products: t.products || [], features: t.features || [],
       budget: t.budget ? parseFloat(t.budget) : null,
       briefing: t.briefing || null, cs: t.cs || null, cs_email: t.csEmail || null,
@@ -450,6 +453,7 @@ app.post('/tasks', async (req, res) => {
     }
     const tTypes = {
       id: 'STRING', type: 'STRING', client: 'STRING', agency: 'STRING',
+      campaign_name: 'STRING',
       products: ['STRING'], features: ['STRING'],
       budget: 'FLOAT64', briefing: 'STRING', cs: 'STRING', cs_email: 'STRING',
       status: 'STRING', doc_link: 'STRING',
@@ -461,10 +465,10 @@ app.post('/tasks', async (req, res) => {
     const deadlineLiteral = deadlineNorm ? `DATE '${deadlineNorm}'` : 'NULL'
     const tSql = `
       INSERT INTO \`${PROJECT}.${DATASET}.tasks\` (
-        id, type, client, agency, products, features, budget, briefing, cs, cs_email,
+        id, type, client, agency, campaign_name, products, features, budget, briefing, cs, cs_email,
         status, deadline, doc_link, requested_by, requester_email, sla, created_at, updated_at
       ) VALUES (
-        @id, @type, @client, @agency, @products, @features, @budget, @briefing, @cs, @cs_email,
+        @id, @type, @client, @agency, @campaign_name, @products, @features, @budget, @briefing, @cs, @cs_email,
         @status, ${deadlineLiteral}, @doc_link, @requested_by, @requester_email, @sla, @created_at, @updated_at
       )
     `
@@ -552,6 +556,8 @@ app.put('/tasks/:id', async (req, res) => {
       types.p_features = ['STRING']
     }
     if (updates.agency !== undefined) add('agency', updates.agency || null, 'STRING')
+    const campaignName = updates.campaign_name ?? updates.campaignName
+    if (campaignName !== undefined) add('campaign_name', campaignName || null, 'STRING')
 
     sets.push(`updated_at = @p_updated_at`)
     params.p_updated_at = now
@@ -668,6 +674,7 @@ app.post('/checklists', async (req, res) => {
         // Tenta encontrar o melhor detalhe baseado no tipo selecionado
         if (Array.isArray(f.praças_states) && f.praças_states.length > 0) return f.praças_states.join(', ');
         if (Array.isArray(f.praças_cities) && f.praças_cities.length > 0) return f.praças_cities.join(', ');
+        if ((f.pracas_type || f.praças_type) === 'Brasil') return 'Brasil';
         return f.pracas_detail || f.praças_other || f.praças_state || f.praças_city || null;
       })(),
       had_cs_meeting: f.had_cs_meeting === 'Sim' || f.had_cs_meeting === true,
@@ -906,7 +913,23 @@ app.put('/checklists/:id', async (req, res) => {
     if (f.ooh_link !== undefined) add('ooh_link', f.ooh_link || null, 'STRING')
     if (f.audiences !== undefined) add('audiences', f.audiences || null, 'STRING')
     if (f.pracas_type !== undefined || f.praças_type !== undefined) add('pracas_type', f.pracas_type || f.praças_type || null, 'STRING')
-    if (f.pracas_detail !== undefined) add('pracas_detail', f.pracas_detail || null, 'STRING')
+    // Deriva pracas_detail dos campos do form (mesma lógica do POST) sempre que
+    // o frontend mandar pelo menos um dos campos detalhados de praças.
+    if (
+      f.pracas_detail !== undefined ||
+      f.praças_states !== undefined ||
+      f.praças_cities !== undefined ||
+      f.praças_other !== undefined ||
+      f.praças_type !== undefined
+    ) {
+      const derivedDetail = (() => {
+        if (Array.isArray(f.praças_states) && f.praças_states.length > 0) return f.praças_states.join(', ')
+        if (Array.isArray(f.praças_cities) && f.praças_cities.length > 0) return f.praças_cities.join(', ')
+        if ((f.pracas_type || f.praças_type) === 'Brasil') return 'Brasil'
+        return f.pracas_detail || f.praças_other || null
+      })()
+      add('pracas_detail', derivedDetail, 'STRING')
+    }
     if (f.had_cs_meeting !== undefined) add('had_cs_meeting', toBool(f.had_cs_meeting), 'BOOL')
     if (f.marketplaces !== undefined) {
       sets.push(`marketplaces = @p_marketplaces`); params.p_marketplaces = f.marketplaces || []; types.p_marketplaces = ['STRING']
