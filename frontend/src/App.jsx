@@ -392,6 +392,96 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
   .ni{padding:12px 14px;font-size:14px}
 }
 
+/* ════════════════════════════════════════════════════════════════
+   MOBILE PHASE 2 — Read screens (Task Center, Checklist Center)
+   Tudo dentro de @media (max-width:768px)
+   ════════════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* ── TASK CENTER ──────────────────────────────────────────── */
+
+  /* Utility: força grid 1 coluna em mobile (aplicado via className="mob-stack-1") */
+  .mob-stack-1{
+    grid-template-columns:1fr !important;
+  }
+
+  /* Inputs e selects da barra de filtros — sempre 100% em mobile (sobreescreve width inline) */
+  .card select.fs,
+  .card input.fi{
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0;
+  }
+
+  /* ── CHECKLIST CENTER — TABELA RESPONSIVA ───────────────────── */
+  /* Estratégia: tabela vira lista de cards. Usa atributo data-cell-label que
+     o JSX vai adicionar em cada <td>. Em mobile, mostra label antes do valor. */
+  table.cl-table thead{display:none}
+  table.cl-table,table.cl-table tbody,table.cl-table tr,table.cl-table td{display:block;width:100%}
+  table.cl-table tr{
+    background:var(--bg-card);
+    border:1px solid var(--bdr-card);
+    border-radius:12px;
+    margin:0 0 10px;
+    padding:14px 14px 12px;
+    box-shadow:var(--sh-sm);
+    position:relative;
+    cursor:pointer;
+  }
+  table.cl-table tr:hover{background:var(--bg-card) !important}
+  table.cl-table td{
+    border:none !important;
+    padding:6px 0 !important;
+    text-align:left !important;
+    display:flex !important;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    min-height:auto;
+    white-space:normal !important;
+  }
+  /* Cabeçalho do card (primeira td: Cliente) — quebra linha visual */
+  table.cl-table td[data-cell-label="cliente"]{
+    border-bottom:1px solid var(--bdr-card) !important;
+    padding-bottom:10px !important;
+    margin-bottom:4px;
+    display:block !important;
+    padding-right:36px !important;
+  }
+  /* Label antes do valor — adicionado via data-cell-label */
+  table.cl-table td[data-cell-label]:not([data-cell-label="cliente"]):not([data-cell-label="actions"])::before{
+    content:attr(data-cell-label);
+    font-size:10px;
+    font-weight:700;
+    color:var(--t3);
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    flex-shrink:0;
+  }
+  /* Valor à direita pode quebrar */
+  table.cl-table td[data-cell-label] > div{
+    overflow:visible !important;
+    text-overflow:unset !important;
+    white-space:normal !important;
+    max-width:none !important;
+    text-align:right;
+  }
+  /* Produtos: chips quebram em várias linhas, alinhados à direita */
+  table.cl-table td[data-cell-label="produtos"]{align-items:flex-start}
+  table.cl-table td[data-cell-label="produtos"] > div{justify-content:flex-end;display:flex !important;flex-wrap:wrap;gap:4px}
+  /* Botão excluir — canto sup direito */
+  table.cl-table td[data-cell-label="actions"]{
+    position:absolute;
+    top:10px;
+    right:10px;
+    padding:0 !important;
+    width:auto !important;
+    display:block !important;
+  }
+
+  /* Header do accordion mês — flexível */
+  .acc-h{padding:14px 16px;flex-wrap:wrap;gap:10px}
+}
+
 /* Recharts custom */
 .recharts-cartesian-grid-horizontal line,.recharts-cartesian-grid-vertical line{stroke:var(--bdr) !important}
 `;
@@ -1306,14 +1396,14 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
       {filtered.length===0?(
         <div className="card"><div className="empty"><I n="check-circle" s={40} c="var(--t3)" /><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhuma task encontrada</h3></div></div>
       ):viewMode==="cards"?(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:16}}>
+        <div className="mob-stack-1" style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(360px,1fr))",gap:16}}>
           {filtered.map(t=><TaskCard key={t.id} task={t} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} />)}
         </div>
       ):viewMode==="list"?(
         <TaskListView tasks={filtered} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask}/>
       ):(
         /* KANBAN */
-        <div style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:16,alignItems:"flex-start"}}>
+        <div className="mob-stack-1" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:16,alignItems:"flex-start"}}>
           {[
             {key:"open",       status:"aberta",       title:"Aberta",    color:"var(--yellow-s)",bg:"var(--yellow-s-bg)",  items:kanbanBuckets.open       },
             {key:"in_progress",status:"iniciada",     title:"Iniciado",  color:"var(--teal)",    bg:"var(--teal-dim)",     items:kanbanBuckets.inProgress },
@@ -3001,7 +3091,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                 {/* Table */}
                 {!collapsed && (
                   <div style={{overflowX:"auto"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                    <table className="cl-table" style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                       <thead>
                         <tr style={{borderBottom:"1px solid var(--bdr)",background:"var(--bg3)"}}>
                           <th style={{textAlign:"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>Cliente</th>
@@ -3032,7 +3122,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                               onMouseEnter={e=>e.currentTarget.style.background="var(--bg3)"}
                               onMouseLeave={e=>e.currentTarget.style.background="transparent"}
                               onClick={()=>{setSelected(c);setEditing(false)}}>
-                              <td style={{padding:"12px 14px"}}>
+                              <td data-cell-label="cliente" style={{padding:"12px 14px"}}>
                                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                                   <div style={{width:32,height:32,borderRadius:"50%",background:"var(--teal)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{initials}</div>
                                   <div style={{minWidth:0}}>
@@ -3041,28 +3131,28 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                                   </div>
                                 </div>
                               </td>
-                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,maxWidth:250}}>
+                              <td data-cell-label="campanha" style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,maxWidth:250}}>
                                 <div style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.campaign_name||"—"}</div>
                               </td>
-                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>
+                              <td data-cell-label="período" style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>
                                 {fmtDate(c.start_date)} → {fmtDate(c.end_date)}
                               </td>
-                              <td style={{padding:"12px 14px",textAlign:"right",color:"var(--teal)",fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>
+                              <td data-cell-label="investimento" style={{padding:"12px 14px",textAlign:"right",color:"var(--teal)",fontWeight:700,fontSize:13,whiteSpace:"nowrap"}}>
                                 {c.investment?`R$ ${Number(c.investment).toLocaleString("pt-BR")}`:"—"}
                               </td>
-                              <td style={{padding:"12px 14px"}}>
+                              <td data-cell-label="produtos" style={{padding:"12px 14px"}}>
                                 <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>
                                   {(c.products||[]).map(p=>(
                                     <span key={p} style={{padding:"2px 7px",background:"var(--teal-dim)",color:"var(--teal-l)",border:"1px solid var(--teal)",borderRadius:99,fontSize:10,fontWeight:600}}>{p}</span>
                                   ))}
                                 </div>
                               </td>
-                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{shortName(c.cs_name)}</td>
-                              <td style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{shortName(c.cp_name||c.submittedBy||c.submitted_by)}</td>
-                              <td style={{padding:"12px 14px",textAlign:"center"}}>
+                              <td data-cell-label="cs" style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{shortName(c.cs_name)}</td>
+                              <td data-cell-label="cp" style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>{shortName(c.cp_name||c.submittedBy||c.submitted_by)}</td>
+                              <td data-cell-label="status" style={{padding:"12px 14px",textAlign:"center"}}>
                                 <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:statusBg,color:statusColor}}>{status}</span>
                               </td>
-                              <td style={{padding:"12px 8px",textAlign:"center"}}>
+                              <td data-cell-label="actions" style={{padding:"12px 8px",textAlign:"center"}}>
                                 <button title="Excluir checklist"
                                   style={{background:"transparent",border:"none",padding:6,cursor:"pointer",color:"var(--t3)",borderRadius:6,display:"inline-flex",alignItems:"center",justifyContent:"center",transition:"all .15s"}}
                                   onMouseEnter={e=>{e.currentTarget.style.color="var(--red)";e.currentTarget.style.background="var(--red-bg)"}}
