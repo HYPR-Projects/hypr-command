@@ -326,6 +326,72 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
 .hamburger{display:none}
 @media(max-width:768px){.hamburger{display:flex}}
 
+/* ════════════════════════════════════════════════════════════════
+   MOBILE FOUNDATION — Phase 1
+   Tudo dentro de @media (max-width:768px) — zero efeito em desktop
+   ════════════════════════════════════════════════════════════════ */
+@media(max-width:768px){
+  /* Previne zoom no iOS quando o usuário toca em inputs (precisa ser >=16px) */
+  .fi,.fs,.ft,input[type="text"],input[type="email"],input[type="number"],input[type="date"],input[type="search"],input[type="tel"],input[type="password"],textarea,select{font-size:16px !important}
+
+  /* Topbar com padding reduzido */
+  .tb{padding:0 14px;height:52px}
+
+  /* Modais fullscreen em mobile, sem padding ao redor, sem border-radius */
+  .mo{padding:0;align-items:stretch;justify-content:stretch}
+  .ml,.ml-lg{max-width:100% !important;width:100% !important;max-height:100vh !important;height:100vh;border-radius:0 !important;display:flex;flex-direction:column}
+  .mh{padding:16px 18px 0;position:sticky;top:0;background:var(--bg-card);z-index:5;flex-shrink:0}
+  .mt{font-size:16px}
+  .mb{padding:14px 18px 24px;gap:14px;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+  /* Botões com tap target mínimo de 44px (recomendação Apple/Google) */
+  .btn{padding:10px 16px;min-height:40px;font-size:13px}
+  .btn.bg{padding:8px 10px;min-height:36px}
+
+  /* Card padding mais compacto */
+  .card{border-radius:12px}
+
+  /* Disclaimer mais legível */
+  .disc{font-size:12px;padding:10px 12px}
+
+  /* Tabelas — adicionar scroll horizontal quando precisar */
+  .dt-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+
+  /* Notif panel — quase full width em mobile, ancorado ao topo */
+  .notif-panel{width:calc(100vw - 24px);right:-8px;max-width:360px}
+
+  /* Toast — bottom centralizado */
+  .toast-c{bottom:16px;right:16px;left:16px;align-items:stretch}
+  .toast{min-width:0;width:100%}
+
+  /* Sidebar drawer — adiciona um respiro melhor no top */
+  .sb{padding-top:env(safe-area-inset-top, 0px)}
+
+  /* Page padding lateral reduzido (já estava 16, vou um pouco menor pra ter mais espaço) */
+  .pg{padding:14px 12px}
+
+  /* Garante que nada cause horizontal scroll na página */
+  body,html,#root{overflow-x:hidden;max-width:100vw}
+
+  /* Inputs cheios — em mobile sempre 100% width */
+  .fi,.fs,.ft{width:100%}
+
+  /* Selects/buttons que tinham largura fixa por inline style — força quebra */
+  input[type="date"]{width:100% !important;max-width:100%}
+
+  /* Headings dos modais — quebra de linha melhor */
+  .mt{line-height:1.3;word-break:break-word}
+
+  /* Accordion mais espaçoso */
+  .acc-h{padding:12px 14px}
+
+  /* Tap target maior pra chips */
+  .chip{min-height:32px;padding:6px 12px}
+
+  /* Sidebar — itens da nav um pouco maiores */
+  .ni{padding:12px 14px;font-size:14px}
+}
+
 /* Recharts custom */
 .recharts-cartesian-grid-horizontal line,.recharts-cartesian-grid-vertical line{stroke:var(--bdr) !important}
 `;
