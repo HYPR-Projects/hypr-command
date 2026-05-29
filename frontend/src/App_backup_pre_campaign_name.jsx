@@ -13,7 +13,7 @@ const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","RMNF","RMND"];
 const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context","Survey","Video Survey"];
 const FEATURES_WITH_VOLUMETRIA = ["P-DOOH","Tap to Go","Tap To Scratch","Weather","Topics","Click to Calendar","Downloaded Apps"];
 const MARKETPLACES = ["VTEX","Amazon"];
-const MARKETING_ACTIONS = ["SXSW","Festa Aniversário HYPR","Festa São João","Festa Carnaval","Festa Halloween","Gift Card","Taste"];
+const MARKETING_ACTIONS = ["SXSW","Festa Aniversário HYPR","Festa São João","Festa Carnaval","Festa Halloween","Gift Card"];
 
 // ── Checklist Feature Config ─────────────────────────────────────────────────
 // Features with volumetry fields
@@ -1361,7 +1361,6 @@ function KanbanCard({task,draggable,onDragStart,onStart,onComplete,onReopen,onAd
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:6}}>
         <div style={{minWidth:0,flex:1}}>
           <div style={{fontSize:12,fontWeight:700,color:"var(--t1)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{task.client}</div>
-          {task.campaign_name&&<div style={{fontSize:11,color:"var(--teal-l)",fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginTop:1}}>{task.campaign_name}</div>}
           <div style={{fontSize:10,color:"var(--t3)",marginTop:2}}>{task.type}</div>
         </div>
         {isOverdue&&<span className="badge b-red" style={{fontSize:9}}>Atrasada</span>}
@@ -1460,7 +1459,6 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
       budget:task.budget||"",
       products:task.products||[],
       features:task.features||[],
-      campaign_name:task.campaign_name||"",
     });
     setIsEditing(true);
   };
@@ -1490,13 +1488,6 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
               <span style={{fontSize:11,color:"var(--t3)"}}>#{task.id}</span>
             </div>
             <div style={{fontFamily:"var(--fd)",fontSize:20,fontWeight:800,color:"var(--t1)",lineHeight:1.2}}>{task.client}</div>
-            {task.campaign_name&&!isEditing&&<div style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:600,color:"var(--teal-l)",marginTop:4}}>{task.campaign_name}</div>}
-            {isEditing&&(
-              <div style={{marginTop:8}}>
-                <label style={{fontSize:10,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)",marginBottom:4,display:"block"}}>Nome da Campanha</label>
-                <input className="fi" type="text" placeholder="Ex: Black Friday 2026..." value={editForm.campaign_name||""} onChange={e=>setEditForm(p=>({...p,campaign_name:e.target.value}))} style={{fontSize:13,width:"100%",maxWidth:400}}/>
-              </div>
-            )}
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
             {canEdit&&!isEditing&&(
@@ -1697,7 +1688,7 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
 function NewTaskModal({onClose,onSubmit,gfIdx}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
-  const [f,sF]=useState({type:"",client:"",campaign_name:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null});
+  const [f,sF]=useState({type:"",client:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null});
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
   const tog=(k,v)=>sF(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
   useEffect(()=>{if(f.type&&SLA_DAYS[f.type]){const d=addBusinessDays(new Date(),SLA_DAYS[f.type]);set("slaDate",d.toISOString().split("T")[0]);set("customDeadline",null);}},[f.type]);
@@ -1743,7 +1734,6 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
             {f.type&&<div className="fg"><label className="fl">SLA Padrão</label><div style={{padding:"9px 12px",borderRadius:"var(--r)",background:"var(--teal-dim)",border:"1px solid var(--teal)",fontSize:13,color:"var(--teal-l)",fontWeight:600,display:"flex",alignItems:"center",gap:8}}><I n="calendar" s={14}/>{SLA_DAYS[f.type]} dias úteis → {fmtDate(f.slaDate)}</div></div>}
           </div>
           <div className="fg"><label className="fl">Cliente *</label><ClientSearch value={f.client} onChange={v=>set("client",v)} onSelect={handleClientSelect} /></div>
-          <div className="fg"><label className="fl">Nome da Campanha</label><input className="fi" type="text" placeholder="Ex: Black Friday 2026, Lançamento Produto X..." value={f.campaign_name} onChange={e=>set("campaign_name",e.target.value)}/></div>
 
           {/* Auto-filled CS info card */}
           {f.autoCS&&f.cs&&(
@@ -2035,8 +2025,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     }
 
     const short_token = generateShortToken();
-    const cleanedMarketingAction = (f.marketing_action||"").trim();
-    const payload={...f,marketing_action:cleanedMarketingAction,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email,short_token};
+    const payload={...f,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email,short_token};
     if(onChecklistSubmit)onChecklistSubmit(payload);
     sSub(true);
     toast("Checklist enviado com sucesso!");
@@ -2333,14 +2322,10 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
       <Sec title="6. Observações e Ação de Marketing">
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
           <CF l="Ação de Marketing (opcional)">
-            <select className="fs" value={f.marketing_action&&!MARKETING_ACTIONS.includes(f.marketing_action)?"__outro__":f.marketing_action} onChange={e=>{const v=e.target.value;set("marketing_action",v==="__outro__"?" ":v)}}>
+            <select className="fs" value={f.marketing_action} onChange={e=>set("marketing_action",e.target.value)}>
               <option value="">Nenhuma</option>
               {MARKETING_ACTIONS.map(a=><option key={a} value={a}>{a}</option>)}
-              <option value="__outro__">Outro</option>
             </select>
-            {f.marketing_action&&!MARKETING_ACTIONS.includes(f.marketing_action)&&(
-              <input className="fs" type="text" placeholder="Descreva a ação de marketing" value={f.marketing_action.trim()===""?"":f.marketing_action} onChange={e=>set("marketing_action",e.target.value||" ")} style={{marginTop:8}}/>
-            )}
             <div className="disc" style={{marginTop:6}}><I n="alert-circle" s={12} c="var(--teal)"/>Selecione apenas se a campanha está vinculada a uma ação de marketing específica.</div>
           </CF>
           <CF l="Observações (opcional)">
@@ -2756,7 +2741,6 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
           ...editData,
-          marketing_action: (editData.marketing_action||"").trim(),
           editedBy: user?.name,
           editedByEmail: user?.email,
           // Mandar quem era o CS antes pra backend notificar se mudou
@@ -3284,14 +3268,10 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                   {/* Observações */}
                   <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>6. Observações e Ação de Marketing</div>
                   <CF l="Ação de Marketing (opcional)">
-                    <select className="fs" value={editData.marketing_action&&!MARKETING_ACTIONS.includes(editData.marketing_action)?"__outro__":(editData.marketing_action||"")} onChange={e=>{const v=e.target.value;setEditData(p=>({...p,marketing_action:v==="__outro__"?" ":v}))}}>
+                    <select className="fs" value={editData.marketing_action||""} onChange={e=>setEditData(p=>({...p,marketing_action:e.target.value}))}>
                       <option value="">Nenhuma</option>
                       {MARKETING_ACTIONS.map(a=><option key={a} value={a}>{a}</option>)}
-                      <option value="__outro__">Outro</option>
                     </select>
-                    {editData.marketing_action&&!MARKETING_ACTIONS.includes(editData.marketing_action)&&(
-                      <input className="fs" type="text" placeholder="Descreva a ação de marketing" value={editData.marketing_action.trim()===""?"":editData.marketing_action} onChange={e=>setEditData(p=>({...p,marketing_action:e.target.value||" "}))} style={{marginTop:8}}/>
-                    )}
                   </CF>
                   <CF l="Observações (opcional)"><textarea className="ft" rows={4} placeholder="Contexto do cliente, alinhamentos prévios, sensibilidades, pedidos específicos..." value={editData.observations||""} onChange={e=>setEditData(p=>({...p,observations:e.target.value}))}/></CF>
 
