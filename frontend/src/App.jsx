@@ -3960,6 +3960,9 @@ function taskOwnedBy(task, email) {
     task.requesterEmail,
     task.cs_email,
     task.csEmail,
+    // SA tasks: o CS original (antes de ser passada pra SA) também é dono
+    task.original_cs_email,
+    task.originalCsEmail,
   ].some(v => v && String(v).toLowerCase() === e);
 }
 const hasProposalAccessFromTeam = (members, email) => {
