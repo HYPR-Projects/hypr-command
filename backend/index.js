@@ -1139,6 +1139,7 @@ app.get('/admin/analytics', async (req, res) => {
           cpcv_negociado_weight: 0,
           // Misc
           tasks_abertas: 0,
+          campaigns: [], // detalhe pra drill-down
         })
       }
       return byCp.get(key)
@@ -1189,53 +1190,35 @@ app.get('/admin/analytics', async (req, res) => {
       const videoContratada = (o2oViews || 0) + (oohViews || 0) + (rmndViews || 0)
       const videoBonificada = (o2oBonusViews || 0) + (oohBonusViews || 0) + (rmndBonusViews || 0)
 
-      // Divisão de investimento entre Display e Video baseada em custo teórico
-      // (custo_display_teorico = imp × cpm / 1000) e (custo_video_teorico = views × cpcv)
-      // Se proporção tiver problemas (NULL/zero), fallback: tudo display se sem video, ou meio-a-meio
       const cpmVal = parseFloat(c.cpm) || null
       const cpcvVal = parseFloat(c.cpcv) || null
       const formats = parseFormats(c.formats)
       const hasDisplay = formats.includes('Display') || displayContratada > 0
       const hasVideo = formats.includes('Video') || videoContratada > 0
 
-      let invDisplay = 0, invVideo = 0
-      if (hasDisplay && hasVideo && cpmVal && cpcvVal && displayContratada > 0 && videoContratada > 0) {
-        // Divisão proporcional ao custo teórico
-        const custoDisplay = (displayContratada * cpmVal) / 1000
-        const custoVideo = videoContratada * cpcvVal
-        const total = custoDisplay + custoVideo
-        if (total > 0) {
-          invDisplay = inv * (custoDisplay / total)
-          invVideo = inv * (custoVideo / total)
-        } else {
-          invDisplay = inv
-        }
-      } else if (hasVideo && !hasDisplay) {
-        invVideo = inv
-      } else {
-        // Default: display
-        invDisplay = inv
-      }
-
-      cp.impressoes_display_contratadas += displayContratada
-      cp.impressoes_display_bonificadas += displayBonificada
-      cp.invest_display += invDisplay
-      cp.views_video_contratadas += videoContratada
-      cp.views_video_bonificadas += videoBonificada
-      cp.invest_video += invVideo
-
-      // CPM/CPV negociado (média ponderada por investimento da parte correspondente)
-      if (cpmVal && invDisplay > 0) {
-        cp.cpm_negociado_sum_weighted += cpmVal * invDisplay
-        cp.cpm_negociado_weight += invDisplay
-      }
-      if (cpcvVal && invVideo > 0) {
-        cp.cpcv_negociado_sum_weighted += cpcvVal * invVideo
-        cp.cpcv_negociado_weight += invVideo
-      }
-
-      // Flagga checklist sem impressões/views mas com investimento
+      // ── Validação: detecta dados incompletos que distorceriam o CPM Real ──
+      // Casos problemáticos:
+      // 1) Tem investimento mas zero impressões/views → "Sem impressões cadastradas"
+      // 2) Tem Display+Video mas cpm OU cpcv = NULL → "CPM/CPV não preenchido"
+      // 3) Tem só Display mas cpm = NULL → "CPM não preenchido"
+      // 4) Tem só Video mas cpcv = NULL → "CPV não preenchido"
+      let issue = null
       if (inv > 0 && displayContratada === 0 && videoContratada === 0) {
+        issue = 'Sem impressões/views cadastradas'
+      } else if (hasDisplay && hasVideo && (!cpmVal || !cpcvVal)) {
+        issue = 'CPM ou CPV não preenchido (Display+Video)'
+      } else if (hasDisplay && !hasVideo && !cpmVal && displayContratada > 0) {
+        issue = 'CPM não preenchido'
+      } else if (hasVideo && !hasDisplay && !cpcvVal && videoContratada > 0) {
+        issue = 'CPV não preenchido'
+      }
+
+      // Inicializa storage do detalhe da campanha (sempre — pra drill-down)
+      let campaignCpmReal = null, campaignCpvReal = null
+      let invDisplay = 0, invVideo = 0
+
+      if (issue) {
+        // Checklist incompleto → flagga e NÃO acumula nos KPIs reais
         problematic.push({
           id: c.id,
           client: c.client,
@@ -1244,9 +1227,67 @@ app.get('/admin/analytics', async (req, res) => {
           start_date: c.start_date?.value || c.start_date,
           end_date: c.end_date?.value || c.end_date,
           investment: inv,
-          issue: 'Sem impressões/views cadastradas',
+          issue,
         })
+      } else {
+        // Divisão de investimento entre Display e Video
+        if (hasDisplay && hasVideo && displayContratada > 0 && videoContratada > 0) {
+          // Divisão proporcional ao custo teórico (cpm × imp + cpcv × views)
+          const custoDisplay = (displayContratada * cpmVal) / 1000
+          const custoVideo = videoContratada * cpcvVal
+          const total = custoDisplay + custoVideo
+          if (total > 0) {
+            invDisplay = inv * (custoDisplay / total)
+            invVideo = inv * (custoVideo / total)
+          } else {
+            invDisplay = inv
+          }
+        } else if (hasVideo && !hasDisplay) {
+          invVideo = inv
+        } else {
+          invDisplay = inv
+        }
+
+        // CPM/CPV REAL desta campanha (denominador inclui bonificadas)
+        const totalDisp = displayContratada + displayBonificada
+        const totalVid = videoContratada + videoBonificada
+        if (totalDisp > 0) campaignCpmReal = (invDisplay / totalDisp) * 1000
+        if (totalVid > 0) campaignCpvReal = invVideo / totalVid
+
+        cp.impressoes_display_contratadas += displayContratada
+        cp.impressoes_display_bonificadas += displayBonificada
+        cp.invest_display += invDisplay
+        cp.views_video_contratadas += videoContratada
+        cp.views_video_bonificadas += videoBonificada
+        cp.invest_video += invVideo
+
+        // CPM/CPV negociado (média ponderada por investimento da parte correspondente)
+        if (cpmVal && invDisplay > 0) {
+          cp.cpm_negociado_sum_weighted += cpmVal * invDisplay
+          cp.cpm_negociado_weight += invDisplay
+        }
+        if (cpcvVal && invVideo > 0) {
+          cp.cpcv_negociado_sum_weighted += cpcvVal * invVideo
+          cp.cpcv_negociado_weight += invVideo
+        }
       }
+
+      // Sempre adiciona ao array de campanhas do CP (mesmo problemáticas)
+      cp.campaigns.push({
+        id: c.id,
+        client: c.client,
+        campaign_name: c.campaign_name,
+        start_date: c.start_date?.value || c.start_date,
+        end_date: c.end_date?.value || c.end_date,
+        investment: inv,
+        impressoes_display: displayContratada + displayBonificada,
+        views_video: videoContratada + videoBonificada,
+        cpm_negociado: cpmVal,
+        cpv_negociado: cpcvVal,
+        cpm_real: campaignCpmReal,
+        cpv_real: campaignCpvReal,
+        issue,
+      })
     }
 
     // Conta tasks abertas por email do solicitante (cp_email do team_members)
