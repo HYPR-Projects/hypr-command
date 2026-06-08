@@ -1060,6 +1060,63 @@ app.put('/proposals/:id', async (req, res) => {
   }
 })
 
+// ═══════════════════════════════════════════════════════════════════════
+// DELETE /checklists/:id
+// Permissão: admin, CP que enviou (submitted_by_email/cp_email), ou CS responsável (cs_email)
+// ═══════════════════════════════════════════════════════════════════════
+app.delete('/checklists/:id', async (req, res) => {
+  try {
+    const { id } = req.params
+    const requesterEmail = (req.body?.requesterEmail || '').toString().toLowerCase().trim()
+
+    if (!requesterEmail) {
+      return res.status(400).json({ error: 'requesterEmail é obrigatório' })
+    }
+    // Sanitiza id (UUID format) pra evitar SQL injection — só permite alfanumérico e hífens
+    if (!/^[a-zA-Z0-9-]+$/.test(id)) {
+      return res.status(400).json({ error: 'id inválido' })
+    }
+
+    // 1) Busca o checklist pra verificar quem é dono
+    const [rows] = await bq.query({
+      query: `SELECT submitted_by_email, cp_email, cs_email FROM \`${PROJECT}.${DATASET}.checklists\` WHERE id = '${id}' LIMIT 1`,
+      useLegacySql: false
+    })
+    if (!rows || rows.length === 0) {
+      return res.status(404).json({ error: 'Checklist não encontrado' })
+    }
+    const c = rows[0]
+    const submittedByEmail = (c.submitted_by_email || '').toLowerCase()
+    const cpEmail = (c.cp_email || '').toLowerCase()
+    const csEmail = (c.cs_email || '').toLowerCase()
+
+    // 2) Verifica se requesterEmail é admin via team_members
+    const [adminRows] = await bq.query({
+      query: `SELECT role FROM \`${PROJECT}.${DATASET}.team_members\` WHERE LOWER(email) = '${requesterEmail.replace(/'/g, "''")}' LIMIT 1`,
+      useLegacySql: false
+    })
+    const isAdmin = adminRows?.[0]?.role === 'admin'
+
+    // 3) Decide se pode deletar
+    const isOwnerCP = requesterEmail === submittedByEmail || requesterEmail === cpEmail
+    const isOwnerCS = requesterEmail === csEmail
+    if (!isAdmin && !isOwnerCP && !isOwnerCS) {
+      return res.status(403).json({ error: 'Apenas o CP que enviou, o CS responsável ou admin pode excluir' })
+    }
+
+    // 4) Hard delete
+    await bq.query({
+      query: `DELETE FROM \`${PROJECT}.${DATASET}.checklists\` WHERE id = '${id}'`,
+      useLegacySql: false
+    })
+
+    res.json({ ok: true, deleted_by: requesterEmail, role: isAdmin ? 'admin' : isOwnerCP ? 'cp' : 'cs' })
+  } catch (err) {
+    console.error('DELETE /checklists/:id error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 app.delete('/proposals/:id', async (req, res) => {
   try {
     const { id } = req.params
