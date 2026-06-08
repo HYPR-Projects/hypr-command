@@ -789,8 +789,14 @@ app.post('/checklists', async (req, res) => {
 
 app.get('/checklists', async (req, res) => {
   try {
+    // Corte do histórico no Command: apenas campanhas com start_date >= 2026-05-01
+    // (mês em que o HYPR Command foi lançado). Checklists com start_date NULL
+    // também são incluídos (podem ser registros em processo de criação).
+    // Dados anteriores continuam no BQ intactos — apenas não são exibidos no app.
     const rows = await query(
-      `SELECT * FROM \`${PROJECT}.${DATASET}.checklists\` ORDER BY created_at DESC LIMIT 100`
+      `SELECT * FROM \`${PROJECT}.${DATASET}.checklists\`
+       WHERE start_date >= '2026-05-01' OR start_date IS NULL
+       ORDER BY created_at DESC LIMIT 5000`
     )
     // Hydrate `extras` JSON back into the row, so dynamic fields like O2O_imp,
     // OOH_imp, fv_Topics_*, ftext_Survey, cl_features, etc. are visible to the frontend.
@@ -990,7 +996,7 @@ app.get('/proposals', async (req, res) => {
     if (status) where.push(`status = '${status}'`)
     if (created_by_email) where.push(`created_by_email = '${created_by_email}'`)
     if (where.length) sql += ` WHERE ${where.join(' AND ')}`
-    sql += ` ORDER BY created_at DESC LIMIT 100`
+    sql += ` ORDER BY created_at DESC LIMIT 5000`
     res.json(await query(sql))
   } catch (err) {
     res.status(500).json({ error: err.message })
