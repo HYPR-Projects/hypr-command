@@ -1045,6 +1045,193 @@ app.delete('/checklists/:id', async (req, res) => {
 })
 
 // ══════════════════════════════════════════════════════════════════════════════
+// GET /admin/analytics
+// Retorna analytics agregados por CP, com KPIs gerais e lista de checklists com problemas
+// Query params (opcionais): start_date, end_date (formato YYYY-MM-DD)
+// Default: start_date = 2026-05-01 (início do HYPR Command)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Sanitiza valor de impressão que pode vir em formato BR ("3.000.000" ou "3000000")
+// Retorna número ou null
+function sanitizeImpressao(v) {
+  if (v === null || v === undefined || v === '') return null
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null
+  let s = String(v).trim()
+  if (!s) return null
+  // Se tem ponto e os grupos depois do ponto têm 3 dígitos, é separador de milhares BR
+  // Ex: "3.000.000", "550.000", "1.234.567"
+  // Se tem ponto e o grupo depois tem 1-2 dígitos, é decimal US
+  // Ex: "550.00", "3.5"
+  // Se tem vírgula, é decimal BR
+  if (s.includes(',')) {
+    // Decimal BR: remove pontos de milhares, troca vírgula por ponto
+    s = s.replace(/\./g, '').replace(',', '.')
+  } else if (s.includes('.')) {
+    // Verifica se é separador de milhares ou decimal
+    const parts = s.split('.')
+    const lastPart = parts[parts.length - 1]
+    if (parts.length > 2 || lastPart.length === 3) {
+      // Separador de milhares BR (múltiplos pontos OU último grupo com 3 dígitos)
+      s = s.replace(/\./g, '')
+    }
+    // Senão, deixa como decimal US
+  }
+  const n = parseFloat(s)
+  return Number.isFinite(n) ? Math.round(n) : null
+}
+
+app.get('/admin/analytics', async (req, res) => {
+  try {
+    const startDate = req.query.start_date || '2026-05-01'
+    const endDate = req.query.end_date || null
+
+    // Valida formato de data (YYYY-MM-DD) anti-injection
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRe.test(startDate)) return res.status(400).json({ error: 'start_date inválido' })
+    if (endDate && !dateRe.test(endDate)) return res.status(400).json({ error: 'end_date inválido' })
+
+    // Monta WHERE com filtros de período aplicados ao start_date da campanha
+    let where = `start_date >= '${startDate}'`
+    if (endDate) where += ` AND start_date <= '${endDate}'`
+
+    // 1) Busca checklists do período
+    const checklists = await query(
+      `SELECT id, client, campaign_name, cp_name, cp_email, start_date, end_date,
+              investment, extras
+       FROM \`${PROJECT}.${DATASET}.checklists\`
+       WHERE ${where}
+       ORDER BY start_date DESC`
+    )
+
+    // 2) Busca tasks abertas por solicitante (cp_email/requester_email) no mesmo período
+    // Filtro por created_at da task (não tem start_date em task)
+    let taskWhere = `created_at >= '${startDate}'`
+    if (endDate) taskWhere += ` AND created_at <= '${endDate}T23:59:59'`
+    const tasks = await query(
+      `SELECT requester_email, requested_by
+       FROM \`${PROJECT}.${DATASET}.tasks\`
+       WHERE ${taskWhere}`
+    )
+
+    // 3) Agrega por CP
+    const byCp = new Map() // chave: cp_name (normalizado), valor: agregado
+    const problematic = []
+
+    function getOrCreateCp(name, email) {
+      const key = (name || 'Desconhecido').trim()
+      if (!byCp.has(key)) {
+        byCp.set(key, {
+          cp_name: key,
+          cp_email: email || null,
+          checklists: 0,
+          investment: 0,
+          impressoes_contratadas: 0,
+          impressoes_bonificadas: 0,
+          tasks_abertas: 0,
+        })
+      }
+      return byCp.get(key)
+    }
+
+    // Parse cada checklist
+    for (const c of checklists) {
+      const cp = getOrCreateCp(c.cp_name, c.cp_email)
+      cp.checklists++
+      const inv = parseFloat(c.investment) || 0
+      cp.investment += inv
+
+      // Lê impressões do extras (JSON)
+      let extras = c.extras
+      if (typeof extras === 'string') {
+        try { extras = JSON.parse(extras) } catch { extras = {} }
+      }
+      extras = extras || {}
+
+      const o2oImp = sanitizeImpressao(extras.O2O_imp)
+      const o2oBonus = sanitizeImpressao(extras.O2O_bonus_imp)
+      const oohImp = sanitizeImpressao(extras.OOH_imp)
+      const oohBonus = sanitizeImpressao(extras.OOH_bonus_imp)
+      const rmnfImp = sanitizeImpressao(extras.RMNF_imp)
+      const rmnfBonus = sanitizeImpressao(extras.RMNF_bonus_imp)
+      const rmndImp = sanitizeImpressao(extras.RMND_imp)
+      const rmndBonus = sanitizeImpressao(extras.RMND_bonus_imp)
+
+      const totalContratada = (o2oImp || 0) + (oohImp || 0) + (rmnfImp || 0) + (rmndImp || 0)
+      const totalBonificada = (o2oBonus || 0) + (oohBonus || 0) + (rmnfBonus || 0) + (rmndBonus || 0)
+
+      cp.impressoes_contratadas += totalContratada
+      cp.impressoes_bonificadas += totalBonificada
+
+      // Flagga checklist sem impressões mas com investimento
+      if (inv > 0 && totalContratada === 0) {
+        problematic.push({
+          id: c.id,
+          client: c.client,
+          campaign_name: c.campaign_name,
+          cp_name: c.cp_name,
+          start_date: c.start_date?.value || c.start_date,
+          end_date: c.end_date?.value || c.end_date,
+          investment: inv,
+          issue: 'Sem impressões cadastradas',
+        })
+      }
+    }
+
+    // Conta tasks abertas por email do solicitante (cp_email do team_members)
+    // Como tasks usam requester_email, e os CPs identificam-se pelo cp_email,
+    // vamos contar tasks onde requester_email bate com algum cp_email conhecido
+    const cpEmailMap = new Map() // email lowercase -> cp_name (do agregado)
+    for (const cp of byCp.values()) {
+      if (cp.cp_email) cpEmailMap.set(cp.cp_email.toLowerCase(), cp.cp_name)
+    }
+    // Tasks: associa pelo requester_email
+    for (const t of tasks) {
+      const email = (t.requester_email || '').toLowerCase()
+      if (!email) continue
+      const cpName = cpEmailMap.get(email)
+      if (cpName) {
+        const cp = byCp.get(cpName)
+        if (cp) cp.tasks_abertas++
+      }
+    }
+
+    // Calcula CPM por CP e totais
+    const cpms = []
+    let totalInv = 0, totalContrat = 0, totalBonif = 0
+    for (const cp of byCp.values()) {
+      const totalImps = cp.impressoes_contratadas + cp.impressoes_bonificadas
+      cp.cpm = totalImps > 0 ? (cp.investment / totalImps) * 1000 : null
+      totalInv += cp.investment
+      totalContrat += cp.impressoes_contratadas
+      totalBonif += cp.impressoes_bonificadas
+      if (cp.cpm !== null) cpms.push(cp.cpm)
+    }
+
+    const totalImpsAll = totalContrat + totalBonif
+    const cpmGeral = totalImpsAll > 0 ? (totalInv / totalImpsAll) * 1000 : null
+
+    // Ordena CPs por investimento desc
+    const byCpArray = [...byCp.values()].sort((a, b) => b.investment - a.investment)
+
+    res.json({
+      period: { start: startDate, end: endDate },
+      totals: {
+        checklists: checklists.length,
+        investment: totalInv,
+        impressoes_contratadas: totalContrat,
+        impressoes_bonificadas: totalBonif,
+        cpm_medio: cpmGeral,
+      },
+      by_cp: byCpArray,
+      problematic_checklists: problematic,
+    })
+  } catch (err) {
+    console.error('GET /admin/analytics error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
 // START
 // ══════════════════════════════════════════════════════════════════════════════
 app.listen(PORT, () => {
