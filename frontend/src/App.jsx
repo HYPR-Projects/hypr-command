@@ -4035,6 +4035,7 @@ function AdminPanel() {
   const fmtMoney = (v) => v == null ? "—" : "R$ " + Math.round(v).toLocaleString("pt-BR");
   const fmtImp = (v) => v == null || v === 0 ? "—" : v.toLocaleString("pt-BR");
   const fmtCpm = (v) => v == null ? "—" : "R$ " + v.toFixed(2).replace(".", ",");
+  const fmtCpv = (v) => v == null ? "—" : "R$ " + v.toFixed(4).replace(".", ",");
   const fmtDateBr = (s) => {
     if (!s) return "—";
     const [y,m,d] = s.split("-");
@@ -4082,13 +4083,19 @@ function AdminPanel() {
         <div className="card" style={{padding:60,textAlign:"center",color:"var(--t3)"}}>Sem dados</div>
       ) : (
         <>
-          {/* KPIs gerais */}
-          <div className="g3" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:16}}>
+          {/* KPIs gerais — primeira linha: contagem + investimento */}
+          <div className="g3" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:12}}>
             <KpiCard label="Checklists" value={data.totals.checklists.toLocaleString("pt-BR")} color="var(--teal)" icon="inbox"/>
-            <KpiCard label="Investimento" value={fmtMoney(data.totals.investment)} color="var(--green)" icon="dollar"/>
-            <KpiCard label="Impr. Contratadas" value={fmtImp(data.totals.impressoes_contratadas)} color="var(--teal-l)" icon="bar-chart"/>
-            <KpiCard label="Impr. Bonificadas" value={fmtImp(data.totals.impressoes_bonificadas)} color="var(--yellow-s)" icon="gift"/>
-            <KpiCard label="CPM Médio Geral" value={fmtCpm(data.totals.cpm_medio)} color="var(--teal)" icon="trending-up"/>
+            <KpiCard label="Investimento Total" value={fmtMoney(data.totals.investment)} color="var(--green)" icon="dollar"/>
+            <KpiCard label="Impr. Display (Contr.)" value={fmtImp(data.totals.impressoes_display_contratadas)} color="var(--teal-l)" icon="bar-chart"/>
+            <KpiCard label="Views Video (Contr.)" value={fmtImp(data.totals.views_video_contratadas)} color="var(--teal)" icon="play"/>
+          </div>
+          {/* KPIs gerais — segunda linha: CPMs e CPVs */}
+          <div className="g3" style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:16}}>
+            <KpiCard label="CPM Real (Display)" value={fmtCpm(data.totals.cpm_real)} color="var(--teal)" icon="trending-up"/>
+            <KpiCard label="CPM Negociado (Display)" value={fmtCpm(data.totals.cpm_negociado)} color="var(--t3)" icon="edit"/>
+            <KpiCard label="CPV Real (Video)" value={fmtCpv(data.totals.cpv_real)} color="var(--teal)" icon="trending-up"/>
+            <KpiCard label="CPV Negociado (Video)" value={fmtCpv(data.totals.cpv_negociado)} color="var(--t3)" icon="edit"/>
           </div>
 
           {/* Tabela por CP */}
@@ -4099,19 +4106,21 @@ function AdminPanel() {
                 <table className="admin-table" style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
                   <thead>
                     <tr style={{borderBottom:"1px solid var(--bdr)",background:"var(--bg3)"}}>
-                      {["CP","Checklists","Investimento","Impr. Contratada","Impr. Bonificada","CPM","Tasks Abertas"].map(h=>(
-                        <th key={h} style={{textAlign:h==="CP"?"left":"right",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em",whiteSpace:"nowrap"}}>{h}</th>
+                      {["CP","Check","Investim.","Impr. Display","Views Video","CPM Real","CPM Neg.","CPV Real","CPV Neg.","Tasks"].map(h=>(
+                        <th key={h} style={{textAlign:h==="CP"?"left":"right",padding:"10px 12px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em",whiteSpace:"nowrap"}}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {data.by_cp.length === 0 ? (
-                      <tr><td colSpan="7" style={{padding:30,textAlign:"center",color:"var(--t3)",fontSize:13}}>Nenhum dado no período selecionado.</td></tr>
+                      <tr><td colSpan="10" style={{padding:30,textAlign:"center",color:"var(--t3)",fontSize:13}}>Nenhum dado no período selecionado.</td></tr>
                     ) : data.by_cp.map(cp=>{
                       const initials = (cp.cp_name||"?").split(" ").map(n=>n[0]).join("").substring(0,2).toUpperCase();
+                      const totalDisplay = (cp.impressoes_display_contratadas||0) + (cp.impressoes_display_bonificadas||0);
+                      const totalVideo = (cp.views_video_contratadas||0) + (cp.views_video_bonificadas||0);
                       return (
                         <tr key={cp.cp_name} style={{borderBottom:"1px solid var(--bdr-card)"}}>
-                          <td data-cell-label="cp" style={{padding:"12px 14px"}}>
+                          <td data-cell-label="cp" style={{padding:"12px"}}>
                             <div style={{display:"flex",alignItems:"center",gap:10}}>
                               <div style={{width:30,height:30,borderRadius:"50%",background:"var(--teal)",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>{initials}</div>
                               <div style={{minWidth:0}}>
@@ -4120,12 +4129,15 @@ function AdminPanel() {
                               </div>
                             </div>
                           </td>
-                          <td data-cell-label="checklists" style={{padding:"12px 14px",textAlign:"right",fontVariantNumeric:"tabular-nums"}}>{cp.checklists}</td>
-                          <td data-cell-label="investimento" style={{padding:"12px 14px",textAlign:"right",fontVariantNumeric:"tabular-nums",fontWeight:600,color:"var(--green)"}}>{fmtMoney(cp.investment)}</td>
-                          <td data-cell-label="impr. contratada" style={{padding:"12px 14px",textAlign:"right",fontVariantNumeric:"tabular-nums",color:"var(--t2)"}}>{fmtImp(cp.impressoes_contratadas)}</td>
-                          <td data-cell-label="impr. bonificada" style={{padding:"12px 14px",textAlign:"right",fontVariantNumeric:"tabular-nums",color:"var(--t2)"}}>{fmtImp(cp.impressoes_bonificadas)}</td>
-                          <td data-cell-label="cpm" style={{padding:"12px 14px",textAlign:"right",fontVariantNumeric:"tabular-nums",fontWeight:700,color:cp.cpm==null?"var(--t3)":"var(--teal)"}}>{fmtCpm(cp.cpm)}</td>
-                          <td data-cell-label="tasks" style={{padding:"12px 14px",textAlign:"right",fontVariantNumeric:"tabular-nums",color:"var(--t2)"}}>{cp.tasks_abertas}</td>
+                          <td data-cell-label="check" style={{padding:"12px",textAlign:"right",fontVariantNumeric:"tabular-nums"}}>{cp.checklists}</td>
+                          <td data-cell-label="investim." style={{padding:"12px",textAlign:"right",fontVariantNumeric:"tabular-nums",fontWeight:600,color:"var(--green)"}}>{fmtMoney(cp.investment)}</td>
+                          <td data-cell-label="impr. display" style={{padding:"12px",textAlign:"right",fontVariantNumeric:"tabular-nums",color:"var(--t2)"}}>{fmtImp(totalDisplay)}</td>
+                          <td data-cell-label="views video" style={{padding:"12px",textAlign:"right",fontVariantNumeric:"tabular-nums",color:"var(--t2)"}}>{fmtImp(totalVideo)}</td>
+                          <td data-cell-label="cpm real" style={{padding:"12px",textAlign:"right",fontVariantNumeric:"tabular-nums",fontWeight:700,color:cp.cpm_real==null?"var(--t3)":"var(--teal)"}}>{fmtCpm(cp.cpm_real)}</td>
+                          <td data-cell-label="cpm neg." style={{padding:"12px",textAlign:"right",fontVariantNumeric:"tabular-nums",color:cp.cpm_negociado==null?"var(--t3)":"var(--t2)"}}>{fmtCpm(cp.cpm_negociado)}</td>
+                          <td data-cell-label="cpv real" style={{padding:"12px",textAlign:"right",fontVariantNumeric:"tabular-nums",fontWeight:700,color:cp.cpv_real==null?"var(--t3)":"var(--teal)"}}>{fmtCpv(cp.cpv_real)}</td>
+                          <td data-cell-label="cpv neg." style={{padding:"12px",textAlign:"right",fontVariantNumeric:"tabular-nums",color:cp.cpv_negociado==null?"var(--t3)":"var(--t2)"}}>{fmtCpv(cp.cpv_negociado)}</td>
+                          <td data-cell-label="tasks" style={{padding:"12px",textAlign:"right",fontVariantNumeric:"tabular-nums",color:"var(--t2)"}}>{cp.tasks_abertas}</td>
                         </tr>
                       );
                     })}
