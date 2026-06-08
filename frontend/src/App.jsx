@@ -4131,7 +4131,7 @@ function AdminPanel() {
                         <th key={i} style={{textAlign:col.h==="CP"?"left":"right",padding:"10px 12px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em",whiteSpace:"nowrap"}}>
                           <span style={{display:"inline-flex",alignItems:"center",gap:5,justifyContent:col.h==="CP"?"flex-start":"flex-end"}}>
                             <span>{col.h}</span>
-                            {col.t && <span title={col.t} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:13,height:13,borderRadius:"50%",background:"var(--bg-card)",color:"var(--t3)",fontSize:9,fontWeight:700,cursor:"help",userSelect:"none",border:"1px solid var(--bdr)"}}>i</span>}
+                            {col.t && <InfoTooltip text={col.t} size={13}/>}
                           </span>
                         </th>
                       ))}
@@ -4272,7 +4272,7 @@ function CpCampaignsTable({campaigns, fmtMoney, fmtImp, fmtCpm, fmtCpv, fmtDateB
                   <td style={{padding:"8px 10px",textAlign:"right",fontVariantNumeric:"tabular-nums",fontWeight:600,color:c.cpv_real==null?"var(--t3)":"var(--teal)"}}>{fmtCpv(c.cpv_real)}</td>
                   <td style={{padding:"8px 10px"}}>
                     {c.issue ? (
-                      <span title={c.issue} className="badge b-ylw" style={{fontSize:10,cursor:"help"}}>{c.issue.length>22?c.issue.substring(0,20)+'…':c.issue}</span>
+                      <span className="badge b-ylw" style={{fontSize:10,whiteSpace:"normal",lineHeight:1.3,maxWidth:220,display:"inline-block"}}>{c.issue}</span>
                     ) : (
                       <span className="badge b-grn" style={{fontSize:10}}>OK</span>
                     )}
@@ -4287,6 +4287,27 @@ function CpCampaignsTable({campaigns, fmtMoney, fmtImp, fmtCpm, fmtCpv, fmtDateB
   );
 }
 
+// Tooltip customizado que aparece imediatamente ao hover (sem delay do browser)
+// e funciona em mobile (tap-to-toggle)
+function InfoTooltip({text, size=13}){
+  const [open, setOpen] = useState(false);
+  if (!text) return null;
+  return (
+    <span style={{position:"relative",display:"inline-flex",alignItems:"center"}}
+      onMouseEnter={()=>setOpen(true)}
+      onMouseLeave={()=>setOpen(false)}
+      onClick={e=>{e.stopPropagation();setOpen(v=>!v)}}>
+      <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:size,height:size,borderRadius:"50%",background:open?"var(--teal)":"var(--bg3)",color:open?"#fff":"var(--t3)",fontSize:Math.round(size*0.7),fontWeight:700,cursor:"help",userSelect:"none",border:"1px solid "+(open?"var(--teal)":"var(--bdr)"),transition:"all .15s",lineHeight:1}}>i</span>
+      {open && (
+        <span style={{position:"absolute",top:"calc(100% + 8px)",left:"50%",transform:"translateX(-50%)",zIndex:50,background:"#1a2332",color:"#fff",padding:"8px 12px",borderRadius:6,fontSize:11,fontWeight:400,lineHeight:1.5,letterSpacing:0,textTransform:"none",whiteSpace:"normal",width:240,maxWidth:"90vw",boxShadow:"0 4px 12px rgba(0,0,0,0.25)",pointerEvents:"none"}}>
+          {text}
+          <span style={{position:"absolute",bottom:"100%",left:"50%",transform:"translateX(-50%)",width:0,height:0,borderLeft:"6px solid transparent",borderRight:"6px solid transparent",borderBottom:"6px solid #1a2332"}}/>
+        </span>
+      )}
+    </span>
+  );
+}
+
 function KpiCard({label, value, color, icon, tooltip}) {
   return (
     <div className="card" style={{padding:14,display:"flex",alignItems:"center",gap:12}}>
@@ -4294,11 +4315,9 @@ function KpiCard({label, value, color, icon, tooltip}) {
         <I n={icon} s={18}/>
       </div>
       <div style={{minWidth:0,flex:1}}>
-        <div style={{fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em",display:"flex",alignItems:"center",gap:5}}>
+        <div style={{fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em",display:"flex",alignItems:"center",gap:6}}>
           <span>{label}</span>
-          {tooltip && (
-            <span title={tooltip} style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:14,height:14,borderRadius:"50%",background:"var(--bg3)",color:"var(--t3)",fontSize:9,fontWeight:700,cursor:"help",userSelect:"none"}}>i</span>
-          )}
+          <InfoTooltip text={tooltip} size={14}/>
         </div>
         <div style={{fontSize:18,fontWeight:700,color:"var(--t1)",fontVariantNumeric:"tabular-nums",marginTop:2}}>{value}</div>
       </div>
