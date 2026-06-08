@@ -1094,10 +1094,10 @@ app.get('/admin/analytics', async (req, res) => {
     let where = `start_date >= '${startDate}'`
     if (endDate) where += ` AND start_date <= '${endDate}'`
 
-    // 1) Busca checklists do período
+    // 1) Busca checklists do período (inclui cpm, cpcv e formats pra split Display/Video)
     const checklists = await query(
       `SELECT id, client, campaign_name, cp_name, cp_email, start_date, end_date,
-              investment, extras
+              investment, cpm, cpcv, formats, extras
        FROM \`${PROJECT}.${DATASET}.checklists\`
        WHERE ${where}
        ORDER BY start_date DESC`
@@ -1125,12 +1125,32 @@ app.get('/admin/analytics', async (req, res) => {
           cp_email: email || null,
           checklists: 0,
           investment: 0,
-          impressoes_contratadas: 0,
-          impressoes_bonificadas: 0,
+          // Display
+          impressoes_display_contratadas: 0,
+          impressoes_display_bonificadas: 0,
+          invest_display: 0,
+          cpm_negociado_sum_weighted: 0, // soma(cpm × invest) pra ponderar
+          cpm_negociado_weight: 0,       // soma(invest) onde houve cpm
+          // Video
+          views_video_contratadas: 0,
+          views_video_bonificadas: 0,
+          invest_video: 0,
+          cpcv_negociado_sum_weighted: 0,
+          cpcv_negociado_weight: 0,
+          // Misc
           tasks_abertas: 0,
         })
       }
       return byCp.get(key)
+    }
+
+    // Parse formats (pode ser array nativo ou JSON string)
+    function parseFormats(f) {
+      if (Array.isArray(f)) return f
+      if (typeof f === 'string') {
+        try { return JSON.parse(f) } catch { return [] }
+      }
+      return []
     }
 
     // Parse cada checklist
@@ -1147,6 +1167,7 @@ app.get('/admin/analytics', async (req, res) => {
       }
       extras = extras || {}
 
+      // Display (impressões) — soma O2O + OOH + RMNF + RMND
       const o2oImp = sanitizeImpressao(extras.O2O_imp)
       const o2oBonus = sanitizeImpressao(extras.O2O_bonus_imp)
       const oohImp = sanitizeImpressao(extras.OOH_imp)
@@ -1155,15 +1176,66 @@ app.get('/admin/analytics', async (req, res) => {
       const rmnfBonus = sanitizeImpressao(extras.RMNF_bonus_imp)
       const rmndImp = sanitizeImpressao(extras.RMND_imp)
       const rmndBonus = sanitizeImpressao(extras.RMND_bonus_imp)
+      const displayContratada = (o2oImp || 0) + (oohImp || 0) + (rmnfImp || 0) + (rmndImp || 0)
+      const displayBonificada = (o2oBonus || 0) + (oohBonus || 0) + (rmnfBonus || 0) + (rmndBonus || 0)
 
-      const totalContratada = (o2oImp || 0) + (oohImp || 0) + (rmnfImp || 0) + (rmndImp || 0)
-      const totalBonificada = (o2oBonus || 0) + (oohBonus || 0) + (rmnfBonus || 0) + (rmndBonus || 0)
+      // Video (views) — soma O2O views + outros se houver
+      const o2oViews = sanitizeImpressao(extras.O2O_views)
+      const o2oBonusViews = sanitizeImpressao(extras.O2O_bonus_views)
+      const oohViews = sanitizeImpressao(extras.OOH_views)
+      const oohBonusViews = sanitizeImpressao(extras.OOH_bonus_views)
+      const rmndViews = sanitizeImpressao(extras.RMND_views)
+      const rmndBonusViews = sanitizeImpressao(extras.RMND_bonus_views)
+      const videoContratada = (o2oViews || 0) + (oohViews || 0) + (rmndViews || 0)
+      const videoBonificada = (o2oBonusViews || 0) + (oohBonusViews || 0) + (rmndBonusViews || 0)
 
-      cp.impressoes_contratadas += totalContratada
-      cp.impressoes_bonificadas += totalBonificada
+      // Divisão de investimento entre Display e Video baseada em custo teórico
+      // (custo_display_teorico = imp × cpm / 1000) e (custo_video_teorico = views × cpcv)
+      // Se proporção tiver problemas (NULL/zero), fallback: tudo display se sem video, ou meio-a-meio
+      const cpmVal = parseFloat(c.cpm) || null
+      const cpcvVal = parseFloat(c.cpcv) || null
+      const formats = parseFormats(c.formats)
+      const hasDisplay = formats.includes('Display') || displayContratada > 0
+      const hasVideo = formats.includes('Video') || videoContratada > 0
 
-      // Flagga checklist sem impressões mas com investimento
-      if (inv > 0 && totalContratada === 0) {
+      let invDisplay = 0, invVideo = 0
+      if (hasDisplay && hasVideo && cpmVal && cpcvVal && displayContratada > 0 && videoContratada > 0) {
+        // Divisão proporcional ao custo teórico
+        const custoDisplay = (displayContratada * cpmVal) / 1000
+        const custoVideo = videoContratada * cpcvVal
+        const total = custoDisplay + custoVideo
+        if (total > 0) {
+          invDisplay = inv * (custoDisplay / total)
+          invVideo = inv * (custoVideo / total)
+        } else {
+          invDisplay = inv
+        }
+      } else if (hasVideo && !hasDisplay) {
+        invVideo = inv
+      } else {
+        // Default: display
+        invDisplay = inv
+      }
+
+      cp.impressoes_display_contratadas += displayContratada
+      cp.impressoes_display_bonificadas += displayBonificada
+      cp.invest_display += invDisplay
+      cp.views_video_contratadas += videoContratada
+      cp.views_video_bonificadas += videoBonificada
+      cp.invest_video += invVideo
+
+      // CPM/CPV negociado (média ponderada por investimento da parte correspondente)
+      if (cpmVal && invDisplay > 0) {
+        cp.cpm_negociado_sum_weighted += cpmVal * invDisplay
+        cp.cpm_negociado_weight += invDisplay
+      }
+      if (cpcvVal && invVideo > 0) {
+        cp.cpcv_negociado_sum_weighted += cpcvVal * invVideo
+        cp.cpcv_negociado_weight += invVideo
+      }
+
+      // Flagga checklist sem impressões/views mas com investimento
+      if (inv > 0 && displayContratada === 0 && videoContratada === 0) {
         problematic.push({
           id: c.id,
           client: c.client,
@@ -1172,7 +1244,7 @@ app.get('/admin/analytics', async (req, res) => {
           start_date: c.start_date?.value || c.start_date,
           end_date: c.end_date?.value || c.end_date,
           investment: inv,
-          issue: 'Sem impressões cadastradas',
+          issue: 'Sem impressões/views cadastradas',
         })
       }
     }
@@ -1195,20 +1267,58 @@ app.get('/admin/analytics', async (req, res) => {
       }
     }
 
-    // Calcula CPM por CP e totais
-    const cpms = []
-    let totalInv = 0, totalContrat = 0, totalBonif = 0
+    // Calcula CPM/CPV por CP e totais
+    let totalInv = 0
+    let totalDisplayContrat = 0, totalDisplayBonif = 0, totalInvestDisplay = 0
+    let totalVideoContrat = 0, totalVideoBonif = 0, totalInvestVideo = 0
+    let totalCpmWeightSum = 0, totalCpmWeight = 0
+    let totalCpcvWeightSum = 0, totalCpcvWeight = 0
+
     for (const cp of byCp.values()) {
-      const totalImps = cp.impressoes_contratadas + cp.impressoes_bonificadas
-      cp.cpm = totalImps > 0 ? (cp.investment / totalImps) * 1000 : null
+      // CPM Real Display = invest_display / (impr_display_contratada + bonificada) * 1000
+      const totalDisplayImps = cp.impressoes_display_contratadas + cp.impressoes_display_bonificadas
+      cp.cpm_real = totalDisplayImps > 0 ? (cp.invest_display / totalDisplayImps) * 1000 : null
+
+      // CPV Real Video = invest_video / (views_contratadas + bonificadas)
+      const totalVideoViews = cp.views_video_contratadas + cp.views_video_bonificadas
+      cp.cpv_real = totalVideoViews > 0 ? (cp.invest_video / totalVideoViews) : null
+
+      // CPM Negociado = média ponderada
+      cp.cpm_negociado = cp.cpm_negociado_weight > 0 ? cp.cpm_negociado_sum_weighted / cp.cpm_negociado_weight : null
+
+      // CPV Negociado = média ponderada
+      cp.cpv_negociado = cp.cpcv_negociado_weight > 0 ? cp.cpcv_negociado_sum_weighted / cp.cpcv_negociado_weight : null
+
+      // Remove os campos intermediários (não precisa expor no JSON final)
+      delete cp.cpm_negociado_sum_weighted
+      delete cp.cpm_negociado_weight
+      delete cp.cpcv_negociado_sum_weighted
+      delete cp.cpcv_negociado_weight
+
+      // Acumula totais
       totalInv += cp.investment
-      totalContrat += cp.impressoes_contratadas
-      totalBonif += cp.impressoes_bonificadas
-      if (cp.cpm !== null) cpms.push(cp.cpm)
+      totalDisplayContrat += cp.impressoes_display_contratadas
+      totalDisplayBonif += cp.impressoes_display_bonificadas
+      totalInvestDisplay += cp.invest_display
+      totalVideoContrat += cp.views_video_contratadas
+      totalVideoBonif += cp.views_video_bonificadas
+      totalInvestVideo += cp.invest_video
+      if (cp.cpm_negociado != null) {
+        totalCpmWeightSum += cp.cpm_negociado * cp.invest_display
+        totalCpmWeight += cp.invest_display
+      }
+      if (cp.cpv_negociado != null) {
+        totalCpcvWeightSum += cp.cpv_negociado * cp.invest_video
+        totalCpcvWeight += cp.invest_video
+      }
     }
 
-    const totalImpsAll = totalContrat + totalBonif
-    const cpmGeral = totalImpsAll > 0 ? (totalInv / totalImpsAll) * 1000 : null
+    const totalDisplayImpsAll = totalDisplayContrat + totalDisplayBonif
+    const totalVideoViewsAll = totalVideoContrat + totalVideoBonif
+    const cpmRealGeral = totalDisplayImpsAll > 0 ? (totalInvestDisplay / totalDisplayImpsAll) * 1000 : null
+    const cpvRealGeral = totalVideoViewsAll > 0 ? (totalInvestVideo / totalVideoViewsAll) : null
+    const cpmNegociadoGeral = totalCpmWeight > 0 ? totalCpmWeightSum / totalCpmWeight : null
+    const cpvNegociadoGeral = totalCpcvWeight > 0 ? totalCpcvWeightSum / totalCpcvWeight : null
 
     // Ordena CPs por investimento desc
     const byCpArray = [...byCp.values()].sort((a, b) => b.investment - a.investment)
@@ -1218,9 +1328,14 @@ app.get('/admin/analytics', async (req, res) => {
       totals: {
         checklists: checklists.length,
         investment: totalInv,
-        impressoes_contratadas: totalContrat,
-        impressoes_bonificadas: totalBonif,
-        cpm_medio: cpmGeral,
+        impressoes_display_contratadas: totalDisplayContrat,
+        impressoes_display_bonificadas: totalDisplayBonif,
+        views_video_contratadas: totalVideoContrat,
+        views_video_bonificadas: totalVideoBonif,
+        cpm_real: cpmRealGeral,
+        cpv_real: cpvRealGeral,
+        cpm_negociado: cpmNegociadoGeral,
+        cpv_negociado: cpvNegociadoGeral,
       },
       by_cp: byCpArray,
       problematic_checklists: problematic,
