@@ -789,13 +789,13 @@ app.post('/checklists', async (req, res) => {
 
 app.get('/checklists', async (req, res) => {
   try {
-    // Corte do histórico no Command: apenas campanhas com start_date >= 2026-05-01
-    // (mês em que o HYPR Command foi lançado). Checklists com start_date NULL
+    // Corte do histórico no Command: apenas campanhas com start_date >= 2026-04-27
+    // (primeiros checklists submetidos no HYPR Command). Checklists com start_date NULL
     // também são incluídos (podem ser registros em processo de criação).
     // Dados anteriores continuam no BQ intactos — apenas não são exibidos no app.
     const rows = await query(
       `SELECT * FROM \`${PROJECT}.${DATASET}.checklists\`
-       WHERE start_date >= '2026-05-01' OR start_date IS NULL
+       WHERE start_date >= '2026-04-27' OR start_date IS NULL
        ORDER BY created_at DESC LIMIT 5000`
     )
     // Hydrate `extras` JSON back into the row, so dynamic fields like O2O_imp,
@@ -1048,7 +1048,7 @@ app.delete('/checklists/:id', async (req, res) => {
 // GET /admin/analytics
 // Retorna analytics agregados por CP, com KPIs gerais e lista de checklists com problemas
 // Query params (opcionais): start_date, end_date (formato YYYY-MM-DD)
-// Default: start_date = 2026-05-01 (início do HYPR Command)
+// Default: start_date = 2026-04-27 (início do HYPR Command)
 // ══════════════════════════════════════════════════════════════════════════════
 
 // Sanitiza valor de impressão que pode vir em formato BR ("3.000.000" ou "3000000")
@@ -1082,7 +1082,7 @@ function sanitizeImpressao(v) {
 
 app.get('/admin/analytics', async (req, res) => {
   try {
-    const startDate = req.query.start_date || '2026-05-01'
+    const startDate = req.query.start_date || '2026-04-27'
     const endDate = req.query.end_date || null
 
     // Valida formato de data (YYYY-MM-DD) anti-injection
