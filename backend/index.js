@@ -1168,27 +1168,30 @@ app.get('/admin/analytics', async (req, res) => {
       }
       extras = extras || {}
 
-      // Display (impressões) — soma O2O + OOH + RMNF + RMND
+      // Display (impressões) — soma O2O + OOH + Groundflow + RMND
+      // Groundflow: chave nova 'Groundflow_imp', com fallback pra 'RMNF_imp' (legado — mesmo produto, nome antigo)
       const o2oImp = sanitizeImpressao(extras.O2O_imp)
       const o2oBonus = sanitizeImpressao(extras.O2O_bonus_imp)
       const oohImp = sanitizeImpressao(extras.OOH_imp)
       const oohBonus = sanitizeImpressao(extras.OOH_bonus_imp)
-      const rmnfImp = sanitizeImpressao(extras.RMNF_imp)
-      const rmnfBonus = sanitizeImpressao(extras.RMNF_bonus_imp)
+      const gfImp = sanitizeImpressao(extras.Groundflow_imp ?? extras.RMNF_imp)
+      const gfBonus = sanitizeImpressao(extras.Groundflow_bonus_imp ?? extras.RMNF_bonus_imp)
       const rmndImp = sanitizeImpressao(extras.RMND_imp)
       const rmndBonus = sanitizeImpressao(extras.RMND_bonus_imp)
-      const displayContratada = (o2oImp || 0) + (oohImp || 0) + (rmnfImp || 0) + (rmndImp || 0)
-      const displayBonificada = (o2oBonus || 0) + (oohBonus || 0) + (rmnfBonus || 0) + (rmndBonus || 0)
+      const displayContratada = (o2oImp || 0) + (oohImp || 0) + (gfImp || 0) + (rmndImp || 0)
+      const displayBonificada = (o2oBonus || 0) + (oohBonus || 0) + (gfBonus || 0) + (rmndBonus || 0)
 
-      // Video (views) — soma O2O views + outros se houver
+      // Video (views) — soma O2O + OOH + Groundflow + RMND views
       const o2oViews = sanitizeImpressao(extras.O2O_views)
       const o2oBonusViews = sanitizeImpressao(extras.O2O_bonus_views)
       const oohViews = sanitizeImpressao(extras.OOH_views)
       const oohBonusViews = sanitizeImpressao(extras.OOH_bonus_views)
+      const gfViews = sanitizeImpressao(extras.Groundflow_views ?? extras.RMNF_views)
+      const gfBonusViews = sanitizeImpressao(extras.Groundflow_bonus_views ?? extras.RMNF_bonus_views)
       const rmndViews = sanitizeImpressao(extras.RMND_views)
       const rmndBonusViews = sanitizeImpressao(extras.RMND_bonus_views)
-      const videoContratada = (o2oViews || 0) + (oohViews || 0) + (rmndViews || 0)
-      const videoBonificada = (o2oBonusViews || 0) + (oohBonusViews || 0) + (rmndBonusViews || 0)
+      const videoContratada = (o2oViews || 0) + (oohViews || 0) + (gfViews || 0) + (rmndViews || 0)
+      const videoBonificada = (o2oBonusViews || 0) + (oohBonusViews || 0) + (gfBonusViews || 0) + (rmndBonusViews || 0)
 
       const cpmVal = parseFloat(c.cpm) || null
       const cpcvVal = parseFloat(c.cpcv) || null
