@@ -6,10 +6,10 @@ const CS_LIST = ["Beatriz Severine","Isaac Agiman","João Armelin","João Buzoli
 const GREENFIELD_QUEUE = CS_LIST.filter(c => c !== "Greenfield" && c !== "Solutions Architect");
 const SA_NAME = "Solutions Architect";
 const SA_EMAIL = "solutions@hypr.mobi";
-const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","Pós-Venda","Dados RMNF","Mapa Personalizado"];
-const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados RMNF": 3, "Mapa Personalizado": 3 };
+const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","Pós-Venda","Dados Groundflow","Mapa Personalizado"];
+const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados Groundflow": 3, "Mapa Personalizado": 3 };
 const CORE_PRODUCTS = ["O2O","OOH","RMN Digital","RMN Físico"];
-const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","RMNF","RMND"];
+const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","Groundflow","RMND"];
 const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context","Survey","Video Survey"];
 const FEATURES_WITH_VOLUMETRIA = ["P-DOOH","Tap to Go","Tap To Scratch","Weather","Topics","Click to Calendar","Downloaded Apps"];
 const MARKETPLACES = ["VTEX","Amazon"];
@@ -2249,7 +2249,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     return Math.round((filled + extra) / 14 * 100);
   }, [f]);
 
-  const showO2O=f.products.includes("O2O"),showOOH=f.products.includes("OOH"),showRMND=f.products.includes("RMND"),showRMNF=f.products.includes("RMNF");
+  const showO2O=f.products.includes("O2O"),showOOH=f.products.includes("OOH"),showRMND=f.products.includes("RMND"),showRMNF=f.products.includes("Groundflow")||f.products.includes("RMNF");
   const hasBonus=f.has_bonus==="Sim",hasVideo=f.formats.includes("Video"),hasDisplay=f.formats.includes("Display");
   const [validationError,setValidationError]=useState(null);
   const [requiredErrors,setRequiredErrors]=useState(null); // {missing: [{label, section}]}
@@ -4091,7 +4091,7 @@ function AdminPanel() {
             <KpiCard label="Investimento Total" value={fmtMoney(data.totals.investment)} color="var(--green)" icon="dollar"
               tooltip="Soma do campo 'Investimento' de todos os checklists do período. Inclui checklists com dados incompletos."/>
             <KpiCard label="Impr. Display (Contr.)" value={fmtImp(data.totals.impressoes_display_contratadas)} color="var(--teal-l)" icon="bar-chart"
-              tooltip="Soma das impressões Display contratadas (O2O + OOH + RMNF + RMND). Não inclui bonificadas."/>
+              tooltip="Soma das impressões Display contratadas (O2O + OOH + Groundflow + RMND). Não inclui bonificadas."/>
             <KpiCard label="Views Video (Contr.)" value={fmtImp(data.totals.views_video_contratadas)} color="var(--teal)" icon="play"
               tooltip="Soma das views Video contratadas (O2O + OOH + RMND). Não inclui bonificadas."/>
           </div>
