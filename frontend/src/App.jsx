@@ -4004,12 +4004,12 @@ function AdminPanel() {
     }
     if (preset === "custom") {
       return {
-        start_date: customStart || "2026-05-01",
+        start_date: customStart || "2026-04-27",
         end_date: customEnd || null,
       };
     }
     // "all"
-    return { start_date: "2026-05-01", end_date: null };
+    return { start_date: "2026-04-27", end_date: null };
   }, [preset, customStart, customEnd]);
 
   const fetchAnalytics = useCallback(async () => {
