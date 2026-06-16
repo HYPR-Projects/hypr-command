@@ -585,6 +585,12 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
    Generaliza o tratamento responsivo de tabela → cards
    ════════════════════════════════════════════════════════════════ */
 @media(max-width:768px){
+  /* Checklist Center: visão tabela só no desktop; mobile cai pros cards */
+  .cc-table-wrap{display:none !important}
+  .cc-cards-fallback{display:flex !important}
+  .cc-view-toggle{display:none !important}
+}
+@media(max-width:768px){
   /* Aplica o mesmo tratamento já provado (Fase 2) nas tabelas-lista */
   table.task-table,table.admin-table{
     min-width:0 !important;
@@ -2922,6 +2928,36 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
   const [collapsedMonths,setCollapsedMonths]=useState({});
   const [deleteConfirm,setDeleteConfirm]=useState(null); // checklist sendo deletado
   const [csList,setCsList]=useState([]); // [{name,email}] derivado de CS_LIST + checklists existentes
+  const [viewMode,setViewMode]=useState("cards"); // "cards" | "table"
+  // Config de colunas da tabela (qual aparece). Multi-valor vira tags; num tem faixa min/max.
+  const [tableCols,setTableCols]=useState(()=>([
+    {key:"client", label:"Cliente", type:"text", on:true},
+    {key:"campaign_name", label:"Campanha", type:"text", on:true},
+    {key:"agency", label:"Agência", type:"text", on:true},
+    {key:"industry", label:"Indústria", type:"select", on:true},
+    {key:"cp", label:"CP", type:"select", on:true},
+    {key:"cs", label:"CS", type:"select", on:true},
+    {key:"campaign_type", label:"Tipo", type:"select", on:true},
+    {key:"start_date", label:"Início", type:"date", on:true},
+    {key:"end_date", label:"Fim", type:"date", on:true},
+    {key:"investment", label:"Investimento", type:"num", money:true, on:true},
+    {key:"products", label:"Produtos", type:"tags", on:true},
+    {key:"formats", label:"Formatos", type:"tags", on:true},
+    {key:"features", label:"Features", type:"tags", on:true},
+    {key:"studies", label:"Estudos", type:"tags", studyTag:true, on:true},
+    {key:"pracas", label:"Praças", type:"tags", on:true},
+    {key:"cpm", label:"CPM", type:"num", on:false},
+    {key:"cpcv", label:"CPCV", type:"num", on:false},
+    {key:"o2o_imp", label:"O2O Impr.", type:"num", on:false},
+    {key:"o2o_bonus", label:"O2O Bonif.", type:"num", on:false},
+    {key:"o2o_views", label:"O2O Views", type:"num", on:false},
+    {key:"ooh_imp", label:"OOH Impr.", type:"num", on:false},
+    {key:"gf_imp", label:"Groundflow Impr.", type:"num", on:false},
+    {key:"audiences", label:"Audiências", type:"text", on:false},
+  ]));
+  const [tableFilters,setTableFilters]=useState({});
+  const [tableSort,setTableSort]=useState({key:null,dir:1});
+  const [showColsMenu,setShowColsMenu]=useState(false);
   const toast=useToast();
 
   // Lista de CS pro dropdown do editar — sem depender de /team (que retorna 404)
@@ -3166,6 +3202,84 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
     }
   };
 
+  // ── Extrai campos da tabela de um checklist (mapeia extras/arrays pra colunas planas) ──
+  const sanitizeNum = (v) => {
+    if(v==null||v==="") return null;
+    let s=String(v).trim();
+    if(s.includes(",")) s=s.replace(/\./g,"").replace(",",".");
+    else if(s.includes(".")){ const p=s.split("."); if(p.length>2||p[p.length-1].length===3) s=s.replace(/\./g,""); }
+    const n=parseFloat(s); return Number.isFinite(n)?n:null;
+  };
+  const checklistToRow = (c) => {
+    const ex = (typeof c.extras==="string" ? (()=>{try{return JSON.parse(c.extras)}catch{return{}}})() : (c.extras||{}));
+    const pracasCities = ex["praças_cities"] || c["praças_cities"] || [];
+    const pracasStates = ex["praças_states"] || c["praças_states"] || [];
+    const pracasOther = ex["praças_other"] || c["praças_other"] || "";
+    const pracas = [...(Array.isArray(pracasStates)?pracasStates:[]), ...(Array.isArray(pracasCities)?pracasCities:[]), ...(pracasOther?[pracasOther]:[])];
+    const features = ex.cl_features || c.cl_features || c.features || [];
+    const studiesRaw = c.selected_studies || ex.selected_studies || [];
+    const studies = (Array.isArray(studiesRaw)?studiesRaw:[]).map(s=>typeof s==="string"?s:(s.name||"")).filter(Boolean);
+    return {
+      _raw: c,
+      client: c.client||"",
+      campaign_name: c.campaign_name||"",
+      agency: c.agency||"",
+      industry: c.industry||"",
+      cp: c.cp_name || c.submitted_by || c.submittedBy || "",
+      cs: c.cs_name||"",
+      campaign_type: c.campaign_type||"",
+      start_date: c.start_date?.value || c.start_date || "",
+      end_date: c.end_date?.value || c.end_date || "",
+      investment: parseFloat(c.investment)||0,
+      products: Array.isArray(c.products)?c.products:[],
+      formats: Array.isArray(c.formats)?c.formats:[],
+      features: Array.isArray(features)?features:[],
+      studies,
+      pracas,
+      cpm: parseFloat(c.cpm)||null,
+      cpcv: parseFloat(c.cpcv)||null,
+      o2o_imp: sanitizeNum(ex.O2O_imp),
+      o2o_bonus: sanitizeNum(ex.O2O_bonus_imp),
+      o2o_views: sanitizeNum(ex.O2O_views),
+      ooh_imp: sanitizeNum(ex.OOH_imp),
+      gf_imp: sanitizeNum(ex.Groundflow_imp ?? ex.RMNF_imp),
+      audiences: c.audiences||"",
+    };
+  };
+
+  const fmtDateBrShort = (s) => { if(!s) return "—"; const m=String(s).match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[3]}/${m[2]}/${m[1]}`:s; };
+
+  // Linhas da tabela (aplica scope/busca/filtros globais já existentes via `filtered`, depois filtros por coluna)
+  const tableRows = useMemo(()=>{
+    let rows = filtered.map(checklistToRow);
+    for(const col of tableCols){
+      if(!col.on) continue;
+      const f=tableFilters[col.key];
+      if(f==null||f==="") { if(!(f&&(f.min||f.max))) continue; }
+      if(col.type==="text"||col.type==="date"){
+        if(f) rows=rows.filter(r=>String(r[col.key]||"").toLowerCase().includes(String(f).toLowerCase()));
+      } else if(col.type==="tags"){
+        if(f) rows=rows.filter(r=>(r[col.key]||[]).join(" ").toLowerCase().includes(String(f).toLowerCase()));
+      } else if(col.type==="select"){
+        if(f) rows=rows.filter(r=>String(r[col.key])===String(f));
+      } else if(col.type==="num" && f){
+        if(f.min!==""&&f.min!=null) rows=rows.filter(r=>(r[col.key]??-Infinity)>=parseFloat(f.min));
+        if(f.max!==""&&f.max!=null) rows=rows.filter(r=>(r[col.key]??Infinity)<=parseFloat(f.max));
+      }
+    }
+    if(tableSort.key){
+      rows=[...rows].sort((a,b)=>{
+        let x=a[tableSort.key], y=b[tableSort.key];
+        if(Array.isArray(x)){ x=x.join(","); y=(y||[]).join(","); }
+        if(typeof x==="number"||typeof y==="number") return ((x??0)-(y??0))*tableSort.dir;
+        return String(x||"").localeCompare(String(y||""))*tableSort.dir;
+      });
+    }
+    return rows;
+  },[filtered,tableCols,tableFilters,tableSort]);
+
+  const uniqueColVals = (key) => [...new Set(filtered.map(c=>checklistToRow(c)[key]).filter(v=>v!==""&&v!=null))].sort();
+
   // Detail row helper
   const D=({l,v,wide})=>{
     if(!v||v==="—") return null;
@@ -3208,6 +3322,37 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
               </button>
             ))}
           </div>
+          {/* Toggle Cards / Tabela */}
+          <div className="cc-view-toggle" style={{display:"flex",gap:0,background:"var(--bg3)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",padding:2}}>
+            {[{k:"cards",label:"Cards",icon:"grid"},{k:"table",label:"Tabela",icon:"list"}].map(o=>(
+              <button key={o.k}
+                style={{padding:"6px 12px",border:"none",background:viewMode===o.k?"var(--bg-card)":"transparent",borderRadius:6,cursor:"pointer",fontSize:11,fontWeight:600,color:viewMode===o.k?"var(--teal)":"var(--t3)",boxShadow:viewMode===o.k?"var(--sh-sm)":"none",transition:"all .15s",display:"flex",alignItems:"center",gap:5}}
+                onClick={()=>setViewMode(o.k)}>
+                <I n={o.icon} s={12}/>{o.label}
+              </button>
+            ))}
+          </div>
+          {/* Botão Colunas (só na visão tabela) */}
+          {viewMode==="table" && (
+            <div style={{position:"relative"}}>
+              <button className="btn bs" style={{fontSize:11,padding:"6px 12px",display:"flex",alignItems:"center",gap:5}} onClick={()=>setShowColsMenu(v=>!v)}>
+                <I n="sliders" s={12}/>Colunas
+              </button>
+              {showColsMenu && (
+                <>
+                  <div style={{position:"fixed",inset:0,zIndex:40}} onClick={()=>setShowColsMenu(false)}/>
+                  <div style={{position:"absolute",top:36,left:0,zIndex:50,background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r)",padding:8,minWidth:210,maxHeight:300,overflowY:"auto",boxShadow:"var(--sh-lg)"}}>
+                    {tableCols.map((col,i)=>(
+                      <label key={col.key} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 6px",fontSize:12.5,cursor:"pointer",borderRadius:6}}>
+                        <input type="checkbox" checked={col.on} onChange={()=>setTableCols(prev=>prev.map((c,j)=>j===i?{...c,on:!c.on}:c))} style={{width:"auto",margin:0}}/>
+                        {col.label}
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
         <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
           <select className="fi" style={{padding:"6px 10px",fontSize:12,minWidth:130,width:"auto"}} value={yearFilter} onChange={e=>{setYearFilter(e.target.value);setMonthFilter("all")}}>
@@ -3258,6 +3403,119 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
 
       {filtered.length===0?(
         <div className="card"><div className="empty"><I n="clipboard" s={40} c="var(--t3)"/><h3 style={{fontFamily:"var(--fd)",fontSize:15,color:"var(--t2)"}}>Nenhum checklist encontrado</h3></div></div>
+      ):viewMode==="table"?(
+        <>
+          {/* ── VISÃO TABELA (desktop) ── */}
+          <div className="cc-table-wrap card" style={{padding:0,overflow:"hidden"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:"1px solid var(--bdr)",gap:12,flexWrap:"wrap"}}>
+              <span style={{fontSize:12,color:"var(--t3)"}}>{tableRows.length} de {filtered.length} checklists</span>
+              {Object.keys(tableFilters).length>0 && (
+                <button className="btn bs" style={{fontSize:11,padding:"4px 10px"}} onClick={()=>setTableFilters({})}>
+                  <I n="x" s={11}/> Limpar filtros
+                </button>
+              )}
+            </div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12.5,whiteSpace:"nowrap"}}>
+                <thead>
+                  <tr style={{background:"var(--bg3)"}}>
+                    {tableCols.filter(c=>c.on).map(col=>(
+                      <th key={col.key} onClick={()=>setTableSort(s=>s.key===col.key?{key:col.key,dir:-s.dir}:{key:col.key,dir:1})}
+                        style={{textAlign:col.type==="num"?"right":"left",padding:"9px 12px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".05em",cursor:"pointer",userSelect:"none",borderBottom:"1px solid var(--bdr)",whiteSpace:"nowrap"}}>
+                        {col.label}{tableSort.key===col.key?(tableSort.dir===1?" ↑":" ↓"):""}
+                      </th>
+                    ))}
+                  </tr>
+                  <tr style={{background:"var(--bg3)"}}>
+                    {tableCols.filter(c=>c.on).map(col=>(
+                      <th key={col.key} style={{padding:"5px 8px",borderBottom:"1px solid var(--bdr)",verticalAlign:"top"}}>
+                        {(col.type==="text"||col.type==="tags"||col.type==="date")?(
+                          <input className="fi" placeholder={col.type==="tags"?"contém…":"filtrar…"} value={tableFilters[col.key]||""}
+                            onChange={e=>setTableFilters(f=>({...f,[col.key]:e.target.value}))}
+                            style={{width:"100%",minWidth:90,height:28,fontSize:11,padding:"2px 8px"}}/>
+                        ):col.type==="select"?(
+                          <select className="fi" value={tableFilters[col.key]||""} onChange={e=>setTableFilters(f=>({...f,[col.key]:e.target.value}))}
+                            style={{width:"100%",minWidth:90,height:28,fontSize:11,padding:"2px 4px"}}>
+                            <option value="">Todos</option>
+                            {uniqueColVals(col.key).map(v=><option key={v} value={v}>{v}</option>)}
+                          </select>
+                        ):col.type==="num"?(
+                          <div style={{display:"flex",gap:3}}>
+                            <input className="fi" type="number" placeholder="mín" value={(tableFilters[col.key]&&tableFilters[col.key].min)||""}
+                              onChange={e=>setTableFilters(f=>({...f,[col.key]:{...(f[col.key]||{}),min:e.target.value}}))}
+                              style={{width:52,height:28,fontSize:11,padding:"2px 4px"}}/>
+                            <input className="fi" type="number" placeholder="máx" value={(tableFilters[col.key]&&tableFilters[col.key].max)||""}
+                              onChange={e=>setTableFilters(f=>({...f,[col.key]:{...(f[col.key]||{}),max:e.target.value}}))}
+                              style={{width:52,height:28,fontSize:11,padding:"2px 4px"}}/>
+                          </div>
+                        ):null}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((r,idx)=>(
+                    <tr key={r._raw.id||idx} onClick={()=>setSelected(r._raw)}
+                      style={{borderBottom:"1px solid var(--bdr-card)",cursor:"pointer"}}
+                      onMouseEnter={e=>e.currentTarget.style.background="var(--bg3)"}
+                      onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                      {tableCols.filter(c=>c.on).map(col=>{
+                        let val=r[col.key];
+                        return (
+                          <td key={col.key} style={{padding:"9px 12px",textAlign:col.type==="num"?"right":"left",color:"var(--t1)",fontVariantNumeric:col.type==="num"?"tabular-nums":"normal"}}>
+                            {col.type==="tags"?(
+                              (!val||!val.length)?<span style={{color:"var(--t3)"}}>—</span>:
+                              <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+                                {val.map((tag,ti)=>(
+                                  <span key={ti} style={{display:"inline-block",background:col.studyTag?"var(--green-dim)":"var(--teal-dim)",color:col.studyTag?"var(--green)":"var(--teal-l)",fontSize:10,padding:"2px 7px",borderRadius:6,whiteSpace:"nowrap"}}>{tag}</span>
+                                ))}
+                              </div>
+                            ):col.money?(
+                              "R$ "+Math.round(val).toLocaleString("pt-BR")
+                            ):col.type==="num"?(
+                              val==null?<span style={{color:"var(--t3)"}}>—</span>:val.toLocaleString("pt-BR")
+                            ):col.type==="date"?(
+                              fmtDateBrShort(val)
+                            ):(
+                              val||<span style={{color:"var(--t3)"}}>—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {/* ── No mobile, tabela cai pros cards ── */}
+          <div className="cc-cards-fallback" style={{display:"none",flexDirection:"column",gap:18}}>
+            {monthlyGroups.map(g=>{
+              const collapsed = collapsedMonths[g.key];
+              return (
+                <div key={g.key} className="card" style={{padding:0,overflow:"hidden"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap",cursor:"pointer",padding:"14px 18px",borderBottom:collapsed?"none":"1px solid var(--bdr)"}} onClick={()=>toggleMonth(g.key)}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <I n="chevron-down" s={16} c="var(--t2)" style={{transform:collapsed?"rotate(-90deg)":"none",transition:"transform .15s"}}/>
+                      <span style={{fontFamily:"var(--fd)",fontSize:14,fontWeight:700}}>{g.label}</span>
+                      <span style={{fontSize:11,color:"var(--t3)"}}>{g.campaigns} {g.campaigns===1?"campanha":"campanhas"}</span>
+                    </div>
+                  </div>
+                  {!collapsed && (
+                    <div style={{padding:16,display:"grid",gridTemplateColumns:"1fr",gap:12}}>
+                      {g.checklists.map(c=>(
+                        <div key={c.id} className="card" style={{padding:14,cursor:"pointer"}} onClick={()=>setSelected(c)}>
+                          <div style={{fontWeight:700,fontSize:14}}>{c.client}</div>
+                          <div style={{fontSize:12,color:"var(--t3)"}}>{c.campaign_name}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
       ):(
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
           {monthlyGroups.map(g=>{
