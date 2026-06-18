@@ -2255,6 +2255,18 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     return Math.round((filled + extra) / 14 * 100);
   }, [f]);
 
+  // Toggle de produto que LIMPA a volumetria ao desmarcar (evita campos órfãos
+  // tipo OOH_imp/OOH_views ficarem no payload depois de remover o produto).
+  const togProduct=(prod)=>sF(p=>{
+    const arr=p.products||[];
+    if(arr.includes(prod)){
+      const np={...p,products:arr.filter(x=>x!==prod)};
+      ["_imp","_views","_bonus_imp","_bonus_views"].forEach(s=>{delete np[`${prod}${s}`];});
+      if(prod==="OOH") np.ooh_link="";
+      return np;
+    }
+    return {...p,products:[...arr,prod]};
+  });
   const showO2O=f.products.includes("O2O"),showOOH=f.products.includes("OOH"),showRMND=f.products.includes("RMND"),showRMNF=f.products.includes("Groundflow")||f.products.includes("RMNF");
   const hasBonus=f.has_bonus==="Sim",hasVideo=f.formats.includes("Video"),hasDisplay=f.formats.includes("Display");
   const [validationError,setValidationError]=useState(null);
@@ -2508,7 +2520,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
 
       <Sec title="3. Produtos Core e Volumetria">
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
-          <CF l="Produtos" req><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{CHECKLIST_CORE_PRODUCTS.map(p=><span key={p} className={`chip${f.products.includes(p)?" sel":""}`} onClick={()=>tog("products",p)}>{p}</span>)}</div></CF>
+          <CF l="Produtos" req><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{CHECKLIST_CORE_PRODUCTS.map(p=><span key={p} className={`chip${f.products.includes(p)?" sel":""}`} onClick={()=>togProduct(p)}>{p}</span>)}</div></CF>
 
           {/* Volumetria per selected product */}
           {f.products.map(prod=>(
@@ -3716,7 +3728,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                     <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                       {CHECKLIST_CORE_PRODUCTS.map(prod=>(
                         <span key={prod} className={`chip${(editData.products||[]).includes(prod)?" sel":""}`} style={{fontSize:11}}
-                          onClick={()=>setEditData(p=>{const arr=p.products||[];return{...p,products:arr.includes(prod)?arr.filter(x=>x!==prod):[...arr,prod]}})}>
+                          onClick={()=>setEditData(p=>{const arr=p.products||[];if(arr.includes(prod)){const np={...p,products:arr.filter(x=>x!==prod)};["_imp","_views","_bonus_imp","_bonus_views"].forEach(s=>{delete np[`${prod}${s}`];});if(prod==="OOH") np.ooh_link="";return np;}return{...p,products:[...arr,prod]};})}>
                           {prod}
                         </span>
                       ))}
