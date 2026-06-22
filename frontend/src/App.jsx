@@ -4746,6 +4746,7 @@ export default function App() {
         if(Array.isArray(rows)){
           setTasks(rows.map(r=>({
             id:r.id, type:r.type, client:r.client, agency:r.agency,
+            campaign_name:r.campaign_name||r.campaignName||"",
             products:r.products||[], features:r.features||[],
             budget:r.budget, briefing:r.briefing, cs:r.cs, csEmail:r.cs_email,
             status:r.status, deadline:r.deadline?.value||r.deadline,
