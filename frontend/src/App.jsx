@@ -1494,6 +1494,9 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
       budget: merged.budget,
       products: merged.products,
       features: merged.features,
+      campaign_name: merged.campaign_name,
+      campaignName: merged.campaign_name,
+      agency: merged.agency,
       editedBy: user?.name,
       editedByEmail: user?.email,
     };
