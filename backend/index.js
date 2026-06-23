@@ -628,7 +628,7 @@ app.post('/checklists', async (req, res) => {
       'ooh_link','audiences','pracas_type','pracas_detail','had_cs_meeting','marketplaces',
       'features','feature_volumes','pecas_link','redirect_urls','extra_urls','pi_link',
       'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
-      'submittedByEmail','short_token','observations','marketing_action',
+      'submittedByEmail','short_token','observations','marketing_action','studies_used',
       // praças variants kept out of extras (already mapped above)
       'praças_type','pracas_type','pracas_detail',
     ])
@@ -692,6 +692,7 @@ app.post('/checklists', async (req, res) => {
       short_token: f.short_token || null,
       observations: f.observations || null,
       marketing_action: f.marketing_action || null,
+      studies_used: Array.isArray(f.studies_used) ? f.studies_used.filter(Boolean) : [],
       extras: JSON.stringify(extras),
       created_at: now,
     }
@@ -711,6 +712,7 @@ app.post('/checklists', async (req, res) => {
       cs_name: 'STRING', cs_email: 'STRING',
       submitted_by: 'STRING', submitted_by_email: 'STRING', short_token: 'STRING',
       observations: 'STRING', marketing_action: 'STRING',
+      studies_used: ['STRING'],
       extras: 'STRING', created_at: 'STRING',
     }
     // Datas como literal (parameter binding de DATE bugado no SDK Node)
@@ -726,7 +728,7 @@ app.post('/checklists', async (req, res) => {
         ooh_link, audiences, pracas_type, pracas_detail, had_cs_meeting, marketplaces,
         features, feature_volumes, pecas_link, redirect_urls, pi_link, proposta_link,
         cs_name, cs_email, submitted_by, submitted_by_email, short_token,
-        observations, marketing_action, extras, created_at
+        observations, marketing_action, studies_used, extras, created_at
       ) VALUES (
         @id, @cp_name, @cp_email, @agency, @industry, @campaign_type, @client, @campaign_name,
         ${startDateLiteral}, ${endDateLiteral}, @investment, @deal_dv360, @formats, @cpm, @cpcv, @products,
@@ -734,7 +736,7 @@ app.post('/checklists', async (req, res) => {
         @ooh_link, @audiences, @pracas_type, @pracas_detail, @had_cs_meeting, @marketplaces,
         @features, PARSE_JSON(@feature_volumes), @pecas_link, @redirect_urls, @pi_link, @proposta_link,
         @cs_name, @cs_email, @submitted_by, @submitted_by_email, @short_token,
-        @observations, @marketing_action, PARSE_JSON(@extras), @created_at
+        @observations, @marketing_action, @studies_used, PARSE_JSON(@extras), @created_at
       )
     `
     console.log('[POST /checklists] start_date literal:', startDateLiteral, '| end_date literal:', endDateLiteral)
@@ -840,7 +842,7 @@ app.put('/checklists/:id', async (req, res) => {
       'ooh_link','audiences','pracas_type','pracas_detail','had_cs_meeting','marketplaces',
       'features','feature_volumes','pecas_link','redirect_urls','extra_urls','pi_link',
       'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
-      'submittedByEmail','short_token','id','created_at','updated_at','extras','observations','marketing_action',
+      'submittedByEmail','short_token','id','created_at','updated_at','extras','observations','marketing_action','studies_used',
       'praças_type','pracas_type','pracas_detail',
     ])
     const extras = {}
@@ -942,6 +944,9 @@ app.put('/checklists/:id', async (req, res) => {
     }
     if (f.features !== undefined) {
       sets.push(`features = @p_features`); params.p_features = f.features || []; types.p_features = ['STRING']
+    }
+    if (f.studies_used !== undefined) {
+      sets.push(`studies_used = @p_studies_used`); params.p_studies_used = Array.isArray(f.studies_used) ? f.studies_used.filter(Boolean) : []; types.p_studies_used = ['STRING']
     }
     if (f.feature_volumes !== undefined) {
       sets.push(`feature_volumes = PARSE_JSON(@p_feature_volumes)`)
