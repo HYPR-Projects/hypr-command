@@ -2447,7 +2447,10 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     (f.products||[]).forEach(prod=>{ numKeys.push(`${prod}_imp`,`${prod}_views`,`${prod}_bonus_imp`,`${prod}_bonus_views`); });
     const normalizedNums = {};
     numKeys.forEach(k=>{ if(f[k]!=null && f[k]!=="") normalizedNums[k]=normalizeNumber(f[k]); });
-    const payload={...f,...normalizedNums,marketing_action:cleanedMarketingAction,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email,short_token};
+    // Deriva studies_used (ARRAY<STRING> de nomes) a partir de selected_studies.
+    // O Commplan (comissões) lê de studies_used; o Command mantém selected_studies (objetos ricos) pra UI.
+    const studies_used = (f.selected_studies||[]).map(s=>typeof s==="string"?s:(s&&s.name)).filter(Boolean);
+    const payload={...f,...normalizedNums,studies_used,marketing_action:cleanedMarketingAction,submittedBy:user?.name,submittedByEmail:user?.email,cp_name:user?.name,cp_email:user?.email,short_token};
     if(onChecklistSubmit)onChecklistSubmit(payload);
     sSub(true);
     toast("Checklist enviado com sucesso!");
