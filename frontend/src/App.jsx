@@ -1658,7 +1658,7 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen}){
         <table className="task-table" style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead>
             <tr style={{borderBottom:"1px solid var(--bdr)",background:"var(--bg3)"}}>
-              {["Cliente","Tipo","CS","Solicitante","Prazo","Status","Doc","Ação"].map(h=>(
+              {["Cliente","Tipo","CS","Solicitante","Prazo","Aberta em","Status","Doc","Ação"].map(h=>(
                 <th key={h} style={{textAlign:h==="Ação"||h==="Status"||h==="Doc"?"center":"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>{h}</th>
               ))}
             </tr>
@@ -1682,6 +1682,7 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen}){
                   <td data-cell-label="cs" style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{shortName(t.cs)}</td>
                   <td data-cell-label="solicitante" style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{shortName(t.requestedBy)}</td>
                   <td data-cell-label="prazo" style={{padding:"12px 14px",fontSize:12,color:st==="Atrasada"?"var(--red)":"var(--t2)",whiteSpace:"nowrap"}}>{fmtDate(t.deadline)}</td>
+                  <td data-cell-label="aberta em" style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{fmtDate(t.createdAt)}</td>
                   <td data-cell-label="status" style={{padding:"12px 14px",textAlign:"center"}}>
                     <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:stBg,color:stColor}}>{st}</span>
                   </td>
