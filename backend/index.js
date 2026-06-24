@@ -629,6 +629,9 @@ app.post('/checklists', async (req, res) => {
       'features','feature_volumes','pecas_link','redirect_urls','extra_urls','pi_link',
       'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
       'submittedByEmail','short_token','observations','marketing_action','studies_used',
+      'groundflow_types','Groundflow_split_lift_imp','Groundflow_split_lift_views',
+      'Groundflow_signals_imp','Groundflow_signals_views','Groundflow_plan_imp','Groundflow_plan_views',
+      'Groundflow_patterns_imp','Groundflow_patterns_views',
       // praças variants kept out of extras (already mapped above)
       'praças_type','pracas_type','pracas_detail',
     ])
@@ -693,6 +696,15 @@ app.post('/checklists', async (req, res) => {
       observations: f.observations || null,
       marketing_action: f.marketing_action || null,
       studies_used: Array.isArray(f.studies_used) ? f.studies_used.filter(Boolean) : [],
+      groundflow_types: Array.isArray(f.groundflow_types) ? f.groundflow_types.filter(Boolean) : [],
+      Groundflow_split_lift_imp: f.Groundflow_split_lift_imp || null,
+      Groundflow_split_lift_views: f.Groundflow_split_lift_views || null,
+      Groundflow_signals_imp: f.Groundflow_signals_imp || null,
+      Groundflow_signals_views: f.Groundflow_signals_views || null,
+      Groundflow_plan_imp: f.Groundflow_plan_imp || null,
+      Groundflow_plan_views: f.Groundflow_plan_views || null,
+      Groundflow_patterns_imp: f.Groundflow_patterns_imp || null,
+      Groundflow_patterns_views: f.Groundflow_patterns_views || null,
       extras: JSON.stringify(extras),
       created_at: now,
     }
@@ -713,6 +725,11 @@ app.post('/checklists', async (req, res) => {
       submitted_by: 'STRING', submitted_by_email: 'STRING', short_token: 'STRING',
       observations: 'STRING', marketing_action: 'STRING',
       studies_used: ['STRING'],
+      groundflow_types: ['STRING'],
+      Groundflow_split_lift_imp: 'STRING', Groundflow_split_lift_views: 'STRING',
+      Groundflow_signals_imp: 'STRING', Groundflow_signals_views: 'STRING',
+      Groundflow_plan_imp: 'STRING', Groundflow_plan_views: 'STRING',
+      Groundflow_patterns_imp: 'STRING', Groundflow_patterns_views: 'STRING',
       extras: 'STRING', created_at: 'STRING',
     }
     // Datas como literal (parameter binding de DATE bugado no SDK Node)
@@ -728,7 +745,11 @@ app.post('/checklists', async (req, res) => {
         ooh_link, audiences, pracas_type, pracas_detail, had_cs_meeting, marketplaces,
         features, feature_volumes, pecas_link, redirect_urls, pi_link, proposta_link,
         cs_name, cs_email, submitted_by, submitted_by_email, short_token,
-        observations, marketing_action, studies_used, extras, created_at
+        observations, marketing_action, studies_used,
+        groundflow_types, Groundflow_split_lift_imp, Groundflow_split_lift_views,
+        Groundflow_signals_imp, Groundflow_signals_views, Groundflow_plan_imp, Groundflow_plan_views,
+        Groundflow_patterns_imp, Groundflow_patterns_views,
+        extras, created_at
       ) VALUES (
         @id, @cp_name, @cp_email, @agency, @industry, @campaign_type, @client, @campaign_name,
         ${startDateLiteral}, ${endDateLiteral}, @investment, @deal_dv360, @formats, @cpm, @cpcv, @products,
@@ -736,7 +757,11 @@ app.post('/checklists', async (req, res) => {
         @ooh_link, @audiences, @pracas_type, @pracas_detail, @had_cs_meeting, @marketplaces,
         @features, PARSE_JSON(@feature_volumes), @pecas_link, @redirect_urls, @pi_link, @proposta_link,
         @cs_name, @cs_email, @submitted_by, @submitted_by_email, @short_token,
-        @observations, @marketing_action, @studies_used, PARSE_JSON(@extras), @created_at
+        @observations, @marketing_action, @studies_used,
+        @groundflow_types, @Groundflow_split_lift_imp, @Groundflow_split_lift_views,
+        @Groundflow_signals_imp, @Groundflow_signals_views, @Groundflow_plan_imp, @Groundflow_plan_views,
+        @Groundflow_patterns_imp, @Groundflow_patterns_views,
+        PARSE_JSON(@extras), @created_at
       )
     `
     console.log('[POST /checklists] start_date literal:', startDateLiteral, '| end_date literal:', endDateLiteral)
@@ -842,7 +867,7 @@ app.put('/checklists/:id', async (req, res) => {
       'ooh_link','audiences','pracas_type','pracas_detail','had_cs_meeting','marketplaces',
       'features','feature_volumes','pecas_link','redirect_urls','extra_urls','pi_link',
       'proposta_link','cs_name','cs_email','submitted_by','submitted_by_email','submittedBy',
-      'submittedByEmail','short_token','id','created_at','updated_at','extras','observations','marketing_action','studies_used',
+      'submittedByEmail','short_token','id','created_at','updated_at','extras','observations','marketing_action','studies_used','groundflow_types','Groundflow_split_lift_imp','Groundflow_split_lift_views','Groundflow_signals_imp','Groundflow_signals_views','Groundflow_plan_imp','Groundflow_plan_views','Groundflow_patterns_imp','Groundflow_patterns_views',
       'praças_type','pracas_type','pracas_detail',
     ])
     const extras = {}
@@ -948,6 +973,14 @@ app.put('/checklists/:id', async (req, res) => {
     if (f.studies_used !== undefined) {
       sets.push(`studies_used = @p_studies_used`); params.p_studies_used = Array.isArray(f.studies_used) ? f.studies_used.filter(Boolean) : []; types.p_studies_used = ['STRING']
     }
+    if (f.groundflow_types !== undefined) {
+      sets.push(`groundflow_types = @p_groundflow_types`); params.p_groundflow_types = Array.isArray(f.groundflow_types) ? f.groundflow_types.filter(Boolean) : []; types.p_groundflow_types = ['STRING']
+    }
+    ;['Groundflow_split_lift_imp','Groundflow_split_lift_views','Groundflow_signals_imp','Groundflow_signals_views','Groundflow_plan_imp','Groundflow_plan_views','Groundflow_patterns_imp','Groundflow_patterns_views'].forEach(col=>{
+      if (f[col] !== undefined) {
+        sets.push(`${col} = @p_${col}`); params[`p_${col}`] = f[col] || null; types[`p_${col}`] = 'STRING'
+      }
+    })
     if (f.feature_volumes !== undefined) {
       sets.push(`feature_volumes = PARSE_JSON(@p_feature_volumes)`)
       params.p_feature_volumes = JSON.stringify(f.feature_volumes || {})

@@ -10,6 +10,13 @@ const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","
 const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados Groundflow": 3, "Mapa Personalizado": 3 };
 const CORE_PRODUCTS = ["O2O","OOH","RMN Digital","RMN Físico"];
 const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","Groundflow","RMND"];
+// Tipos de Groundflow. Chave interna (pra coluna BQ) + label exibido.
+const GROUNDFLOW_TYPES = [
+  {key:"split_lift", label:"Split + Lift"},
+  {key:"signals", label:"Signals"},
+  {key:"plan", label:"Plan"},
+  {key:"patterns", label:"Patterns"},
+];
 const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context","Survey","Video Survey"];
 const FEATURES_WITH_VOLUMETRIA = ["P-DOOH","Tap to Go","Tap To Scratch","Weather","Topics","Click to Calendar","Downloaded Apps"];
 const MARKETPLACES = ["VTEX","Amazon"];
@@ -2240,7 +2247,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
   const availableStudies = useStudies();
-  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],observations:"",marketing_action:"",cs_name:"",cs_email:""};
+  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},groundflow_types:[],Groundflow_split_lift_imp:"",Groundflow_split_lift_views:"",Groundflow_signals_imp:"",Groundflow_signals_views:"",Groundflow_plan_imp:"",Groundflow_plan_views:"",Groundflow_patterns_imp:"",Groundflow_patterns_views:"",pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],observations:"",marketing_action:"",cs_name:"",cs_email:""};
   const [f,sF]=useState(()=>{
     if(!initialData) return INIT;
     const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
@@ -2447,6 +2454,10 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     // Normaliza campos numéricos (caso o usuário não tenha saído do campo antes de enviar)
     const numKeys = ["investment","cpm","cpcv"];
     (f.products||[]).forEach(prod=>{ numKeys.push(`${prod}_imp`,`${prod}_views`,`${prod}_bonus_imp`,`${prod}_bonus_views`); });
+    // Campos por tipo de Groundflow
+    if((f.products||[]).includes("Groundflow")){
+      (f.groundflow_types||[]).forEach(gt=>{ numKeys.push(`Groundflow_${gt}_imp`,`Groundflow_${gt}_views`); });
+    }
     const normalizedNums = {};
     numKeys.forEach(k=>{ if(f[k]!=null && f[k]!=="") normalizedNums[k]=normalizeNumber(f[k]); });
     // Deriva studies_used (ARRAY<STRING> de nomes) a partir de selected_studies.
@@ -2569,11 +2580,25 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
             <div key={prod} style={{padding:16,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
               <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:12,textTransform:"uppercase",letterSpacing:".06em"}}>{prod} — Volumetria Contratada</div>
               <div className="g2" style={{gap:12}}>
-                <CF l="Impressões Visíveis"><input type="text" inputMode="numeric" className="fi" placeholder="Ex: 1.000.000" value={f[`${prod}_imp`]||""} onChange={e=>set(`${prod}_imp`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_imp`)}/>{f[`${prod}_imp`]&&fmtConfirm(f[`${prod}_imp`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_imp`])}</div>}</CF>
-                <CF l="Views 100%"><input type="text" inputMode="numeric" className="fi" placeholder="Ex: 500.000" value={f[`${prod}_views`]||""} onChange={e=>set(`${prod}_views`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_views`)}/>{f[`${prod}_views`]&&fmtConfirm(f[`${prod}_views`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_views`])}</div>}</CF>
+                {hasDisplay&&<CF l="Impressões Visíveis"><input type="text" inputMode="numeric" className="fi" placeholder="Ex: 1.000.000" value={f[`${prod}_imp`]||""} onChange={e=>set(`${prod}_imp`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_imp`)}/>{f[`${prod}_imp`]&&fmtConfirm(f[`${prod}_imp`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_imp`])}</div>}</CF>}
+                {hasVideo&&<CF l="Views 100%"><input type="text" inputMode="numeric" className="fi" placeholder="Ex: 500.000" value={f[`${prod}_views`]||""} onChange={e=>set(`${prod}_views`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_views`)}/>{f[`${prod}_views`]&&fmtConfirm(f[`${prod}_views`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_views`])}</div>}</CF>}
               </div>
               {prod==="OOH"&&<div style={{marginTop:12}}><CF l="Link dos endereços OOH"><input className="fi" placeholder="https://..." value={f.ooh_link} onChange={e=>set("ooh_link",e.target.value)}/></CF></div>}
               {prod==="RMND"&&<div style={{marginTop:12}}><CF l="Marketplaces"><div style={{display:"flex",gap:8}}>{MARKETPLACES.map(m=><span key={m} className={`chip${f.marketplaces.includes(m)?" sel":""}`} onClick={()=>tog("marketplaces",m)}>{m}</span>)}</div></CF></div>}
+              {prod==="Groundflow"&&(
+                <div style={{marginTop:12}}>
+                  <CF l="Tipos de Groundflow"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{GROUNDFLOW_TYPES.map(gt=><span key={gt.key} className={`chip${f.groundflow_types.includes(gt.key)?" sel":""}`} onClick={()=>tog("groundflow_types",gt.key)}>{gt.label}</span>)}</div></CF>
+                  {GROUNDFLOW_TYPES.filter(gt=>f.groundflow_types.includes(gt.key)).map(gt=>(
+                    <div key={gt.key} style={{marginTop:12,padding:14,background:"var(--bg-card)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"var(--teal)",marginBottom:10,textTransform:"uppercase",letterSpacing:".05em"}}>{gt.label}</div>
+                      <div className="g2" style={{gap:12}}>
+                        {hasDisplay&&<CF l="Impressões Visíveis"><input type="text" inputMode="numeric" className="fi" placeholder="Ex: 1.000.000" value={f[`Groundflow_${gt.key}_imp`]||""} onChange={e=>set(`Groundflow_${gt.key}_imp`,e.target.value)} onBlur={()=>normalizeOnBlur(`Groundflow_${gt.key}_imp`)}/>{f[`Groundflow_${gt.key}_imp`]&&fmtConfirm(f[`Groundflow_${gt.key}_imp`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`Groundflow_${gt.key}_imp`])}</div>}</CF>}
+                        {hasVideo&&<CF l="Views 100%"><input type="text" inputMode="numeric" className="fi" placeholder="Ex: 500.000" value={f[`Groundflow_${gt.key}_views`]||""} onChange={e=>set(`Groundflow_${gt.key}_views`,e.target.value)} onBlur={()=>normalizeOnBlur(`Groundflow_${gt.key}_views`)}/>{f[`Groundflow_${gt.key}_views`]&&fmtConfirm(f[`Groundflow_${gt.key}_views`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`Groundflow_${gt.key}_views`])}</div>}</CF>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
 
@@ -2583,8 +2608,8 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
             <div key={prod+"_b"} style={{padding:14,background:"var(--yellow-dim)",borderRadius:"var(--r)",border:"1px solid rgba(237,217,0,0.3)"}}>
               <div style={{fontSize:12,fontWeight:700,color:"#a07a00",marginBottom:10,textTransform:"uppercase"}}>{prod} — Bonificação</div>
               <div className="g2" style={{gap:12}}>
-                <CF l="Impressões Visíveis Bonif."><input type="text" inputMode="numeric" className="fi" value={f[`${prod}_bonus_imp`]||""} onChange={e=>set(`${prod}_bonus_imp`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_bonus_imp`)}/>{f[`${prod}_bonus_imp`]&&fmtConfirm(f[`${prod}_bonus_imp`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_bonus_imp`])}</div>}</CF>
-                <CF l="Views 100% Bonif."><input type="text" inputMode="numeric" className="fi" value={f[`${prod}_bonus_views`]||""} onChange={e=>set(`${prod}_bonus_views`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_bonus_views`)}/>{f[`${prod}_bonus_views`]&&fmtConfirm(f[`${prod}_bonus_views`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_bonus_views`])}</div>}</CF>
+                {hasDisplay&&<CF l="Impressões Visíveis Bonif."><input type="text" inputMode="numeric" className="fi" value={f[`${prod}_bonus_imp`]||""} onChange={e=>set(`${prod}_bonus_imp`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_bonus_imp`)}/>{f[`${prod}_bonus_imp`]&&fmtConfirm(f[`${prod}_bonus_imp`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_bonus_imp`])}</div>}</CF>}
+                {hasVideo&&<CF l="Views 100% Bonif."><input type="text" inputMode="numeric" className="fi" value={f[`${prod}_bonus_views`]||""} onChange={e=>set(`${prod}_bonus_views`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_bonus_views`)}/>{f[`${prod}_bonus_views`]&&fmtConfirm(f[`${prod}_bonus_views`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_bonus_views`])}</div>}</CF>}
               </div>
             </div>
           ))}
