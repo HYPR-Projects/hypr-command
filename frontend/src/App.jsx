@@ -4696,9 +4696,9 @@ function LoginScreen() {
   return (
     <div style={{minHeight:"100vh",background:"#1C262F",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Urbanist',sans-serif"}}>
       <div style={{textAlign:"center",padding:40}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:4}}>
-          <img src="/hypr-logo-white.png" alt="HYPR" style={{height:40,width:"auto",objectFit:"contain"}}/>
-          <span style={{color:"#3397B9",fontSize:20,fontWeight:400,letterSpacing:"0.08em",fontFamily:"'Urbanist',sans-serif"}}>Command</span>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:14,marginBottom:4}}>
+          <img src="/hypr-logo-white.png" alt="HYPR" style={{height:44,width:"auto",objectFit:"contain"}}/>
+          <span style={{color:"#3397B9",fontSize:30,fontWeight:400,letterSpacing:"0.04em",fontFamily:"'Urbanist',sans-serif"}}>Command</span>
         </div>
         <div style={{color:"#8DA0AE",fontSize:14,marginBottom:40}}>Plataforma integrada Sales & CS</div>
         <div style={{display:"flex",justifyContent:"center",marginBottom:16}} ref={divRef} />
@@ -4869,7 +4869,7 @@ export default function App() {
         <aside className={`sb${collapsed?" col":""}${mobileOpen?" mob":""}`}>
           <div className="sb-logo">
             {collapsed?<img src="/hypr-logo-white.png" alt="HYPR" style={{width:"100%",maxWidth:48,height:"auto",objectFit:"contain"}}/>
-            :<div style={{display:"flex",alignItems:"center",gap:8}}><img src="/hypr-logo-white.png" alt="HYPR" style={{height:22,width:"auto",objectFit:"contain"}}/><span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em",fontFamily:"var(--fd)"}}>Command</span></div>}
+            :<div style={{display:"flex",alignItems:"center",gap:9}}><img src="/hypr-logo-white.png" alt="HYPR" style={{height:24,width:"auto",objectFit:"contain"}}/><span style={{color:"var(--teal)",fontWeight:400,fontSize:16,letterSpacing:".04em",fontFamily:"var(--fd)"}}>Command</span></div>}
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
