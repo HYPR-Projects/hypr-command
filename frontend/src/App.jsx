@@ -230,6 +230,7 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
 .sb.col{width:64px;min-width:64px}
 @media(max-width:768px){.sb{transform:translateX(-100%);width:260px;min-width:260px}.sb.col{width:260px;min-width:260px}.sb.mob{transform:translateX(0);box-shadow:4px 0 24px rgba(0,0,0,0.4)}}
 .sb-logo{padding:20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;min-height:64px}
+.sb.col .sb-logo{padding:12px 8px}
 .sb-lbl{font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal);padding:20px 20px 8px}
 .sb-nav{flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
 .ni{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--r);color:rgba(255,255,255,0.65);font-size:13px;font-weight:500;cursor:pointer;border:none;background:none;width:100%;text-align:left;transition:all var(--tr);position:relative;text-decoration:none}
@@ -4695,8 +4696,9 @@ function LoginScreen() {
   return (
     <div style={{minHeight:"100vh",background:"#1C262F",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Urbanist',sans-serif"}}>
       <div style={{textAlign:"center",padding:40}}>
-        <div style={{fontFamily:"'Urbanist',sans-serif",fontSize:36,fontWeight:800,color:"#fff",marginBottom:4}}>
-          HYPR <span style={{color:"#3397B9",fontSize:20,fontWeight:400,letterSpacing:"0.08em"}}>Command</span>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:12,marginBottom:4}}>
+          <img src="/hypr-logo-white.png" alt="HYPR" style={{height:40,width:"auto",objectFit:"contain"}}/>
+          <span style={{color:"#3397B9",fontSize:20,fontWeight:400,letterSpacing:"0.08em",fontFamily:"'Urbanist',sans-serif"}}>Command</span>
         </div>
         <div style={{color:"#8DA0AE",fontSize:14,marginBottom:40}}>Plataforma integrada Sales & CS</div>
         <div style={{display:"flex",justifyContent:"center",marginBottom:16}} ref={divRef} />
@@ -4866,8 +4868,8 @@ export default function App() {
         {/* SIDEBAR */}
         <aside className={`sb${collapsed?" col":""}${mobileOpen?" mob":""}`}>
           <div className="sb-logo">
-            {collapsed?<svg viewBox="0 0 28 32" style={{height:28,width:28}}><text x="1" y="26" fontFamily="Arial Black,sans-serif" fontWeight="900" fontSize="26" fill="#FFFFFF">H</text></svg>
-            :<div style={{fontFamily:"var(--fd)",fontSize:18,fontWeight:800,color:"#fff",letterSpacing:"-0.5px"}}>HYPR<span style={{color:"var(--teal)",fontWeight:800}}>°</span> <span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em"}}>Command</span></div>}
+            {collapsed?<img src="/hypr-logo-white.png" alt="HYPR" style={{width:"100%",maxWidth:48,height:"auto",objectFit:"contain"}}/>
+            :<div style={{display:"flex",alignItems:"center",gap:8}}><img src="/hypr-logo-white.png" alt="HYPR" style={{height:22,width:"auto",objectFit:"contain"}}/><span style={{color:"var(--teal)",fontWeight:400,fontSize:12,letterSpacing:".08em",fontFamily:"var(--fd)"}}>Command</span></div>}
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
