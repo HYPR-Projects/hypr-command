@@ -2209,7 +2209,7 @@ function ClientSearch({value,onChange,onSelect}) {
   return(
     <div style={{position:"relative"}} ref={ref}>
       <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",zIndex:1}} c="var(--t3)"/>
-      <input className="fi" style={{paddingLeft:32}} placeholder="Buscar cliente..." value={q} onFocus={()=>sO(true)} onChange={e=>{sQ(e.target.value);sO(true);onChange("")}}/>
+      <input className="fi" style={{paddingLeft:32}} placeholder="Buscar cliente..." value={q} onFocus={()=>sO(true)} onChange={e=>{sQ(e.target.value);sO(true);onChange(e.target.value)}}/>
       {open&&<div className="dd">{fil.length>0?fil.map(c=>(
         <div key={c.client+c.agency} className={`di${value===c.client?" sel":""}`} onClick={()=>handleSelect(c)}>
           <div style={{fontWeight:600,fontSize:13}}>{c.client}</div>
@@ -2218,7 +2218,7 @@ function ClientSearch({value,onChange,onSelect}) {
             {c.cs?<span>CS: {c.cs}</span>:<span style={{color:"var(--yellow-s)"}}>Sem CS</span>}
           </div>
         </div>
-      )):<div className="di" style={{color:"var(--t3)",fontStyle:"italic"}}>Nenhum cliente encontrado</div>}<div className="di" style={{color:"var(--teal)",borderTop:"1px solid var(--bdr)",marginTop:4,paddingTop:10}} onClick={()=>{sN(true);sO(false)}}><I n="plus" s={12} style={{display:"inline",marginRight:4,verticalAlign:"middle"}}/>Novo cliente</div></div>}
+      )):<div className="di" style={{color:"var(--t3)",fontStyle:"italic"}}>Nenhum cliente encontrado</div>}<div className="di" style={{color:"var(--teal)",borderTop:"1px solid var(--bdr)",marginTop:4,paddingTop:10}} onClick={()=>{sN(true);sO(false);if(q)onChange(q)}}><I n="plus" s={12} style={{display:"inline",marginRight:4,verticalAlign:"middle"}}/>Novo cliente{q?`: "${q}"`:""}</div></div>}
     </div>
   );
 }
