@@ -3076,6 +3076,7 @@ function FeatSearch({value,onChange}) {
 // ══════════════════════════════════════════════════════════════════════════════
 function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
   const user = useAuth();
+  const availableStudies = useStudies();
   const team = useTeam();
   const myRole = teamRoleOf(team.members, user?.email);
   const initialScope = (myRole === 'cs' || myRole === 'sales' || myRole === 'cp') ? 'mine' : 'all';
@@ -3301,8 +3302,11 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
   const handleEdit=(c)=>{setEditData({...c});setEditing(true)};
   const handleSave=async()=>{
     const previousData = checklists.find(c=>c.id===editData.id);
-    setChecklists(prev=>prev.map(c=>c.id===editData.id?editData:c));
-    setSelected(editData);
+    // Rederiva studies_used (nomes) a partir de selected_studies — o Commplan lê daqui.
+    const studies_used = (editData.selected_studies||[]).map(s=>typeof s==="string"?s:(s&&s.name)).filter(Boolean);
+    const updated = {...editData, studies_used};
+    setChecklists(prev=>prev.map(c=>c.id===editData.id?updated:c));
+    setSelected(updated);
     setEditing(false);
     toast("Checklist atualizado!");
     try{
@@ -3310,7 +3314,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
         method:"PUT",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          ...editData,
+          ...updated,
           marketing_action: (editData.marketing_action||"").trim(),
           editedBy: user?.name,
           editedByEmail: user?.email,
@@ -3984,6 +3988,46 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                   {/* Audiências e Praças */}
                   <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>5. Audiências e Praças</div>
                   <CF l="Audiências"><textarea className="ft" rows={3} value={editData.audiences||""} onChange={e=>setEditData(p=>({...p,audiences:e.target.value}))}/></CF>
+
+                  {/* Estudos disponíveis — mesma lógica do fluxo de criação */}
+                  <CF l="Estudos disponíveis">
+                    {availableStudies.filter(s=>s.status==="Feito").length===0?(
+                      <div style={{fontSize:12,color:"var(--t3)",padding:"8px 0"}}>Nenhum estudo disponível no momento.</div>
+                    ):(
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+                          {availableStudies.filter(s=>s.status==="Feito").map(s=>{
+                            const isSel=(editData.selected_studies||[]).some(x=>(typeof x==="string"?x:x?.name)===s.name);
+                            return(
+                              <span key={s.name} className={`chip${isSel?" sel":""}`} style={{fontSize:11,padding:"4px 12px"}}
+                                onClick={()=>setEditData(p=>{const arr=p.selected_studies||[];const sel=arr.some(x=>(typeof x==="string"?x:x?.name)===s.name);return{...p,selected_studies:sel?arr.filter(x=>(typeof x==="string"?x:x?.name)!==s.name):[...arr,s]}})}>
+                                {s.name}
+                              </span>
+                            );
+                          })}
+                        </div>
+                        {(editData.selected_studies||[]).length>0&&(
+                          <div style={{padding:12,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
+                            <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:8}}>Estudos Selecionados ({(editData.selected_studies||[]).length})</div>
+                            {(editData.selected_studies||[]).map(s=>{
+                              const name=typeof s==="string"?s:(s?.name||"");
+                              const cs=typeof s==="string"?null:s?.cs;
+                              const link=typeof s==="string"?null:s?.link;
+                              return(
+                                <div key={name} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--bdr)"}}>
+                                  <div>
+                                    <span style={{fontSize:12,fontWeight:600,color:"var(--t1)"}}>{name}</span>
+                                    {cs&&<span style={{fontSize:11,color:"var(--t3)",marginLeft:8}}>CS: {cs}</span>}
+                                  </div>
+                                  {link&&<a href={link} target="_blank" rel="noreferrer" className="btn bs" style={{fontSize:10,padding:"2px 8px",textDecoration:"none"}}><I n="external" s={11}/>Ver</a>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CF>
 
                   <CF l="Tipo de Praça">
                     <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
