@@ -2115,6 +2115,7 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
   const [f,sF]=useState({type:"",client:"",campaign_name:"",products:[],features:[],budget:"",briefing:"",cs:"",csEmail:"",customDeadline:null,slaDate:null,autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null});
+  const downRef=useRef(false);
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
   const tog=(k,v)=>sF(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
   useEffect(()=>{if(f.type&&SLA_DAYS[f.type]){const d=addBusinessDays(new Date(),SLA_DAYS[f.type]);set("slaDate",d.toISOString().split("T")[0]);set("customDeadline",null);}},[f.type]);
@@ -2151,8 +2152,8 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
   const valid=f.type&&f.client&&f.cs&&f.briefing;
 
   return (
-    <div className="mo" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="ml ml-lg">
+    <div className="mo" onMouseDown={e=>{downRef.current=(e.target===e.currentTarget)}} onClick={e=>{if(e.target===e.currentTarget&&downRef.current)onClose();downRef.current=false;}}>
+      <div className="ml ml-lg" onClick={e=>e.stopPropagation()}>
         <div className="mh"><div><div className="mt">Nova Solicitação de Task</div><div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>Preencha as informações para abrir a task</div></div><button className="btn bg" onClick={onClose}><I n="x" s={18}/></button></div>
         <div className="mb">
           <div className="g2">
@@ -2248,7 +2249,7 @@ function ClientSearch({value,onChange,onSelect}) {
   const fil=CLIENT_DB.filter(c=>c.client.toLowerCase().includes(q.toLowerCase())).slice(0,10);
   useEffect(()=>{const fn=e=>{if(ref.current&&!ref.current.contains(e.target))sO(false)};document.addEventListener("mousedown",fn);return()=>document.removeEventListener("mousedown",fn);},[]);
   const handleSelect=(entry)=>{sQ(entry.client);onChange(entry.client);if(onSelect)onSelect(entry);sO(false)};
-  if(isNew) return(<div><button className="btn bg" style={{fontSize:12,padding:"4px 8px",marginBottom:8}} onClick={()=>{sN(false);sQ("");onChange("");if(onSelect)onSelect(null)}}>← Buscar existente</button><input className="fi" placeholder="Nome do novo cliente" value={q} onChange={e=>{sQ(e.target.value);onChange(e.target.value)}}/></div>);
+  if(isNew) return(<div ref={ref}><button className="btn bg" style={{fontSize:12,padding:"4px 8px",marginBottom:8}} onClick={()=>{sN(false);sQ("");onChange("");if(onSelect)onSelect(null)}}>← Buscar existente</button><input className="fi" placeholder="Nome do novo cliente" value={q} onChange={e=>{sQ(e.target.value);onChange(e.target.value)}}/></div>);
   return(
     <div style={{position:"relative"}} ref={ref}>
       <I n="search" s={13} style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",zIndex:1}} c="var(--t3)"/>
