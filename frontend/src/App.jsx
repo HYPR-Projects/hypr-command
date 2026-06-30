@@ -2291,7 +2291,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
   const availableStudies = useStudies();
-  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},groundflow_types:[],Groundflow_split_lift_imp:"",Groundflow_split_lift_views:"",Groundflow_signals_imp:"",Groundflow_signals_views:"",Groundflow_plan_imp:"",Groundflow_plan_views:"",Groundflow_patterns_imp:"",Groundflow_patterns_views:"",pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],observations:"",marketing_action:"",cs_name:"",cs_email:""};
+  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},groundflow_types:[],Groundflow_split_lift_imp:"",Groundflow_split_lift_views:"",Groundflow_signals_imp:"",Groundflow_signals_views:"",Groundflow_plan_imp:"",Groundflow_plan_views:"",Groundflow_patterns_imp:"",Groundflow_patterns_views:"",pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],observations:"",marketing_action:"",cs_name:"",cs_email:"",bonus_only:false};
   const [f,sF]=useState(()=>{
     if(!initialData) return INIT;
     const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
@@ -2302,6 +2302,17 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const toast=useToast();
   const set=(k,v)=>sF(p=>({...p,[k]:v}));
   const tog=(k,v)=>sF(p=>({...p,[k]:p[k].includes(v)?p[k].filter(x=>x!==v):[...p[k],v]}));
+  // Campanha 100% bonificada: ao ligar, limpa toda volumetria contratada (evita órfã)
+  // e força has_bonus="Sim", pois a entrega é exclusivamente bonificada.
+  const setBonusOnly=(v)=>sF(p=>{
+    const next={...p,bonus_only:v};
+    if(v){
+      next.has_bonus="Sim";
+      (p.products||[]).forEach(prod=>{ next[`${prod}_imp`]=""; next[`${prod}_views`]=""; });
+      (p.groundflow_types||[]).forEach(gt=>{ next[`Groundflow_${gt}_imp`]=""; next[`Groundflow_${gt}_views`]=""; });
+    }
+    return next;
+  });
 
   // ── Normalização inteligente de números (investimento + impressões) ──
   // Aceita: "30.000,00", "30,000.00", "30000.00", "30000,00", "30.000", "3.000.000", etc.
@@ -2359,6 +2370,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
 
   // Investment validation
   const validateInvestment = () => {
+    if (f.bonus_only) return null; // 100% bonificada: sem volumetria contratada para validar
     const investment = parseFloat(normalizeNumber(f.investment)) || 0;
     if (investment === 0) return null; // no investment to validate
     
@@ -2441,6 +2453,18 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
       missing.push({ label: "Pelo menos 1 Produto Core", section: "3. Produtos Core e Volumetria" });
     } else {
       products.forEach(prod => {
+        if (f.bonus_only) {
+          const bimp = parseFloat(f[`${prod}_bonus_imp`]) || 0;
+          const bviews = parseFloat(f[`${prod}_bonus_views`]) || 0;
+          if (hasDisplay && !hasVideo && bimp <= 0) {
+            missing.push({ label: `Volumetria bonificada (impressões) para ${prod}`, section: "3. Produtos Core e Volumetria" });
+          } else if (hasVideo && !hasDisplay && bviews <= 0) {
+            missing.push({ label: `Volumetria bonificada (views) para ${prod}`, section: "3. Produtos Core e Volumetria" });
+          } else if (hasDisplay && hasVideo && bimp <= 0 && bviews <= 0) {
+            missing.push({ label: `Volumetria bonificada para ${prod} (impressões ou views)`, section: "3. Produtos Core e Volumetria" });
+          }
+          return;
+        }
         const imp = parseFloat(f[`${prod}_imp`]) || 0;
         const views = parseFloat(f[`${prod}_views`]) || 0;
         if (hasDisplay && !hasVideo && imp <= 0) {
@@ -2562,6 +2586,15 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           <CF l="Data Início" req><input type="date" className="fi" value={f.start_date} onChange={e=>set("start_date",e.target.value)}/></CF>
           <CF l="Data Final" req><input type="date" className="fi" value={f.end_date} onChange={e=>set("end_date",e.target.value)}/></CF>
           <CF l="Investimento (R$)" req><input type="text" inputMode="decimal" className="fi" placeholder="Ex: 30.000,00" value={f.investment} onChange={e=>set("investment",e.target.value)} onBlur={()=>normalizeOnBlur("investment")}/>{f.investment&&fmtConfirm(f.investment,true)&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f.investment,true)}</div>}</CF>
+          <CF l="Campanha 100% Bonificada">
+            <button type="button" onClick={()=>setBonusOnly(!f.bonus_only)}
+              style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:"var(--r)",cursor:"pointer",border:`1px solid ${f.bonus_only?"#e0c200":"var(--bdr)"}`,background:f.bonus_only?"var(--yellow-dim)":"var(--bg-card)",color:f.bonus_only?"#a07a00":"var(--t2)",fontWeight:700,fontSize:13,transition:"all .15s"}}>
+              <span style={{width:34,height:20,borderRadius:99,background:f.bonus_only?"#e0c200":"var(--bdr)",position:"relative",flexShrink:0,transition:"all .15s"}}>
+                <span style={{position:"absolute",top:2,left:f.bonus_only?16:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"all .15s"}}/>
+              </span>
+              {f.bonus_only?"Sim — sem volumetria contratada":"Não"}
+            </button>
+          </CF>
           <CF l="Deal DV360?" req><RG row opts={["Sim","Não"]} val={f.deal_dv360} onChange={v=>set("deal_dv360",v)}/></CF>
         </div>
         {f.cs_name&&f.cs_email&&(
@@ -2620,19 +2653,24 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
           <CF l="Produtos" req><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{CHECKLIST_CORE_PRODUCTS.map(p=><span key={p} className={`chip${f.products.includes(p)?" sel":""}`} onClick={()=>tog("products",p)}>{p}</span>)}</div></CF>
 
           {/* Volumetria per selected product */}
-          {f.products.map(prod=>(
+          {f.products.map(prod=>{
+            // 100% bonificada: produtos sem config extra (O2O etc.) não precisam de card aqui
+            if(f.bonus_only && !["OOH","RMND","Groundflow"].includes(prod)) return null;
+            return(
             <div key={prod} style={{padding:16,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
+              {!f.bonus_only&&(<>
               <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:12,textTransform:"uppercase",letterSpacing:".06em"}}>{prod} — Volumetria Contratada</div>
               <div className="g2" style={{gap:12}}>
                 {hasDisplay&&<CF l="Impressões Visíveis"><input type="text" inputMode="numeric" className="fi" placeholder="Ex: 1.000.000" value={f[`${prod}_imp`]||""} onChange={e=>set(`${prod}_imp`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_imp`)}/>{f[`${prod}_imp`]&&fmtConfirm(f[`${prod}_imp`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_imp`])}</div>}</CF>}
                 {hasVideo&&<CF l="Views 100%"><input type="text" inputMode="numeric" className="fi" placeholder="Ex: 500.000" value={f[`${prod}_views`]||""} onChange={e=>set(`${prod}_views`,e.target.value)} onBlur={()=>normalizeOnBlur(`${prod}_views`)}/>{f[`${prod}_views`]&&fmtConfirm(f[`${prod}_views`])&&<div style={{fontSize:11,color:"var(--t3)",marginTop:4}}>= {fmtConfirm(f[`${prod}_views`])}</div>}</CF>}
               </div>
+              </>)}
               {prod==="OOH"&&<div style={{marginTop:12}}><CF l="Link dos endereços OOH"><input className="fi" placeholder="https://..." value={f.ooh_link} onChange={e=>set("ooh_link",e.target.value)}/></CF></div>}
               {prod==="RMND"&&<div style={{marginTop:12}}><CF l="Marketplaces"><div style={{display:"flex",gap:8}}>{MARKETPLACES.map(m=><span key={m} className={`chip${f.marketplaces.includes(m)?" sel":""}`} onClick={()=>tog("marketplaces",m)}>{m}</span>)}</div></CF></div>}
               {prod==="Groundflow"&&(
                 <div style={{marginTop:12}}>
                   <CF l="Tipos de Groundflow"><div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{GROUNDFLOW_TYPES.map(gt=><span key={gt.key} className={`chip${f.groundflow_types.includes(gt.key)?" sel":""}`} onClick={()=>tog("groundflow_types",gt.key)}>{gt.label}</span>)}</div></CF>
-                  {GROUNDFLOW_TYPES.filter(gt=>f.groundflow_types.includes(gt.key)).map(gt=>(
+                  {!f.bonus_only&&GROUNDFLOW_TYPES.filter(gt=>f.groundflow_types.includes(gt.key)).map(gt=>(
                     <div key={gt.key} style={{marginTop:12,padding:14,background:"var(--bg-card)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
                       <div style={{fontSize:11,fontWeight:700,color:"var(--teal)",marginBottom:10,textTransform:"uppercase",letterSpacing:".05em"}}>{gt.label}</div>
                       <div className="g2" style={{gap:12}}>
@@ -2644,11 +2682,13 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
                 </div>
               )}
             </div>
-          ))}
+          );})}
 
           {/* Bonificação por produto */}
-          <CF l="Teremos volumetria bonificada nos produtos core?" req><RG row opts={["Sim","Não"]} val={f.has_bonus} onChange={v=>set("has_bonus",v)}/></CF>
-          {f.has_bonus==="Sim"&&f.products.map(prod=>(
+          {f.bonus_only
+            ? <div className="disc" style={{background:"var(--yellow-dim)",border:"1px solid rgba(237,217,0,0.3)"}}><I n="alert-triangle" s={14} c="#a07a00"/><span style={{color:"#a07a00"}}>Campanha <strong>100% bonificada</strong>: preencha apenas a volumetria bonificada abaixo. A volumetria contratada não é exigida.</span></div>
+            : <CF l="Teremos volumetria bonificada nos produtos core?" req><RG row opts={["Sim","Não"]} val={f.has_bonus} onChange={v=>set("has_bonus",v)}/></CF>}
+          {(f.has_bonus==="Sim"||f.bonus_only)&&f.products.map(prod=>(
             <div key={prod+"_b"} style={{padding:14,background:"var(--yellow-dim)",borderRadius:"var(--r)",border:"1px solid rgba(237,217,0,0.3)"}}>
               <div style={{fontSize:12,fontWeight:700,color:"#a07a00",marginBottom:10,textTransform:"uppercase"}}>{prod} — Bonificação</div>
               <div className="g2" style={{gap:12}}>
