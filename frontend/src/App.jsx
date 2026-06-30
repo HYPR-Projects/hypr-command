@@ -3826,6 +3826,15 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                     <CF l="Agência"><input className="fi" value={editData.agency||""} onChange={e=>setEditData(p=>({...p,agency:e.target.value}))}/></CF>
                     <CF l="Tipo"><input className="fi" value={editData.campaign_type||""} onChange={e=>setEditData(p=>({...p,campaign_type:e.target.value}))}/></CF>
                     <CF l="Investimento (R$)"><input type="number" className="fi" value={editData.investment||""} onChange={e=>setEditData(p=>({...p,investment:e.target.value}))}/></CF>
+                    <CF l="Campanha 100% Bonificada">
+                      <button type="button" onClick={()=>setEditData(p=>{const v=!p.bonus_only;const next={...p,bonus_only:v};if(v){next.has_bonus="Sim";(p.products||[]).forEach(prod=>{next[`${prod}_imp`]="";next[`${prod}_views`]="";});(p.groundflow_types||[]).forEach(gt=>{next[`Groundflow_${gt}_imp`]="";next[`Groundflow_${gt}_views`]="";});}return next;})}
+                        style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:"var(--r)",cursor:"pointer",border:`1px solid ${editData.bonus_only?"#e0c200":"var(--bdr)"}`,background:editData.bonus_only?"var(--yellow-dim)":"var(--bg-card)",color:editData.bonus_only?"#a07a00":"var(--t2)",fontWeight:700,fontSize:13,transition:"all .15s"}}>
+                        <span style={{width:34,height:20,borderRadius:99,background:editData.bonus_only?"#e0c200":"var(--bdr)",position:"relative",flexShrink:0,transition:"all .15s"}}>
+                          <span style={{position:"absolute",top:2,left:editData.bonus_only?16:2,width:16,height:16,borderRadius:"50%",background:"#fff",transition:"all .15s"}}/>
+                        </span>
+                        {editData.bonus_only?"Sim — sem volumetria contratada":"Não"}
+                      </button>
+                    </CF>
                     <CF l="Indústria"><input className="fi" value={editData.industry||""} onChange={e=>setEditData(p=>({...p,industry:e.target.value}))}/></CF>
                     <CF l="Data Início"><input type="date" className="fi" value={editData.start_date?.value||editData.start_date||""} onChange={e=>setEditData(p=>({...p,start_date:e.target.value}))}/></CF>
                     <CF l="Data Final"><input type="date" className="fi" value={editData.end_date?.value||editData.end_date||""} onChange={e=>setEditData(p=>({...p,end_date:e.target.value}))}/></CF>
@@ -3889,7 +3898,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                       ))}
                     </div>
                   </CF>
-                  {(editData.products||[]).map(prod=>(
+                  {!editData.bonus_only&&(editData.products||[]).map(prod=>(
                     <div key={prod} style={{padding:12,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
                       <div style={{fontSize:12,fontWeight:700,color:"var(--teal)",marginBottom:8,textTransform:"uppercase"}}>{prod} — Volumetria Contratada</div>
                       <div className="g2" style={{gap:10}}>
@@ -3900,7 +3909,9 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                   ))}
 
                   {/* Bonificações — toggle + cards por produto */}
-                  {(editData.products||[]).length>0&&(
+                  {editData.bonus_only
+                    ? <div className="disc" style={{background:"var(--yellow-dim)",border:"1px solid rgba(237,217,0,0.3)"}}><I n="alert-triangle" s={13} c="#a07a00"/><span style={{color:"#a07a00"}}>Campanha <strong>100% bonificada</strong>: volumetria contratada removida. Preencha apenas a bonificada abaixo.</span></div>
+                    : (editData.products||[]).length>0&&(
                     <CF l="Teremos volumetria bonificada nos produtos core?">
                       <div style={{display:"flex",gap:6}}>
                         {["Sim","Não"].map(opt=>{
@@ -3913,7 +3924,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                       </div>
                     </CF>
                   )}
-                  {(editData.has_bonus==="Sim"||editData.has_bonus===true)&&(editData.products||[]).map(prod=>(
+                  {(editData.has_bonus==="Sim"||editData.has_bonus===true||editData.bonus_only)&&(editData.products||[]).map(prod=>(
                     <div key={prod+"_b"} style={{padding:12,background:"var(--yellow-dim)",borderRadius:"var(--r)",border:"1px solid rgba(237,217,0,0.3)"}}>
                       <div style={{fontSize:12,fontWeight:700,color:"#a07a00",marginBottom:8,textTransform:"uppercase"}}>{prod} — Bonificação</div>
                       <div className="g2" style={{gap:10}}>
