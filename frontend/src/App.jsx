@@ -1396,6 +1396,26 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
     entregue:tasksScoped.filter(t=>getTaskStatus(t)==="Concluída").length,
   }),[tasksScoped]);
 
+  // Big numbers: tasks abertas por mês (conta por createdAt, respeita scope Meus/Todos)
+  const monthlyStats = useMemo(()=>{
+    const getDate = t => { const v=t.createdAt||t.created_at?.value||t.created_at; return v?new Date(v):null; };
+    const now = new Date();
+    const curY=now.getFullYear(), curM=now.getMonth();
+    const prevDate = new Date(curY, curM-1, 1);
+    const prevY=prevDate.getFullYear(), prevM=prevDate.getMonth();
+    let curCount=0, prevCount=0, yearCount=0;
+    tasksScoped.forEach(t=>{
+      const d=getDate(t); if(!d||isNaN(d)) return;
+      const y=d.getFullYear(), m=d.getMonth();
+      if(y===curY) yearCount++;
+      if(y===curY && m===curM) curCount++;
+      if(y===prevY && m===prevM) prevCount++;
+    });
+    const pct = prevCount>0 ? Math.round(((curCount-prevCount)/prevCount)*100) : (curCount>0?100:0);
+    const MES=["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+    return {curCount,prevCount,yearCount,pct,curName:MES[curM],prevName:MES[prevM],hasPrev:prevCount>0};
+  },[tasksScoped]);
+
   // Buckets do kanban — usam a lista FILTRADA
   const kanbanBuckets = useMemo(()=>{
     const open=[], inProgress=[], done=[];
@@ -1560,6 +1580,29 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
 
   return (
     <div className="page-enter">
+      {/* Big numbers — tasks abertas por mês */}
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:12,marginBottom:20}}>
+        <div style={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r-lg)",padding:"16px 20px"}}>
+          <div style={{fontSize:13,color:"var(--t3)",marginBottom:6,textTransform:"capitalize"}}>Tasks abertas em {monthlyStats.curName}</div>
+          <div style={{display:"flex",alignItems:"baseline",gap:10}}>
+            <span style={{fontSize:34,fontWeight:700,lineHeight:1,fontFamily:"var(--fd)"}}>{monthlyStats.curCount}</span>
+            {monthlyStats.hasPrev&&<span style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:13,fontWeight:700,color:monthlyStats.pct>=0?"var(--green)":"var(--red)"}}>
+              <I n={monthlyStats.pct>=0?"trending-up":"trending-down"} s={15}/>{monthlyStats.pct>=0?"+":""}{monthlyStats.pct}%
+            </span>}
+          </div>
+          <div style={{fontSize:12,color:"var(--t3)",marginTop:6,textTransform:"capitalize"}}>vs {monthlyStats.prevCount} em {monthlyStats.prevName}</div>
+        </div>
+        <div style={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r-lg)",padding:"16px 20px"}}>
+          <div style={{fontSize:13,color:"var(--t3)",marginBottom:6,textTransform:"capitalize"}}>Mês anterior ({monthlyStats.prevName})</div>
+          <div style={{fontSize:34,fontWeight:700,lineHeight:1,fontFamily:"var(--fd)"}}>{monthlyStats.prevCount}</div>
+          <div style={{fontSize:12,color:"var(--t3)",marginTop:6}}>tasks abertas</div>
+        </div>
+        <div style={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r-lg)",padding:"16px 20px"}}>
+          <div style={{fontSize:13,color:"var(--t3)",marginBottom:6}}>Total no ano</div>
+          <div style={{fontSize:34,fontWeight:700,lineHeight:1,fontFamily:"var(--fd)"}}>{monthlyStats.yearCount}</div>
+          <div style={{fontSize:12,color:"var(--t3)",marginTop:6}}>desde janeiro</div>
+        </div>
+      </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24,flexWrap:"wrap",gap:12}}>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
           {tabs.map(t=>(
