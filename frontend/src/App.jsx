@@ -4113,6 +4113,12 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                     </CF>
                   )}
 
+                  {/* Links e Documentos */}
+                  <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>5. Links e Documentos</div>
+                  <CF l="Link das Peças"><input className="fi" placeholder="Link do Drive..." value={editData.pecas_link||""} onChange={e=>setEditData(p=>({...p,pecas_link:e.target.value}))}/></CF>
+                  <CF l="Link do PI"><input className="fi" placeholder="Link do Drive..." value={editData.pi_link||""} onChange={e=>setEditData(p=>({...p,pi_link:e.target.value}))}/></CF>
+                  <CF l="Link da Proposta"><input className="fi" placeholder="Link do Drive..." value={editData.proposta_link||""} onChange={e=>setEditData(p=>({...p,proposta_link:e.target.value}))}/></CF>
+
                   {/* Observações */}
                   <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>6. Observações e Ação de Marketing</div>
                   <CF l="Ação de Marketing (opcional)">
