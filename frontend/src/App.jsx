@@ -2291,7 +2291,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
   const user = useAuth();
   const CLIENT_DB = useClients();
   const availableStudies = useStudies();
-  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},groundflow_types:[],Groundflow_split_lift_imp:"",Groundflow_split_lift_views:"",Groundflow_signals_imp:"",Groundflow_signals_views:"",Groundflow_plan_imp:"",Groundflow_plan_views:"",Groundflow_patterns_imp:"",Groundflow_patterns_views:"",pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],observations:"",marketing_action:"",cs_name:"",cs_email:"",bonus_only:false};
+  const INIT={cp_name:"",cp_email:"",agency:"",industry:"",start_date:"",end_date:"",client:"",campaign_type:"",campaign_name:"",investment:"",deal_dv360:"",formats:[],cpm:"",cpcv:"",products:[],o2o_impressoes:"",o2o_views:"",has_bonus:"",bonus_o2o_impressoes:"",bonus_o2o_views:"",ooh_link:"",audiences:"",selected_studies:[],praças_type:"",praças_states:[],praças_cities:[],praças_city_input:"",praças_city_state:"",praças_other:"",had_cs_meeting:"",marketplaces:[],features:[],feature_volumes:{},groundflow_types:[],Groundflow_split_lift_imp:"",Groundflow_split_lift_views:"",Groundflow_signals_imp:"",Groundflow_signals_views:"",Groundflow_plan_imp:"",Groundflow_plan_views:"",Groundflow_patterns_imp:"",Groundflow_patterns_views:"",pecas_link:"",pi_link:"",proposta_link:"",extra_urls:[""],observations:"",marketing_action:"",games_affinity:"",cs_name:"",cs_email:"",bonus_only:false};
   const [f,sF]=useState(()=>{
     if(!initialData) return INIT;
     const d={...INIT,...initialData,start_date:"",end_date:"",id:undefined,created_at:undefined,submitted_by:undefined,submitted_by_email:undefined};
@@ -2499,6 +2499,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
     if (validUrls.length === 0) missing.push({ label: "Pelo menos 1 URL de Direcionamento", section: "5. Links e Documentos" });
     if (!f.pi_link?.trim()) missing.push({ label: "Link do PI", section: "5. Links e Documentos" });
     if (!f.proposta_link?.trim()) missing.push({ label: "Link da Proposta", section: "5. Links e Documentos" });
+    if (!f.games_affinity) missing.push({ label: "Afinidade com Inventário de Games", section: "6. Observações e Ação de Marketing" });
 
     return missing.length > 0 ? missing : null;
   };
@@ -2857,6 +2858,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
 
       <Sec title="6. Observações e Ação de Marketing">
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
+          <CF l="A campanha possui afinidade com Inventário de Games?" req><RG row opts={["Sim","Não"]} val={f.games_affinity} onChange={v=>set("games_affinity",v)}/></CF>
           <CF l="Ação de Marketing (opcional)">
             <select className="fs" value={f.marketing_action&&!MARKETING_ACTIONS.includes(f.marketing_action)?"__outro__":f.marketing_action} onChange={e=>{const v=e.target.value;set("marketing_action",v==="__outro__"?" ":v)}}>
               <option value="">Nenhuma</option>
@@ -4121,6 +4123,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
 
                   {/* Observações */}
                   <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>6. Observações e Ação de Marketing</div>
+                  <CF l="A campanha possui afinidade com Inventário de Games?"><RG row opts={["Sim","Não"]} val={editData.games_affinity} onChange={v=>setEditData(p=>({...p,games_affinity:v}))}/></CF>
                   <CF l="Ação de Marketing (opcional)">
                     <select className="fs" value={editData.marketing_action&&!MARKETING_ACTIONS.includes(editData.marketing_action)?"__outro__":(editData.marketing_action||"")} onChange={e=>{const v=e.target.value;setEditData(p=>({...p,marketing_action:v==="__outro__"?" ":v}))}}>
                       <option value="">Nenhuma</option>
@@ -4283,6 +4286,11 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                   <div className="g2" style={{gap:10}}>
                     <D l="Praças" v={(()=>{const t=selected.pracas_type||selected.praças_type||"";const d=selected.pracas_detail||"";if(t==="Brasil")return d||"Brasil";if(t==="Estado")return d?`Estados: ${d}`:((selected.praças_states||[]).length>0?`Estados: ${(selected.praças_states||[]).join(", ")}`:"—");if(t==="Cidade")return d||((selected.praças_cities||[]).length>0?(selected.praças_cities||[]).join(", "):"—");if(t==="Outro")return d||selected.praças_other||"—";return t||"—";})()}/>
                     <D l="Reunião pré-campanha com CS" v={selected.had_cs_meeting==="Sim"||selected.had_cs_meeting===true?"Sim":"Não"}/>
+                  </div>
+                  {/* Afinidade com Inventário de Games (informativo p/ CS) */}
+                  <div style={{padding:"12px 16px",background:"var(--teal-dim)",borderRadius:10,border:"1px solid var(--teal)"}}>
+                    <div style={{fontSize:11,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,marginBottom:4}}>Afinidade com Inventário de Games</div>
+                    <div style={{fontSize:14,fontWeight:700,color:"var(--teal)"}}>{selected.games_affinity==="Sim"?"Sim":selected.games_affinity==="Não"?"Não":"—"}</div>
                   </div>
 
                   {/* Section 5: Links */}
