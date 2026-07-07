@@ -2784,6 +2784,9 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
                         <CF key={field} l={field}><input type="number" className="fi" placeholder={feat==="P-DOOH"?"Obrigatório":"Opcional"} value={f[`fv_${feat}_${field}`]||""} onChange={e=>set(`fv_${feat}_${field}`,e.target.value)}/></CF>
                       ))}
                     </div>
+                    {feat==="Tap to Go"&&(
+                      <CF l="Link dos endereços (Tap to Go)"><input type="text" className="fi" placeholder="Link do Drive/planilha com os endereços dos pontos..." value={f[`fv_${feat}_addresses_link`]||""} onChange={e=>set(`fv_${feat}_addresses_link`,e.target.value)}/></CF>
+                    )}
                   </div>
                 );
               })}
@@ -3982,6 +3985,9 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                                 </CF>
                               ))}
                             </div>
+                            {feat==="Tap to Go"&&(
+                              <CF l="Link dos endereços (Tap to Go)"><input type="text" className="fi" placeholder="Link do Drive/planilha com os endereços..." value={editData[`fv_${feat}_addresses_link`]||""} onChange={e=>setEditData(p=>({...p,[`fv_${feat}_addresses_link`]:e.target.value}))}/></CF>
+                            )}
                           </div>
                         );
                       })}
