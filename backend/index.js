@@ -619,6 +619,9 @@ app.post('/checklists', async (req, res) => {
     const f = req.body
     const now = new Date().toISOString()
 
+    // Formato removido não pode deixar preço/volumetria órfão
+    reconcileFormats(f)
+
     // Capture all dynamic fields (per-product volumes, feature volumes, surveys, etc.)
     // These come from the frontend with prefixes that don't map to fixed BQ columns.
     const KNOWN_KEYS = new Set([
@@ -859,6 +862,9 @@ app.put('/checklists/:id', async (req, res) => {
     const { id } = req.params
     const f = req.body
 
+    // Formato removido não pode deixar preço/volumetria órfão (só quando formats vier no corpo)
+    if (f.formats !== undefined) reconcileFormats(f)
+
     // Same separation as POST: known fixed columns vs. dynamic extras
     const KNOWN_KEYS = new Set([
       'cp_name','cp_email','agency','industry','campaign_type','client','campaign_name',
@@ -1091,6 +1097,28 @@ app.delete('/checklists/:id', async (req, res) => {
 
 // Sanitiza valor de impressão que pode vir em formato BR ("3.000.000" ou "3000000")
 // Retorna número ou null
+// Zera preço/volumetria da frente (formato) removida, pra não vazar no Report Hub
+// como se fosse contratado. Display = cpm + impressões (*_imp). Video = cpcv + views (*_views).
+// Só age quando há pelo menos 1 formato definido (nunca zera tudo num corpo sem formats).
+function reconcileFormats(f) {
+  if (!f || !Array.isArray(f.formats) || f.formats.length === 0) return f
+  const hasDisplay = f.formats.includes('Display')
+  const hasVideo = f.formats.includes('Video')
+  if (!hasDisplay) {
+    f.cpm = null
+    f.o2o_impressoes = null
+    f.bonus_o2o_impressoes = null
+    for (const k of Object.keys(f)) { if (/_imp$/.test(k)) f[k] = null }
+  }
+  if (!hasVideo) {
+    f.cpcv = null
+    f.o2o_views = null
+    f.bonus_o2o_views = null
+    for (const k of Object.keys(f)) { if (/_views$/.test(k)) f[k] = null }
+  }
+  return f
+}
+
 function sanitizeImpressao(v) {
   if (v === null || v === undefined || v === '') return null
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
