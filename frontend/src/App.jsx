@@ -2858,7 +2858,7 @@ function CampaignChecklist({onChecklistSubmit,initialData}) {
 
       <Sec title="6. Observações e Ação de Marketing">
         <div style={{display:"flex",flexDirection:"column",gap:18}}>
-          <CF l="A campanha possui afinidade com Inventário de Games?" req><RG row opts={["Sim","Não"]} val={f.games_affinity} onChange={v=>set("games_affinity",v)}/></CF>
+          <CF l="A campanha possui afinidade com Inventário de Games?" req><RG row opts={["Sim","Não"]} val={f.games_affinity} onChange={v=>set("games_affinity",v)}/><div className="disc" style={{marginTop:6}}><I n="alert-triangle" s={14} c="var(--yellow-s)"/><span>Atenção: campanha sem afinidade com inventário de Games = alto risco de under-delivery e CTR baixo.</span></div></CF>
           <CF l="Ação de Marketing (opcional)">
             <select className="fs" value={f.marketing_action&&!MARKETING_ACTIONS.includes(f.marketing_action)?"__outro__":f.marketing_action} onChange={e=>{const v=e.target.value;set("marketing_action",v==="__outro__"?" ":v)}}>
               <option value="">Nenhuma</option>
@@ -4123,7 +4123,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
 
                   {/* Observações */}
                   <div style={{fontFamily:"var(--fd)",fontSize:13,fontWeight:700,color:"var(--t1)",borderBottom:"1px solid var(--bdr)",paddingBottom:6}}>6. Observações e Ação de Marketing</div>
-                  <CF l="A campanha possui afinidade com Inventário de Games?"><RG row opts={["Sim","Não"]} val={editData.games_affinity} onChange={v=>setEditData(p=>({...p,games_affinity:v}))}/></CF>
+                  <CF l="A campanha possui afinidade com Inventário de Games?"><RG row opts={["Sim","Não"]} val={editData.games_affinity} onChange={v=>setEditData(p=>({...p,games_affinity:v}))}/><div className="disc" style={{marginTop:6}}><I n="alert-triangle" s={14} c="var(--yellow-s)"/><span>Atenção: campanha sem afinidade com inventário de Games = alto risco de under-delivery e CTR baixo.</span></div></CF>
                   <CF l="Ação de Marketing (opcional)">
                     <select className="fs" value={editData.marketing_action&&!MARKETING_ACTIONS.includes(editData.marketing_action)?"__outro__":(editData.marketing_action||"")} onChange={e=>{const v=e.target.value;setEditData(p=>({...p,marketing_action:v==="__outro__"?" ":v}))}}>
                       <option value="">Nenhuma</option>
