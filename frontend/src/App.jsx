@@ -3638,12 +3638,12 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                       {tableCols.filter(c=>c.on).map(col=>{
                         let val=r[col.key];
                         return (
-                          <td key={col.key} style={{padding:"9px 12px",textAlign:col.type==="num"?"right":"left",color:"var(--t1)",fontVariantNumeric:col.type==="num"?"tabular-nums":"normal"}}>
+                          <td key={col.key} style={{padding:"9px 12px",textAlign:col.type==="num"?"right":"left",color:"var(--t1)",fontVariantNumeric:col.type==="num"?"tabular-nums":"normal",...(col.type==="tags"?{maxWidth:240,whiteSpace:"normal"}:{})}}>
                             {col.type==="tags"?(
                               (!val||!val.length)?<span style={{color:"var(--t3)"}}>—</span>:
-                              <div style={{display:"flex",flexWrap:"wrap",gap:3}}>
+                              <div style={{display:"flex",flexWrap:"wrap",gap:3,maxWidth:220}}>
                                 {val.map((tag,ti)=>(
-                                  <span key={ti} style={{display:"inline-block",background:col.studyTag?"var(--green-dim)":"var(--teal-dim)",color:col.studyTag?"var(--green)":"var(--teal-l)",fontSize:10,padding:"2px 7px",borderRadius:6,whiteSpace:"nowrap"}}>{tag}</span>
+                                  <span key={ti} title={String(tag)} style={{display:"inline-block",background:col.studyTag?"var(--green-dim)":"var(--teal-dim)",color:col.studyTag?"var(--green)":"var(--teal-l)",fontSize:10,padding:"2px 7px",borderRadius:6,whiteSpace:"nowrap",maxWidth:180,overflow:"hidden",textOverflow:"ellipsis"}}>{tag}</span>
                                 ))}
                               </div>
                             ):col.money?(
