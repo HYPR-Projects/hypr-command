@@ -236,7 +236,7 @@ body{font-family:var(--ff);background:var(--bg1);color:var(--t1)}
 .sb{width:220px;min-width:220px;background:var(--bg-sidebar);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;border-right:1px solid rgba(255,255,255,0.04);transition:width .22s cubic-bezier(.4,0,.2,1),min-width .22s cubic-bezier(.4,0,.2,1),transform .22s cubic-bezier(.4,0,.2,1)}
 .sb.col{width:64px;min-width:64px}
 @media(max-width:768px){.sb{transform:translateX(-100%);width:260px;min-width:260px}.sb.col{width:260px;min-width:260px}.sb.mob{transform:translateX(0);box-shadow:4px 0 24px rgba(0,0,0,0.4)}}
-.sb-logo{padding:20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;min-height:64px}
+.sb-logo{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:center;min-height:64px}
 .sb.col .sb-logo{padding:12px 8px}
 .sb-lbl{font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--teal);padding:20px 20px 8px}
 .sb-nav{flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:2px}
@@ -5056,7 +5056,7 @@ export default function App() {
         <aside className={`sb${collapsed?" col":""}${mobileOpen?" mob":""}`}>
           <div className="sb-logo">
             {collapsed?<img src="/hypr-logo-white.png" alt="HYPR" style={{width:"100%",maxWidth:48,height:"auto",objectFit:"contain"}}/>
-            :<img src="/command-logo.svg" alt="HYPR Command" style={{height:24,width:"auto",objectFit:"contain"}}/>}
+            :<img src="/command-logo.svg" alt="HYPR Command" style={{height:36,width:"auto",objectFit:"contain"}}/>}
           </div>
           {!collapsed&&<div className="sb-lbl">Módulos</div>}
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
