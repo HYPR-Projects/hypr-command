@@ -3180,14 +3180,18 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
   },[checklists]);
 
   const filtered=useMemo(()=>{
-    const q=search.toLowerCase();
+    const norm = v => (v||"").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+    const q=norm(search);
     return checklists.filter(c=>{
       // Scope "minhas": eu sou CP que enviou OU CS responsável
       if (scope === 'mine' && !checklistOwnedBy(c, user?.email)) return false;
       if (filterCS && (c.cs_email||'').toLowerCase() !== filterCS.toLowerCase()) return false;
       const cpEmail = (c.submitted_by_email || c.submittedByEmail || c.cp_email || '').toLowerCase();
       if (filterCP && cpEmail !== filterCP.toLowerCase()) return false;
-      if(q && !(c.client?.toLowerCase().includes(q)||c.campaign_name?.toLowerCase().includes(q)||c.agency?.toLowerCase().includes(q))) return false;
+      if(q){
+        const hay=[c.client,c.campaign_name,c.agency,c.short_token,c.cp_name,c.submitted_by,c.submittedBy,c.cs_name].map(norm).join(" ");
+        if(!hay.includes(q)) return false;
+      }
       const d = parseLocalDate(c.start_date);
       if(!d) return monthFilter==="all" && yearFilter==="all";
       if(yearFilter!=="all" && String(d.getFullYear())!==yearFilter) return false;
