@@ -3386,6 +3386,10 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
     else if(s.includes(".")){ const p=s.split("."); if(p.length>2||p[p.length-1].length===3) s=s.replace(/\./g,""); }
     const n=parseFloat(s); return Number.isFinite(n)?n:null;
   };
+  const isBonusOnly = (c) => {
+    if (c.bonus_only===true || c.bonus_only==="true") return true;
+    try { const e = typeof c.extras==="string" ? JSON.parse(c.extras) : (c.extras||{}); return e.bonus_only===true || e.bonus_only==="true"; } catch { return false; }
+  };
   const checklistToRow = (c) => {
     const ex = (typeof c.extras==="string" ? (()=>{try{return JSON.parse(c.extras)}catch{return{}}})() : (c.extras||{}));
     const pracasCities = ex["praças_cities"] || c["praças_cities"] || [];
@@ -3399,6 +3403,7 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
       _raw: c,
       client: c.client||"",
       campaign_name: c.campaign_name||"",
+      bonus_only: isBonusOnly(c),
       agency: c.agency||"",
       industry: c.industry||"",
       cp: c.cp_name || c.submitted_by || c.submittedBy || "",
@@ -3652,6 +3657,11 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                               val==null?<span style={{color:"var(--t3)"}}>—</span>:val.toLocaleString("pt-BR")
                             ):col.type==="date"?(
                               fmtDateBrShort(val)
+                            ):col.key==="campaign_name"?(
+                              <span style={{display:"inline-flex",alignItems:"center",gap:7}}>
+                                <span>{val||<span style={{color:"var(--t3)"}}>—</span>}</span>
+                                {r.bonus_only&&<span title="Campanha 100% bonificada — sem volumetria contratada" style={{display:"inline-flex",alignItems:"center",background:"var(--yellow-dim)",color:"#a07a00",border:"1px solid rgba(224,194,0,.45)",fontSize:9,fontWeight:800,padding:"1px 6px",borderRadius:99,textTransform:"uppercase",letterSpacing:".04em",whiteSpace:"nowrap",flexShrink:0}}>Bonificada</span>}
+                              </span>
                             ):(
                               val||<span style={{color:"var(--t3)"}}>—</span>
                             )}
@@ -3766,7 +3776,10 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                                 </div>
                               </td>
                               <td data-cell-label="campanha" style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,maxWidth:250}}>
-                                <div style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.campaign_name||"—"}</div>
+                                <div style={{display:"flex",alignItems:"center",gap:7,minWidth:0}}>
+                                  <span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{c.campaign_name||"—"}</span>
+                                  {isBonusOnly(c)&&<span title="Campanha 100% bonificada — sem volumetria contratada" style={{display:"inline-flex",alignItems:"center",background:"var(--yellow-dim)",color:"#a07a00",border:"1px solid rgba(224,194,0,.45)",fontSize:9,fontWeight:800,padding:"1px 6px",borderRadius:99,textTransform:"uppercase",letterSpacing:".04em",whiteSpace:"nowrap",flexShrink:0}}>Bonificada</span>}
+                                </div>
                               </td>
                               <td data-cell-label="período" style={{padding:"12px 14px",color:"var(--t2)",fontSize:12,whiteSpace:"nowrap"}}>
                                 {fmtDate(c.start_date)} → {fmtDate(c.end_date)}
