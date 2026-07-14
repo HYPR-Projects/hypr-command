@@ -599,6 +599,7 @@ function ScratchEditor() {
   const [cfg, setCfg] = useState(DEFAULTS);
   const [resetKey, setResetKey] = useState(0);
   const set = (k, v) => setCfg((c) => ({ ...c, [k]: v }));
+  const shotRef = useRef(null);
   const reset = () => setResetKey((k) => k + 1);
 
   const onReveal = (e) => {
@@ -679,13 +680,16 @@ function ScratchEditor() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <div style={{ height: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px" }}>
           <div style={{ fontSize: 13, color: T.t2 }}>Prévia · raspe com o mouse</div>
-          <button onClick={reset} style={{ background: T.panel, border: `1px solid ${T.line}`, color: T.t1, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
-            Repetir
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={reset} style={{ background: T.panel, border: `1px solid ${T.line}`, color: T.t1, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
+              Repetir
+            </button>
+            <DownloadMenu stageRef={shotRef} name="tap-to-scratch" animated gifSeconds={3} beforeGif={() => reset()} />
+          </div>
         </div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px" }}>
-          <div style={{ width: size.w * scale, height: size.h * scale }}>
+          <div ref={shotRef} style={{ width: size.w * scale, height: size.h * scale }}>
             <ScratchStage config={cfg} resetKey={resetKey} />
           </div>
         </div>
@@ -981,6 +985,10 @@ function CarrosselTransitions({ slides, config, transition, index, reducedMotion
                 background: "repeating-linear-gradient(45deg, rgba(127,127,127,0.08) 0 10px, transparent 10px 20px)" }}>
                 Slide {i + 1} — sem mídia
               </span>
+            ) : slide.kind === "video" ? (
+              <video src={slide.image_url} muted loop autoPlay playsInline preload="auto"
+                style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 50%",
+                  display: "block", pointerEvents: "none" }} />
             ) : (
               <img src={slide.image_url} alt={slide.label || ""} draggable={false} decoding="async"
                 style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "50% 50%",
@@ -1010,7 +1018,7 @@ function CarrosselTransitions({ slides, config, transition, index, reducedMotion
 
 /* ── CarrosselStage — pai (index, autoplay, setas, dots, hint) ────────────── */
 
-function CarrosselStage({ config, resetKey }) {
+function CarrosselStage({ config, resetKey, captureMode = false }) {
   const reducedMotion = useReducedMotion();
   const slides = config.slides;
   const n = slides.length;
@@ -1038,6 +1046,13 @@ function CarrosselStage({ config, resetKey }) {
     const t = setInterval(() => setIndex((at) => (config.loop ? (at + 1) % n : Math.min(n - 1, at + 1))), config.autoplay_interval_ms);
     return () => clearInterval(t);
   }, [config.autoplay, config.autoplay_interval_ms, config.loop, interacted, n]);
+
+  // Modo captura (GIF): avança sozinho e rápido, ignorando interação.
+  useEffect(() => {
+    if (!captureMode || n < 2) return;
+    const t = setInterval(() => setIndex((at) => (at + 1) % n), 1100);
+    return () => clearInterval(t);
+  }, [captureMode, n]);
 
   // Some o hint depois da 1ª interação.
   useEffect(() => { if (!interacted || hintGone) return; const t = setTimeout(() => setHintGone(true), 400); return () => clearTimeout(t); }, [interacted, hintGone]);
@@ -1114,12 +1129,14 @@ function CarouselEditor() {
   const [autoplay, setAutoplay] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const reset = () => setResetKey((k) => k + 1);
+  const shotRef = useRef(null);
+  const [capMode, setCapMode] = useState(false);
 
   const addSlides = (files) => {
-    const imgs = [...files].filter((f) => f.type.startsWith("image")).slice(0, MAX_SLIDES - slides.length);
-    let pending = imgs.length; if (!pending) return;
+    const media = [...files].filter((f) => f.type.startsWith("image") || f.type.startsWith("video")).slice(0, MAX_SLIDES - slides.length);
+    let pending = media.length; if (!pending) return;
     const acc = [];
-    imgs.forEach((f) => { const rd = new FileReader(); rd.onload = () => { acc.push({ id: nid(), image_url: rd.result, click_url: "", label: "" }); if (--pending === 0) { setSlides((s) => [...s, ...acc]); reset(); } }; rd.readAsDataURL(f); });
+    media.forEach((f) => { const kind = f.type.startsWith("video") ? "video" : "image"; const rd = new FileReader(); rd.onload = () => { acc.push({ id: nid(), image_url: rd.result, kind, click_url: "", label: "" }); if (--pending === 0) { setSlides((s) => [...s, ...acc]); reset(); } }; rd.readAsDataURL(f); });
   };
   const removeSlide = (id) => { setSlides((s) => s.filter((x) => x.id !== id)); reset(); };
 
@@ -1141,16 +1158,19 @@ function CarouselEditor() {
         </div>
         <div style={{ fontSize: 11, color: T.t3, marginBottom: 6 }}>Motor real do max attention</div>
 
-        <label style={lbl}>Slides (imagens)</label>
+        <label style={lbl}>Slides (imagem ou vídeo)</label>
         <label style={{ ...field, display: "block", textAlign: "center", cursor: "pointer", color: T.teal, borderStyle: "dashed" }}>
-          {slides.length ? `Adicionar (${slides.length}/${MAX_SLIDES})` : "Subir imagens"}
-          <input type="file" accept="image/*" multiple onChange={(e) => addSlides(e.target.files)} style={{ display: "none" }} />
+          {slides.length ? `Adicionar (${slides.length}/${MAX_SLIDES})` : "Subir imagens ou vídeos"}
+          <input type="file" accept="image/*,video/*" multiple onChange={(e) => addSlides(e.target.files)} style={{ display: "none" }} />
         </label>
         {slides.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
             {slides.map((s, i) => (
               <div key={s.id} style={{ position: "relative", width: 58, height: 58, borderRadius: 8, overflow: "hidden", border: `1px solid ${T.line}` }}>
-                <img src={s.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                {s.kind === "video"
+                  ? <video src={s.image_url} muted style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                  : <img src={s.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                {s.kind === "video" && <span style={{ position: "absolute", top: 2, left: 3, background: "rgba(28,38,47,.8)", color: "#fff", fontSize: 8, fontWeight: 700, padding: "1px 4px", borderRadius: 4 }}>VÍDEO</span>}
                 <button onClick={() => removeSlide(s.id)} style={{ position: "absolute", top: 2, right: 2, width: 17, height: 17, borderRadius: 999, border: "none", background: "rgba(28,38,47,.85)", color: "#fff", fontSize: 12, lineHeight: 1, cursor: "pointer" }}>×</button>
                 <span style={{ position: "absolute", bottom: 2, left: 3, background: "rgba(28,38,47,.7)", color: "#fff", fontSize: 9, fontWeight: 700, padding: "0 4px", borderRadius: 4 }}>{i + 1}</span>
               </div>
@@ -1183,14 +1203,18 @@ function CarouselEditor() {
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <div style={{ height: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px" }}>
           <div style={{ fontSize: 13, color: T.t2 }}>Prévia · arraste, setas ou dots</div>
-          <button onClick={reset} style={{ background: T.panel, border: `1px solid ${T.line}`, color: T.t1, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
-            Repetir
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button onClick={reset} style={{ background: T.panel, border: `1px solid ${T.line}`, color: T.t1, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 7 }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
+              Repetir
+            </button>
+            <DownloadMenu stageRef={shotRef} name="tap-to-carousel" animated gifSeconds={4}
+              beforeGif={() => { reset(); setCapMode(true); }} afterGif={() => { setCapMode(false); reset(); }} />
+          </div>
         </div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px" }}>
-          <div style={{ width: size.w * scale, height: size.h * scale }}>
-            <CarrosselStage config={config} resetKey={resetKey} />
+          <div ref={shotRef} style={{ width: size.w * scale, height: size.h * scale }}>
+            <CarrosselStage config={config} resetKey={resetKey} captureMode={capMode} />
           </div>
         </div>
       </div>
@@ -1242,10 +1266,11 @@ function TapToMapEditor() {
 
   const mapDiv = useRef(null), mapRef = useRef(null), markersRef = useRef([]);
   const splashRef = useRef(null);
+  const shotRef = useRef(null);
 
   useEffect(() => {
     if (!ready || !mapDiv.current || mapRef.current) return;
-    const map = new maplibregl.Map({ container: mapDiv.current, style: MAP_STYLE, center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM, attributionControl: { compact: true } });
+    const map = new maplibregl.Map({ container: mapDiv.current, style: MAP_STYLE, center: DEFAULT_CENTER, zoom: DEFAULT_ZOOM, attributionControl: { compact: true }, preserveDrawingBuffer: true });
     mapRef.current = map;
     return () => { map.remove(); mapRef.current = null; };
   }, [ready]);
@@ -1316,9 +1341,9 @@ function TapToMapEditor() {
       </div>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <div style={{ height: 44, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", padding: "0 18px", fontSize: 12, color: T.t2 }}>{status}</div>
+        <div style={{ height: 44, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px", fontSize: 12, color: T.t2 }}><span>{status}</span><DownloadMenu stageRef={shotRef} name="tap-to-map" mapRef={mapRef} /></div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px" }}>
-          <div style={{ position: "relative", width: size.w * scale, height: size.h * scale, borderRadius: 12, overflow: "hidden", background: "#e9eaed", boxShadow: "0 12px 40px rgba(0,0,0,.35)" }}>
+          <div ref={shotRef} style={{ position: "relative", width: size.w * scale, height: size.h * scale, borderRadius: 12, overflow: "hidden", background: "#e9eaed", boxShadow: "0 12px 40px rgba(0,0,0,.35)" }}>
             <div ref={mapDiv} style={{ position: "absolute", inset: 0 }} />
             {!ready && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#8792a0", fontSize: 12 }}>Carregando mapa…</div>}
             {/* header */}
@@ -1364,6 +1389,7 @@ function CalendarEditor() {
   const [media, setMedia] = useState(null);
   const [v, setV] = useState({ title: "Show da Banda X", desc: "Garanta seu ingresso antes que esgote.", date: "", time: "20:00", notify: "30 minutos antes" });
   const set = (k, val) => setV((s) => ({ ...s, [k]: val }));
+  const shotRef = useRef(null);
   const upload = (e) => { const f = e.target.files?.[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => setMedia(rd.result); rd.readAsDataURL(f); };
   const dateLine = (() => { if (!v.date) return "Selecione a data"; const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.date); if (!m) return v.date; const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]; const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]; const d = new Date(+m[1], +m[2] - 1, +m[3]); return `${dias[d.getDay()]}, ${+m[3]} de ${meses[+m[2] - 1]}`; })();
   return (
@@ -1382,7 +1408,12 @@ function CalendarEditor() {
           {["No horário do evento", "10 minutos antes", "30 minutos antes", "1 hora antes", "1 dia antes"].map((o) => <option key={o}>{o}</option>)}
         </select>
       </div>
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 22, padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ height: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 18px" }}>
+          <DownloadMenu stageRef={shotRef} name="click-to-calendar" />
+        </div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px" }}>
+        <div ref={shotRef} style={{ display: "flex", alignItems: "center", gap: 22 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: T.t2 }}>1 · Banner no site</div>
           <div style={{ width: 240, height: 200, borderRadius: 12, overflow: "hidden", background: "#fff", boxShadow: "0 8px 26px rgba(0,0,0,.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1402,6 +1433,8 @@ function CalendarEditor() {
             </div>
           </div>
         </div>
+        </div>
+        </div>
       </div>
     </div>
   );
@@ -1410,34 +1443,72 @@ function CalendarEditor() {
 /* ===== Mockup Simples (compacto) — criativo num portal wireframe ===== */
 function SimplesEditor() {
   const [media, setMedia] = useState(null);
+  const [mediaKind, setMediaKind] = useState("image");
   const [size, setSize] = useState(SIZES[0]);
-  const upload = (e) => { const f = e.target.files?.[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => setMedia(rd.result); rd.readAsDataURL(f); };
+  const [device, setDevice] = useState("desktop");
+  const shotRef = useRef(null);
+  const upload = (e) => { const f = e.target.files?.[0]; if (!f) return; const kind = f.type.startsWith("video") ? "video" : "image"; const rd = new FileReader(); rd.onload = () => { setMedia(rd.result); setMediaKind(kind); }; rd.readAsDataURL(f); };
   const block = (h) => <div style={{ background: "#e6e9ec", borderRadius: 6, height: h }} />;
-  const slot = <div style={{ width: "100%", aspectRatio: `${size.w}/${size.h}`, background: media ? "#000" : "#eef0f2", borderRadius: 6, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #dfe3e6" }}>
-    {media ? <img src={media} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#9aa4ad", fontSize: 11 }}>{size.key}</span>}
-  </div>;
+  const mediaEl = media
+    ? (mediaKind === "video"
+      ? <video src={media} muted loop autoPlay playsInline style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      : <img src={media} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />)
+    : <span style={{ color: "#9aa4ad", fontSize: 11 }}>{size.key}</span>;
+  const slot = <div style={{ width: "100%", aspectRatio: `${size.w}/${size.h}`, background: media ? "#000" : "#eef0f2", borderRadius: 6, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #dfe3e6" }}>{mediaEl}</div>;
+
+  const desktop = (
+    <div style={{ width: 460, background: "#fff", borderRadius: 10, boxShadow: "0 10px 34px rgba(0,0,0,.28)", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #eef0f2" }}>
+        <div style={{ width: 70, height: 16, background: "#c7ccd2", borderRadius: 4 }} />
+        <div style={{ flex: 1 }} />
+        {[0, 1, 2].map((i) => <div key={i} style={{ width: 34, height: 8, background: "#dde1e4", borderRadius: 3 }} />)}
+      </div>
+      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ background: "#e6e9ec", borderRadius: 8, height: 150 }} />
+        {block(10)}{block(10)}
+        <div style={{ maxWidth: 300, margin: "6px auto" }}>{slot}</div>
+        {block(10)}{block(10)}{block(10)}
+      </div>
+    </div>
+  );
+  const mobile = (
+    <div style={{ width: 300, background: "#0e0e12", borderRadius: 34, padding: 10, boxShadow: "0 16px 40px rgba(0,0,0,.4)" }}>
+      <div style={{ background: "#fff", borderRadius: 26, overflow: "hidden" }}>
+        <div style={{ height: 26, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 70, height: 6, background: "#d3d7db", borderRadius: 99 }} /></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderBottom: "1px solid #eef0f2" }}>
+          <div style={{ width: 50, height: 12, background: "#c7ccd2", borderRadius: 4 }} />
+          <div style={{ flex: 1 }} />
+          <div style={{ width: 18, height: 12, background: "#dde1e4", borderRadius: 3 }} />
+        </div>
+        <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ background: "#e6e9ec", borderRadius: 8, height: 110 }} />
+          {block(9)}{block(9)}
+          <div style={{ margin: "4px auto", width: "100%" }}>{slot}</div>
+          {block(9)}{block(9)}{block(9)}{block(9)}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", minHeight: 560 }}>
       <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18 }}>
-        <label style={lbl}>Criativo</label>
-        <label style={{ ...field, display: "block", textAlign: "center", cursor: "pointer", color: T.teal, borderStyle: "dashed" }}>{media ? "Trocar imagem" : "Subir imagem"}<input type="file" accept="image/*" onChange={upload} style={{ display: "none" }} /></label>
+        <label style={lbl}>Criativo (imagem ou vídeo)</label>
+        <label style={{ ...field, display: "block", textAlign: "center", cursor: "pointer", color: T.teal, borderStyle: "dashed" }}>{media ? "Trocar criativo" : "Subir imagem ou vídeo"}<input type="file" accept="image/*,video/*" onChange={upload} style={{ display: "none" }} /></label>
         <label style={lbl}>Formato</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{SIZES.map((s) => <button key={s.key} onClick={() => setSize(s)} style={chipStyle(s.key === size.key)}>{s.key}</button>)}</div>
-        <div style={{ fontSize: 11, color: T.t3, marginTop: 14, lineHeight: 1.5 }}>Portal genérico em wireframe; o anúncio entra na página no formato escolhido.</div>
+        <div style={{ fontSize: 11, color: T.t3, marginTop: 14, lineHeight: 1.5 }}>Portal genérico em wireframe; o anúncio entra na página no formato escolhido. Alterne entre desktop e mobile na prévia.</div>
       </div>
-      <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px", overflow: "auto" }}>
-        <div style={{ width: 460, background: "#fff", borderRadius: 10, boxShadow: "0 10px 34px rgba(0,0,0,.28)", overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #eef0f2" }}>
-            <div style={{ width: 70, height: 16, background: "#c7ccd2", borderRadius: 4 }} />
-            <div style={{ flex: 1 }} />
-            {[0, 1, 2].map((i) => <div key={i} style={{ width: 34, height: 8, background: "#dde1e4", borderRadius: 3 }} />)}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ height: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px" }}>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => setDevice("desktop")} style={chipStyle(device === "desktop")}>Desktop</button>
+            <button onClick={() => setDevice("mobile")} style={chipStyle(device === "mobile")}>Mobile</button>
           </div>
-          <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-            <div style={{ background: "#e6e9ec", borderRadius: 8, height: 150 }} />
-            {block(10)}{block(10)}
-            <div style={{ maxWidth: 300, margin: "6px auto" }}>{slot}</div>
-            {block(10)}{block(10)}{block(10)}
-          </div>
+          <DownloadMenu stageRef={shotRef} name="mockup-simples" animated={mediaKind === "video"} />
+        </div>
+        <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px", overflow: "auto" }}>
+          <div ref={shotRef}>{device === "desktop" ? desktop : mobile}</div>
         </div>
       </div>
     </div>
@@ -1446,6 +1517,76 @@ function SimplesEditor() {
 
 /* ===== Home (grade) + roteador da aba ===== */
 function chipStyle(on) { return { background: on ? "rgba(51,151,185,.16)" : "#1A242D", border: `1px solid ${on ? T.teal : T.line}`, color: on ? T.teal : T.t2, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }; }
+/* ===== Export (PNG/GIF) — html2canvas + gif.js via cdnjs sob demanda ===== */
+function loadScriptOnce(src) {
+  return new Promise((res, rej) => {
+    if ([...document.scripts].some((s) => s.src === src)) return res();
+    const s = document.createElement("script"); s.src = src; s.onload = () => res(); s.onerror = () => rej(new Error("load " + src)); document.head.appendChild(s);
+  });
+}
+async function ensureH2C() { if (!window.html2canvas) await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"); return window.html2canvas; }
+async function ensureGIF() { if (!window.GIF) await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"); return window.GIF; }
+function triggerDownload(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 1500); }
+async function shotCanvas(el, mapRef, scale) {
+  const h2c = await ensureH2C();
+  const base = await h2c(el, { backgroundColor: null, useCORS: true, logging: false, scale: scale || 1 });
+  if (mapRef && mapRef.current) {
+    // html2canvas não captura WebGL — compõe o mapa por baixo dos overlays
+    try {
+      const mc = mapRef.current.getCanvas();
+      const out = document.createElement("canvas"); out.width = base.width; out.height = base.height;
+      const ctx = out.getContext("2d");
+      ctx.drawImage(mc, 0, 0, out.width, out.height);
+      ctx.drawImage(base, 0, 0);
+      return out;
+    } catch { return base; }
+  }
+  return base;
+}
+async function exportPNG(el, name, mapRef) { const c = await shotCanvas(el, mapRef, 2); await new Promise((r) => c.toBlob((b) => { triggerDownload(b, name + ".png"); r(); }, "image/png")); }
+async function exportGIF(el, name, { seconds = 2.5, fps = 8, onProgress, mapRef } = {}) {
+  const GIF = await ensureGIF(); await ensureH2C();
+  const w = el.offsetWidth, h = el.offsetHeight;
+  const gif = new GIF({ workers: 2, quality: 12, width: w, height: h, workerScript: "https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js" });
+  const frames = Math.max(6, Math.round(seconds * fps)), delay = Math.round(1000 / fps);
+  for (let i = 0; i < frames; i++) {
+    const c = await shotCanvas(el, mapRef, 1);
+    gif.addFrame(c, { delay, copy: true });
+    onProgress && onProgress(((i + 1) / frames) * 0.7);
+    await new Promise((r) => setTimeout(r, delay));
+  }
+  await new Promise((res) => { gif.on("progress", (p) => onProgress && onProgress(0.7 + p * 0.3)); gif.on("finished", (b) => { triggerDownload(b, name + ".gif"); res(); }); gif.render(); });
+}
+
+function DownloadMenu({ stageRef, name, animated = false, mapRef = null, beforeGif, afterGif, gifSeconds = 2.5 }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState("");
+  const [prog, setProg] = useState(0);
+  const doPNG = async () => { if (!stageRef.current) return; setBusy("png"); setOpen(false); try { await exportPNG(stageRef.current, name, mapRef); } catch { alert("Falha ao gerar PNG."); } setBusy(""); };
+  const doGIF = async () => {
+    if (!stageRef.current) return; setBusy("gif"); setProg(0); setOpen(false);
+    try { await beforeGif?.(); await new Promise((r) => setTimeout(r, 350)); await exportGIF(stageRef.current, name, { seconds: gifSeconds, fps: 8, onProgress: setProg, mapRef }); }
+    catch { alert("Falha ao gerar GIF."); }
+    finally { await afterGif?.(); setBusy(""); }
+  };
+  const btn = { background: T.teal, border: "none", color: "#fff", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: busy ? "default" : "pointer", display: "flex", alignItems: "center", gap: 7, fontFamily: "inherit", opacity: busy ? 0.8 : 1 };
+  return (
+    <div style={{ position: "relative" }}>
+      <button onClick={() => setOpen((o) => !o)} disabled={!!busy} style={btn}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+        {busy ? `Gerando ${busy.toUpperCase()} ${Math.round(prog * 100)}%` : "Baixar"}
+      </button>
+      {open && !busy && (
+        <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: T.panel, border: `1px solid ${T.line}`, borderRadius: 10, padding: 6, minWidth: 210, zIndex: 30, boxShadow: "0 12px 30px rgba(0,0,0,.4)" }}>
+          <button onClick={doPNG} style={menuItem}>PNG · imagem estática</button>
+          {animated && <button onClick={doGIF} style={menuItem}>GIF · mostra o funcionamento</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+const menuItem = { display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", color: T.t1, borderRadius: 7, padding: "9px 10px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" };
+
 const MOCKUPS = [
   { id: "scratch", title: "Tap to Scratch", desc: "Raspadinha que revela o criativo por baixo.", accent: "#7A5CFF", glyph: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
   { id: "carousel", title: "Tap to Carousel", desc: "Slides que deslizam, com transições 3D.", accent: "#3397B9", glyph: '<rect x="3" y="6" width="13" height="12" rx="2"/><path d="M19 8v8M22 10v4"/>' },
@@ -1455,22 +1596,17 @@ const MOCKUPS = [
 ];
 function Home({ onOpen }) {
   return (
-    <div style={{ padding: 26 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 3 }}>
-        <span style={{ width: 8, height: 8, borderRadius: 9, background: T.yellow }} />
-        <b style={{ fontSize: 19, fontWeight: 800 }}>Gerador de Mockups</b>
-      </div>
-      <div style={{ fontSize: 13, color: T.t3, marginBottom: 22 }}>Escolha o tipo de mockup — a configuração abre aqui mesmo.</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(290px,1fr))", gap: 18 }}>
-        {MOCKUPS.map((m, i) => (
-          <button key={m.id} onClick={() => onOpen(m.id)}
-            style={{ textAlign: "left", cursor: "pointer", background: T.panel, border: `1px solid ${i === 0 ? T.teal : T.line}`, borderRadius: 16, padding: 22, color: T.t1, boxShadow: i === 0 ? "0 0 0 3px rgba(51,151,185,.12)" : "none", fontFamily: "inherit" }}>
+    <div style={{ fontFamily: "Urbanist, system-ui, sans-serif" }}>
+      <style>{`.mkgc{transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease}.mkgc:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(0,0,0,.30);border-color:${T.teal}}`}</style>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 18 }}>
+        {MOCKUPS.map((m) => (
+          <button key={m.id} className="mkgc" onClick={() => onOpen(m.id)}
+            style={{ textAlign: "left", cursor: "pointer", background: T.panel, border: `1px solid ${T.line}`, borderRadius: 16, padding: 22, color: T.t1, fontFamily: "inherit" }}>
             <div style={{ width: 52, height: 52, borderRadius: 14, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={m.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: m.glyph }} />
             </div>
             <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>{m.title}</div>
-            <div style={{ fontSize: 13, color: T.t2, lineHeight: 1.4, marginBottom: 16, minHeight: 36 }}>{m.desc}</div>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, border: `1px solid ${i === 0 ? T.teal : T.line}`, borderRadius: 999, padding: "6px 14px", fontSize: 12.5, fontWeight: 700, color: i === 0 ? T.teal : T.t2 }}>Criar mockup →</span>
+            <div style={{ fontSize: 13, color: T.t2, lineHeight: 1.4, minHeight: 36 }}>{m.desc}</div>
           </button>
         ))}
       </div>
@@ -1481,25 +1617,21 @@ function Home({ onOpen }) {
 export default function MockupGenerator() {
   const [view, setView] = useState(null);
   const M = MOCKUPS.find((m) => m.id === view);
+  const base = { fontFamily: "Urbanist, system-ui, sans-serif", color: T.t1 };
+  if (!view) return <div style={{ ...base, padding: 4 }}><Home onOpen={setView} /></div>;
   return (
-    <div style={{ fontFamily: "Urbanist, system-ui, sans-serif", background: T.navy, color: T.t1, minHeight: 640, borderRadius: 14, overflow: "hidden", border: `1px solid ${T.line}` }}>
-      {!view ? (
-        <Home onOpen={setView} />
-      ) : (
-        <div>
-          <div style={{ height: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", gap: 12, padding: "0 18px" }}>
-            <button onClick={() => setView(null)} style={{ background: "transparent", border: `1px solid ${T.line}`, color: T.t1, borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>Voltar
-            </button>
-            <b style={{ fontSize: 14, fontWeight: 800 }}>{M?.title}</b>
-          </div>
-          {view === "scratch" && <ScratchEditor />}
-          {view === "carousel" && <CarouselEditor />}
-          {view === "map" && <TapToMapEditor />}
-          {view === "calendar" && <CalendarEditor />}
-          {view === "simples" && <SimplesEditor />}
-        </div>
-      )}
+    <div style={{ ...base, background: T.navy, minHeight: 640, borderRadius: 14, overflow: "hidden", border: `1px solid ${T.line}` }}>
+      <div style={{ height: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", gap: 12, padding: "0 18px" }}>
+        <button onClick={() => setView(null)} style={{ background: "transparent", border: `1px solid ${T.line}`, color: T.t1, borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>Voltar
+        </button>
+        <b style={{ fontSize: 14, fontWeight: 800 }}>{M?.title}</b>
+      </div>
+      {view === "scratch" && <ScratchEditor />}
+      {view === "carousel" && <CarouselEditor />}
+      {view === "map" && <TapToMapEditor />}
+      {view === "calendar" && <CalendarEditor />}
+      {view === "simples" && <SimplesEditor />}
     </div>
   );
 }
