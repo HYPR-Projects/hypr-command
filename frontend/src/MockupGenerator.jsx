@@ -1389,6 +1389,7 @@ function CalendarEditor() {
   const set = (k, val) => setV((s) => ({ ...s, [k]: val }));
   const bannerRef = useRef(null);
   const calRef = useRef(null);
+  const bothRef = useRef(null);
   const upload = (e) => { const f = e.target.files?.[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => setMedia(rd.result); rd.readAsDataURL(f); };
   const dateLine = (() => { if (!v.date) return "Selecione a data"; const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.date); if (!m) return v.date; const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]; const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]; const d = new Date(+m[1], +m[2] - 1, +m[3]); return `${dias[d.getDay()]}, ${+m[3]} de ${meses[+m[2] - 1]}`; })();
   return (
@@ -1407,8 +1408,8 @@ function CalendarEditor() {
           {["No horário do evento", "10 minutos antes", "30 minutos antes", "1 hora antes", "1 dia antes"].map((o) => <option key={o}>{o}</option>)}
         </select>
       </div>
-      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 30, padding: 28, minWidth: 0, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28, minWidth: 0, gap: 22 }}>
+        <div ref={bothRef} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 30, flexWrap: "wrap" }}>
           <div ref={bannerRef}>
             <div style={{ width: 280, background: "#c9ced4", borderRadius: 36, padding: 10, boxShadow: "0 18px 44px rgba(0,0,0,.18)" }}>
               <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden", height: 540, display: "flex", flexDirection: "column" }}>
@@ -1436,15 +1437,12 @@ function CalendarEditor() {
               </div>
             </div>
           </div>
-          <JpgButton stageRef={bannerRef} name="click-to-calendar-banner" />
-        </div>
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: T.t3 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: T.t3 }}>
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           <span style={{ fontSize: 13, fontWeight: 600 }}>click</span>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           <div ref={calRef}>
             <div style={{ width: 280, background: "#c9ced4", borderRadius: 36, padding: 10, boxShadow: "0 18px 44px rgba(0,0,0,.18)" }}>
               <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden", height: 540, display: "flex", flexDirection: "column" }}>
@@ -1472,7 +1470,11 @@ function CalendarEditor() {
               </div>
             </div>
           </div>
-          <JpgButton stageRef={calRef} name="click-to-calendar-evento" />
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+          <ImageMenu stageRef={bannerRef} name="click-to-calendar-banner" label="Baixar passo 1" />
+          <ImageMenu stageRef={bothRef} name="click-to-calendar" label="Baixar os dois" primary />
+          <ImageMenu stageRef={calRef} name="click-to-calendar-evento" label="Baixar passo 2" />
         </div>
       </div>
     </div>
@@ -1659,6 +1661,32 @@ function JpgButton({ stageRef, name }) {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
       {busy ? "Gerando…" : "Baixar JPG"}
     </button>
+  );
+}
+function ImageMenu({ stageRef, name, label = "Baixar", primary = false }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState("");
+  const run = async (kind) => {
+    if (!stageRef.current) return; setBusy(kind); setOpen(false);
+    try { if (kind === "png") await exportPNG(stageRef.current, name, null, 3); else await exportJPG(stageRef.current, name, 3); }
+    catch (e) { console.error("export " + kind + ":", e); alert("Falha ao gerar " + kind.toUpperCase() + "."); }
+    setBusy("");
+  };
+  const b = { display: "inline-flex", alignItems: "center", gap: 8, borderRadius: 10, padding: "10px 18px", fontWeight: 700, fontSize: 14, cursor: busy ? "default" : "pointer", fontFamily: "inherit" };
+  const style = primary ? { ...b, background: "var(--teal)", border: "none", color: "#fff" } : { ...b, background: "var(--bg-card)", border: `1px solid ${T.line}`, color: "var(--teal)" };
+  return (
+    <div style={{ position: "relative" }}>
+      <button onClick={() => setOpen((o) => !o)} disabled={!!busy} style={style}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+        {busy ? `Gerando ${busy.toUpperCase()}…` : label}
+      </button>
+      {open && !busy && (
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)", top: "calc(100% + 6px)", background: "var(--bg-card)", border: `1px solid ${T.line}`, borderRadius: 10, padding: 6, minWidth: 120, zIndex: 30, boxShadow: "0 12px 30px rgba(0,0,0,.25)" }}>
+          <button onClick={() => run("png")} style={menuItem}>PNG</button>
+          <button onClick={() => run("jpg")} style={menuItem}>JPG</button>
+        </div>
+      )}
+    </div>
   );
 }
 
