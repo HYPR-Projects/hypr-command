@@ -1552,14 +1552,15 @@ async function shotCanvas(el, mapRef, scale) {
   return base;
 }
 async function exportPNG(el, name, mapRef) { const c = await shotCanvas(el, mapRef, 2); await new Promise((r) => c.toBlob((b) => { triggerDownload(b, name + ".png"); r(); }, "image/png")); }
-async function exportGIF(el, name, { seconds = 2.5, fps = 8, onProgress, mapRef } = {}) {
+async function exportGIF(el, name, { seconds = 2.5, fps = 12, onProgress, mapRef } = {}) {
   const GIF = await ensureGIF(); await ensureH2C();
   const workerScript = await getGifWorkerURL();
-  const w = el.offsetWidth, h = el.offsetHeight;
-  const gif = new GIF({ workers: 2, quality: 12, width: w, height: h, workerScript });
+  const scale = 2;
+  const w = el.offsetWidth * scale, h = el.offsetHeight * scale;
+  const gif = new GIF({ workers: 2, quality: 4, dither: "FloydSteinberg-serpentine", width: w, height: h, workerScript });
   const frames = Math.max(6, Math.round(seconds * fps)), delay = Math.round(1000 / fps);
   for (let i = 0; i < frames; i++) {
-    const c = await shotCanvas(el, mapRef, 1);
+    const c = await shotCanvas(el, mapRef, scale);
     gif.addFrame(c, { delay, copy: true });
     onProgress && onProgress(((i + 1) / frames) * 0.7);
     await new Promise((r) => setTimeout(r, delay));
@@ -1579,7 +1580,7 @@ function DownloadMenu({ stageRef, name, animated = false, mapRef = null, beforeG
   const doPNG = async () => { if (!stageRef.current) return; setBusy("png"); setOpen(false); try { await exportPNG(stageRef.current, name, mapRef); } catch (e) { console.error("PNG export:", e); alert("Falha ao gerar PNG."); } setBusy(""); };
   const doGIF = async () => {
     if (!stageRef.current) return; setBusy("gif"); setProg(0); setOpen(false);
-    try { await beforeGif?.(); await new Promise((r) => setTimeout(r, 350)); await exportGIF(stageRef.current, name, { seconds: gifSeconds, fps: 8, onProgress: setProg, mapRef }); }
+    try { await beforeGif?.(); await new Promise((r) => setTimeout(r, 350)); await exportGIF(stageRef.current, name, { seconds: gifSeconds, fps: 12, onProgress: setProg, mapRef }); }
     catch (e) { console.error("GIF export:", e); alert("Falha ao gerar GIF. Detalhe no console (F12)."); }
     finally { await afterGif?.(); setBusy(""); }
   };
