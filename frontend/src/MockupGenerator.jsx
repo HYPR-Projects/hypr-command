@@ -1387,13 +1387,14 @@ function CalendarEditor() {
   const [media, setMedia] = useState(null);
   const [v, setV] = useState({ title: "Show da Banda X", desc: "Garanta seu ingresso antes que esgote.", date: "", time: "20:00", notify: "30 minutos antes" });
   const set = (k, val) => setV((s) => ({ ...s, [k]: val }));
-  const shotRef = useRef(null);
+  const bannerRef = useRef(null);
+  const calRef = useRef(null);
   const upload = (e) => { const f = e.target.files?.[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => setMedia(rd.result); rd.readAsDataURL(f); };
   const dateLine = (() => { if (!v.date) return "Selecione a data"; const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.date); if (!m) return v.date; const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]; const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]; const d = new Date(+m[1], +m[2] - 1, +m[3]); return `${dias[d.getDay()]}, ${+m[3]} de ${meses[+m[2] - 1]}`; })();
   return (
     <div style={{ display: "flex", minHeight: 560 }}>
       <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18 }}>
-        <label style={lbl}>Criativo (capa do evento)</label>
+        <label style={lbl}>Criativo (banner 300×250)</label>
         <label style={{ ...field, display: "block", textAlign: "center", cursor: "pointer", color: T.teal, borderStyle: "dashed" }}>{media ? "Trocar imagem" : "Subir imagem"}<input type="file" accept="image/*" onChange={upload} style={{ display: "none" }} /></label>
         <label style={lbl}>Título do evento</label><input style={field} value={v.title} onChange={(e) => set("title", e.target.value)} />
         <label style={lbl}>Descrição</label><textarea style={{ ...field, minHeight: 60, resize: "vertical" }} value={v.desc} onChange={(e) => set("desc", e.target.value)} />
@@ -1406,32 +1407,72 @@ function CalendarEditor() {
           {["No horário do evento", "10 minutos antes", "30 minutos antes", "1 hora antes", "1 dia antes"].map((o) => <option key={o}>{o}</option>)}
         </select>
       </div>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <div style={{ height: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 18px" }}>
-          <DownloadMenu stageRef={shotRef} name="click-to-calendar" />
-        </div>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "transparent" }}>
-        <div ref={shotRef} style={{ display: "flex", alignItems: "center", gap: 22 }}>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: T.t2 }}>1 · Banner no site</div>
-          <div style={{ width: 240, height: 200, borderRadius: 12, overflow: "hidden", background: "#fff", boxShadow: "0 8px 26px rgba(0,0,0,.25)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {media ? <img src={media} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#9aa4ad", fontSize: 12 }}>criativo 300×250</span>}
-          </div>
-        </div>
-        <div style={{ color: T.teal, fontSize: 22, fontWeight: 800 }}>→</div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: T.t2 }}>2 · Google Calendar</div>
-          <div style={{ width: 260, borderRadius: 16, overflow: "hidden", background: "#fff", boxShadow: "0 10px 30px rgba(0,0,0,.28)", color: "#202124", fontFamily: "Roboto, Urbanist, sans-serif" }}>
-            <div style={{ height: 120, background: media ? `#000 center/cover url('${media}')` : "#e8eaed" }} />
-            <div style={{ padding: "14px 16px 16px" }}>
-              <div style={{ fontSize: 16, fontWeight: 700 }}>{v.title || "Título do evento"}</div>
-              <div style={{ display: "flex", gap: 9, marginTop: 12, fontSize: 12.5, color: "#3c4043" }}><span>📅</span><div><div>{dateLine}</div><div style={{ color: "#5f6368" }}>{v.time || "--:--"}</div></div></div>
-              <div style={{ display: "flex", gap: 9, marginTop: 10, fontSize: 12.5, color: "#3c4043" }}><span>🔔</span><div>Notificação · {v.notify}</div></div>
-              <div style={{ display: "flex", gap: 9, marginTop: 10, fontSize: 12.5, color: "#3c4043" }}><span>≡</span><div>{v.desc}</div></div>
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 30, padding: 28, minWidth: 0, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div ref={bannerRef}>
+            <div style={{ width: 280, background: "#c9ced4", borderRadius: 36, padding: 10, boxShadow: "0 18px 44px rgba(0,0,0,.18)" }}>
+              <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden" }}>
+                <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 74, height: 6, background: "#d7dbdf", borderRadius: 99 }} /></div>
+                <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 11 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 22, height: 22, background: "#e7eaed", borderRadius: 6 }} />
+                    <div style={{ flex: 1, height: 8, background: "#e7eaed", borderRadius: 4 }} />
+                    <div style={{ width: 22, height: 8, background: "#eef0f2", borderRadius: 4 }} />
+                    <div style={{ width: 22, height: 8, background: "#eef0f2", borderRadius: 4 }} />
+                  </div>
+                  <div style={{ height: 64, background: "#eceef1", borderRadius: 8 }} />
+                  <div style={{ height: 8, background: "#eceef1", borderRadius: 4 }} />
+                  <div style={{ height: 8, background: "#eceef1", borderRadius: 4, width: "80%" }} />
+                  <div style={{ width: "100%", aspectRatio: "300/250", background: media ? "#000" : "#f3f4f6", borderRadius: 8, overflow: "hidden", border: "1px dashed #cfd4d9", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {media ? <img src={media} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ color: "#9aa4ad", fontSize: 12 }}>criativo 300×250</span>}
+                  </div>
+                  <div style={{ height: 8, background: "#eceef1", borderRadius: 4 }} />
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <div style={{ flex: 1, height: 44, background: "#eceef1", borderRadius: 8 }} />
+                    <div style={{ flex: 1, height: 44, background: "#eceef1", borderRadius: 8 }} />
+                  </div>
+                </div>
+                <div style={{ height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 110, height: 5, background: "#d7dbdf", borderRadius: 99 }} /></div>
+              </div>
             </div>
           </div>
+          <JpgButton stageRef={bannerRef} name="click-to-calendar-banner" />
         </div>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: T.t3 }}>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>click</span>
         </div>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div ref={calRef}>
+            <div style={{ width: 280, background: "#c9ced4", borderRadius: 36, padding: 10, boxShadow: "0 18px 44px rgba(0,0,0,.18)" }}>
+              <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden" }}>
+                <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 74, height: 6, background: "#d7dbdf", borderRadius: 99 }} /></div>
+                <div style={{ padding: "8px 16px 16px", color: "#202124", fontFamily: "Roboto, Urbanist, sans-serif" }}>
+                  <div style={{ border: "1px solid #e6e9ec", borderRadius: 14, padding: "18px 18px 20px", boxShadow: "0 2px 8px rgba(0,0,0,.05)" }}>
+                    <div style={{ fontSize: 20, fontWeight: 800 }}>{v.title || "Título do evento"}</div>
+                    <div style={{ display: "flex", gap: 10, marginTop: 16, fontSize: 13.5, color: "#3c4043" }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+                      <div><div>{dateLine}</div><div style={{ color: "#5f6368" }}>{(v.time || "--:--")} (GMT-03)</div></div>
+                    </div>
+                    <div style={{ marginTop: 14, fontSize: 13.5, color: "#3c4043", lineHeight: 1.4 }}>{v.desc}</div>
+                    <button style={{ marginTop: 22, width: "100%", background: "#1a73e8", color: "#fff", border: "none", borderRadius: 8, padding: "12px", fontWeight: 700, fontSize: 14, cursor: "default", fontFamily: "inherit" }}>Add to Calendar</button>
+                    <div style={{ display: "flex", gap: 10, marginTop: 18, fontSize: 13.5, color: "#3c4043" }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+                      Local do evento
+                    </div>
+                    <div style={{ display: "flex", gap: 10, marginTop: 12, fontSize: 13.5, color: "#3c4043" }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2"><circle cx="12" cy="8" r="3.2" /><path d="M5 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5" /></svg>
+                      Organizador
+                    </div>
+                  </div>
+                </div>
+                <div style={{ height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 110, height: 5, background: "#d7dbdf", borderRadius: 99 }} /></div>
+              </div>
+            </div>
+          </div>
+          <JpgButton stageRef={calRef} name="click-to-calendar-evento" />
         </div>
       </div>
     </div>
@@ -1604,6 +1645,22 @@ function DownloadMenu({ stageRef, name, animated = false, mapRef = null, beforeG
   );
 }
 const menuItem = { display: "block", width: "100%", textAlign: "left", background: "transparent", border: "none", color: T.t1, borderRadius: 7, padding: "9px 10px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" };
+
+async function exportJPG(el, name, renderScale = 3) {
+  const h2c = await ensureH2C();
+  const c = await h2c(el, { backgroundColor: "#ffffff", useCORS: true, logging: false, scale: Math.min(4, renderScale) });
+  await new Promise((r) => c.toBlob((b) => { triggerDownload(b, name + ".jpg"); r(); }, "image/jpeg", 0.92));
+}
+function JpgButton({ stageRef, name }) {
+  const [busy, setBusy] = useState(false);
+  const dl = async () => { if (!stageRef.current) return; setBusy(true); try { await exportJPG(stageRef.current, name, 3); } catch (e) { console.error("JPG export:", e); alert("Falha ao gerar JPG."); } setBusy(false); };
+  return (
+    <button onClick={dl} disabled={busy} style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: 8, background: "var(--bg-card)", border: `1px solid ${T.line}`, color: "var(--teal)", borderRadius: 10, padding: "10px 20px", fontWeight: 700, fontSize: 14, cursor: busy ? "default" : "pointer", fontFamily: "inherit" }}>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+      {busy ? "Gerando…" : "Baixar JPG"}
+    </button>
+  );
+}
 
 const MOCKUPS = [
   { id: "scratch", title: "Tap to Scratch", desc: "Raspadinha que revela o criativo por baixo.", accent: "#7A5CFF", glyph: '<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>' },
