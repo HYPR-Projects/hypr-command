@@ -684,7 +684,7 @@ function ScratchEditor() {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
               Repetir
             </button>
-            <DownloadMenu stageRef={shotRef} name="tap-to-scratch" animated gifSeconds={3} beforeGif={() => reset()} />
+            <DownloadMenu stageRef={shotRef} name="tap-to-scratch" animated gifSeconds={3} renderScale={2 / scale} beforeGif={() => reset()} />
           </div>
         </div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "transparent" }}>
@@ -1049,7 +1049,7 @@ function CarrosselStage({ config, resetKey, captureMode = false }) {
   // Modo captura (GIF): avança sozinho e rápido, ignorando interação.
   useEffect(() => {
     if (!captureMode || n < 2) return;
-    const t = setInterval(() => setIndex((at) => (at + 1) % n), 1100);
+    const t = setInterval(() => setIndex((at) => (at + 1) % n), 1900);
     return () => clearInterval(t);
   }, [captureMode, n]);
 
@@ -1206,7 +1206,7 @@ function CarouselEditor() {
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
               Repetir
             </button>
-            <DownloadMenu stageRef={shotRef} name="tap-to-carousel" animated gifSeconds={4}
+            <DownloadMenu stageRef={shotRef} name="tap-to-carousel" animated gifSeconds={6} gifFps={8} renderScale={2 / scale}
               beforeGif={() => { reset(); setCapMode(true); }} afterGif={() => { setCapMode(false); reset(); }} />
           </div>
         </div>
@@ -1339,7 +1339,7 @@ function TapToMapEditor() {
       </div>
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <div style={{ height: 44, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px", fontSize: 12, color: T.t2 }}><span>{status}</span><DownloadMenu stageRef={shotRef} name="tap-to-map" mapRef={mapRef} /></div>
+        <div style={{ height: 44, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px", fontSize: 12, color: T.t2 }}><span>{status}</span><DownloadMenu stageRef={shotRef} name="tap-to-map" mapRef={mapRef} renderScale={2 / scale} /></div>
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "transparent" }}>
           <div ref={shotRef} style={{ position: "relative", width: size.w * scale, height: size.h * scale, borderRadius: 12, overflow: "hidden", background: "#e9eaed", boxShadow: "0 12px 40px rgba(0,0,0,.35)" }}>
             <div ref={mapDiv} style={{ position: "absolute", inset: 0 }} />
@@ -1551,16 +1551,19 @@ async function shotCanvas(el, mapRef, scale) {
   }
   return base;
 }
-async function exportPNG(el, name, mapRef) { const c = await shotCanvas(el, mapRef, 2); await new Promise((r) => c.toBlob((b) => { triggerDownload(b, name + ".png"); r(); }, "image/png")); }
-async function exportGIF(el, name, { seconds = 2.5, fps = 12, onProgress, mapRef } = {}) {
+async function exportPNG(el, name, mapRef, renderScale = 2) { const c = await shotCanvas(el, mapRef, Math.min(4, renderScale)); await new Promise((r) => c.toBlob((b) => { triggerDownload(b, name + ".png"); r(); }, "image/png")); }
+async function exportGIF(el, name, { seconds = 2.5, fps = 12, onProgress, mapRef, renderScale = 2 } = {}) {
   const GIF = await ensureGIF(); await ensureH2C();
   const workerScript = await getGifWorkerURL();
-  const scale = 2;
-  const w = el.offsetWidth * scale, h = el.offsetHeight * scale;
-  const gif = new GIF({ workers: 2, quality: 4, dither: "FloydSteinberg-serpentine", width: w, height: h, workerScript });
+  // resolução alvo: renderScale relativo ao exibido, limitado pra não estourar o tamanho do GIF (~1000px de borda maior)
+  let rs = Math.min(3.5, Math.max(1.5, renderScale));
+  const longEdge = Math.max(el.offsetWidth, el.offsetHeight) * rs;
+  if (longEdge > 1000) rs = rs * (1000 / longEdge);
+  const w = Math.round(el.offsetWidth * rs), h = Math.round(el.offsetHeight * rs);
+  const gif = new GIF({ workers: 2, quality: 1, dither: false, width: w, height: h, workerScript });
   const frames = Math.max(6, Math.round(seconds * fps)), delay = Math.round(1000 / fps);
   for (let i = 0; i < frames; i++) {
-    const c = await shotCanvas(el, mapRef, scale);
+    const c = await shotCanvas(el, mapRef, rs);
     gif.addFrame(c, { delay, copy: true });
     onProgress && onProgress(((i + 1) / frames) * 0.7);
     await new Promise((r) => setTimeout(r, delay));
@@ -1573,14 +1576,14 @@ async function exportGIF(el, name, { seconds = 2.5, fps = 12, onProgress, mapRef
   });
 }
 
-function DownloadMenu({ stageRef, name, animated = false, mapRef = null, beforeGif, afterGif, gifSeconds = 2.5 }) {
+function DownloadMenu({ stageRef, name, animated = false, mapRef = null, beforeGif, afterGif, gifSeconds = 2.5, gifFps = 12, renderScale = 2 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
   const [prog, setProg] = useState(0);
-  const doPNG = async () => { if (!stageRef.current) return; setBusy("png"); setOpen(false); try { await exportPNG(stageRef.current, name, mapRef); } catch (e) { console.error("PNG export:", e); alert("Falha ao gerar PNG."); } setBusy(""); };
+  const doPNG = async () => { if (!stageRef.current) return; setBusy("png"); setOpen(false); try { await exportPNG(stageRef.current, name, mapRef, Math.max(renderScale, 3)); } catch (e) { console.error("PNG export:", e); alert("Falha ao gerar PNG."); } setBusy(""); };
   const doGIF = async () => {
     if (!stageRef.current) return; setBusy("gif"); setProg(0); setOpen(false);
-    try { await beforeGif?.(); await new Promise((r) => setTimeout(r, 350)); await exportGIF(stageRef.current, name, { seconds: gifSeconds, fps: 12, onProgress: setProg, mapRef }); }
+    try { await beforeGif?.(); await new Promise((r) => setTimeout(r, 350)); await exportGIF(stageRef.current, name, { seconds: gifSeconds, fps: gifFps, onProgress: setProg, mapRef, renderScale }); }
     catch (e) { console.error("GIF export:", e); alert("Falha ao gerar GIF. Detalhe no console (F12)."); }
     finally { await afterGif?.(); setBusy(""); }
   };
