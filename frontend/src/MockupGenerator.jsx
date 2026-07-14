@@ -8,8 +8,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
  * Engines reais portados do max attention: Scratch, Carousel, Tap to Map.
  * ========================================================================== */
 
-const T = { navy: "#1C262F", panel: "#222E38", line: "#33414D", teal: "#3397B9", yellow: "#EDD900", t1: "#EAF1F5", t2: "#9DB0BC", t3: "#6E828F" };
-const field = { width: "100%", background: "#1A242D", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px", color: T.t1, fontSize: 13, outline: "none", fontFamily: "inherit" };
+const T = { navy: "transparent", panel: "var(--bg-card)", line: "var(--bdr)", teal: "var(--teal)", yellow: "var(--yellow)", t1: "var(--t1)", t2: "var(--t2)", t3: "var(--t3)" };
+const field = { width: "100%", background: "var(--bg-input)", border: `1px solid ${T.line}`, borderRadius: 8, padding: "8px 10px", color: T.t1, fontSize: 13, outline: "none", fontFamily: "inherit" };
 const lbl = { display: "block", fontSize: 11, fontWeight: 700, color: T.t2, margin: "13px 0 5px", letterSpacing: ".02em" };
 const SIZES = [
   { key: "300x250", w: 300, h: 250 }, { key: "336x280", w: 336, h: 280 },
@@ -617,7 +617,7 @@ function ScratchEditor() {
   return (
     <div style={{ display: "flex", gap: 0, minHeight: 560, background: T.navy, color: T.t1, fontFamily: "Urbanist, system-ui, sans-serif", overflow: "hidden" }}>
       {/* Config */}
-      <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18, overflowY: "auto", maxHeight: 640 }}>
+      <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
           <span style={{ width: 8, height: 8, borderRadius: 9, background: T.yellow }} />
           <b style={{ fontSize: 14, fontWeight: 800 }}>Tap to Scratch</b>
@@ -668,8 +668,7 @@ function ScratchEditor() {
         <label style={lbl}>Formato</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {SIZES.map((s) => (
-            <button key={s.key} onClick={() => { set("creative_size", s); reset(); }}
-              style={{ background: s.key === size.key ? "rgba(51,151,185,.16)" : "#1A242D", border: `1px solid ${s.key === size.key ? T.teal : T.line}`, color: s.key === size.key ? T.teal : T.t2, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            <button key={s.key} onClick={() => { set("creative_size", s); reset(); }} style={chipStyle(s.key === size.key)}>
               {s.key}
             </button>
           ))}
@@ -688,7 +687,7 @@ function ScratchEditor() {
             <DownloadMenu stageRef={shotRef} name="tap-to-scratch" animated gifSeconds={3} beforeGif={() => reset()} />
           </div>
         </div>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "transparent" }}>
           <div ref={shotRef} style={{ width: size.w * scale, height: size.h * scale }}>
             <ScratchStage config={cfg} resetKey={resetKey} />
           </div>
@@ -1151,7 +1150,7 @@ function CarouselEditor() {
 
   return (
     <div style={{ display: "flex", minHeight: 560, background: T.navy, color: T.t1, fontFamily: "Urbanist, system-ui, sans-serif", overflow: "hidden" }}>
-      <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18, overflowY: "auto", maxHeight: 640 }}>
+      <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
           <span style={{ width: 8, height: 8, borderRadius: 9, background: T.yellow }} />
           <b style={{ fontSize: 14, fontWeight: 800 }}>Tap to Carousel</b>
@@ -1191,8 +1190,7 @@ function CarouselEditor() {
         <label style={lbl}>Formato</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {SIZES.map((s) => (
-            <button key={s.key} onClick={() => { setSize(s); reset(); }}
-              style={{ background: s.key === size.key ? "rgba(51,151,185,.16)" : "#1A242D", border: `1px solid ${s.key === size.key ? T.teal : T.line}`, color: s.key === size.key ? T.teal : T.t2, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+            <button key={s.key} onClick={() => { setSize(s); reset(); }} style={chipStyle(s.key === size.key)}>
               {s.key}
             </button>
           ))}
@@ -1212,7 +1210,7 @@ function CarouselEditor() {
               beforeGif={() => { reset(); setCapMode(true); }} afterGif={() => { setCapMode(false); reset(); }} />
           </div>
         </div>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "transparent" }}>
           <div ref={shotRef} style={{ width: size.w * scale, height: size.h * scale }}>
             <CarrosselStage config={config} resetKey={resetKey} captureMode={capMode} />
           </div>
@@ -1318,7 +1316,7 @@ function TapToMapEditor() {
 
   return (
     <div style={{ display: "flex", minHeight: 560 }}>
-      <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18, overflowY: "auto", maxHeight: 600 }}>
+      <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18 }}>
         <div style={{ fontSize: 11, color: T.t3, marginBottom: 4 }}>MapLibre + OpenFreeMap {ready ? "" : "· carregando lib…"}</div>
         <label style={lbl}>Título (header)</label><input style={field} value={title} onChange={(e) => setTitle(e.target.value)} />
         <label style={lbl}>Empresa</label><input style={field} value={company} onChange={(e) => setCompany(e.target.value)} />
@@ -1342,7 +1340,7 @@ function TapToMapEditor() {
 
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <div style={{ height: 44, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px", fontSize: 12, color: T.t2 }}><span>{status}</span><DownloadMenu stageRef={shotRef} name="tap-to-map" mapRef={mapRef} /></div>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "transparent" }}>
           <div ref={shotRef} style={{ position: "relative", width: size.w * scale, height: size.h * scale, borderRadius: 12, overflow: "hidden", background: "#e9eaed", boxShadow: "0 12px 40px rgba(0,0,0,.35)" }}>
             <div ref={mapDiv} style={{ position: "absolute", inset: 0 }} />
             {!ready && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "#8792a0", fontSize: 12 }}>Carregando mapa…</div>}
@@ -1394,7 +1392,7 @@ function CalendarEditor() {
   const dateLine = (() => { if (!v.date) return "Selecione a data"; const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.date); if (!m) return v.date; const dias = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"]; const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"]; const d = new Date(+m[1], +m[2] - 1, +m[3]); return `${dias[d.getDay()]}, ${+m[3]} de ${meses[+m[2] - 1]}`; })();
   return (
     <div style={{ display: "flex", minHeight: 560 }}>
-      <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18, overflowY: "auto", maxHeight: 600 }}>
+      <div style={{ width: 320, flexShrink: 0, borderRight: `1px solid ${T.line}`, padding: 18 }}>
         <label style={lbl}>Criativo (capa do evento)</label>
         <label style={{ ...field, display: "block", textAlign: "center", cursor: "pointer", color: T.teal, borderStyle: "dashed" }}>{media ? "Trocar imagem" : "Subir imagem"}<input type="file" accept="image/*" onChange={upload} style={{ display: "none" }} /></label>
         <label style={lbl}>Título do evento</label><input style={field} value={v.title} onChange={(e) => set("title", e.target.value)} />
@@ -1412,7 +1410,7 @@ function CalendarEditor() {
         <div style={{ height: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "flex-end", padding: "0 18px" }}>
           <DownloadMenu stageRef={shotRef} name="click-to-calendar" />
         </div>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "transparent" }}>
         <div ref={shotRef} style={{ display: "flex", alignItems: "center", gap: 22 }}>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: T.t2 }}>1 · Banner no site</div>
@@ -1507,7 +1505,7 @@ function SimplesEditor() {
           </div>
           <DownloadMenu stageRef={shotRef} name="mockup-simples" animated={mediaKind === "video"} />
         </div>
-        <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 24, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0) 0 0/22px 22px", overflow: "auto" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 24, background: "transparent", overflow: "visible" }}>
           <div ref={shotRef}>{device === "desktop" ? desktop : mobile}</div>
         </div>
       </div>
@@ -1516,7 +1514,7 @@ function SimplesEditor() {
 }
 
 /* ===== Home (grade) + roteador da aba ===== */
-function chipStyle(on) { return { background: on ? "rgba(51,151,185,.16)" : "#1A242D", border: `1px solid ${on ? T.teal : T.line}`, color: on ? T.teal : T.t2, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }; }
+function chipStyle(on) { return { background: on ? "var(--teal-dim)" : "var(--bg-input)", border: `1px solid ${on ? T.teal : T.line}`, color: on ? T.teal : T.t2, borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }; }
 /* ===== Export (PNG/GIF) — html2canvas + gif.js via cdnjs sob demanda ===== */
 function loadScriptOnce(src) {
   return new Promise((res, rej) => {
@@ -1526,6 +1524,16 @@ function loadScriptOnce(src) {
 }
 async function ensureH2C() { if (!window.html2canvas) await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"); return window.html2canvas; }
 async function ensureGIF() { if (!window.GIF) await loadScriptOnce("https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.js"); return window.GIF; }
+let _gifWorkerURL = null;
+async function getGifWorkerURL() {
+  if (_gifWorkerURL) return _gifWorkerURL;
+  // O navegador bloqueia Worker de outra origem — baixamos o script e servimos via Blob same-origin.
+  const res = await fetch("https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js");
+  if (!res.ok) throw new Error("worker fetch " + res.status);
+  const txt = await res.text();
+  _gifWorkerURL = URL.createObjectURL(new Blob([txt], { type: "application/javascript" }));
+  return _gifWorkerURL;
+}
 function triggerDownload(blob, name) { const u = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 1500); }
 async function shotCanvas(el, mapRef, scale) {
   const h2c = await ensureH2C();
@@ -1546,8 +1554,9 @@ async function shotCanvas(el, mapRef, scale) {
 async function exportPNG(el, name, mapRef) { const c = await shotCanvas(el, mapRef, 2); await new Promise((r) => c.toBlob((b) => { triggerDownload(b, name + ".png"); r(); }, "image/png")); }
 async function exportGIF(el, name, { seconds = 2.5, fps = 8, onProgress, mapRef } = {}) {
   const GIF = await ensureGIF(); await ensureH2C();
+  const workerScript = await getGifWorkerURL();
   const w = el.offsetWidth, h = el.offsetHeight;
-  const gif = new GIF({ workers: 2, quality: 12, width: w, height: h, workerScript: "https://cdnjs.cloudflare.com/ajax/libs/gif.js/0.2.0/gif.worker.js" });
+  const gif = new GIF({ workers: 2, quality: 12, width: w, height: h, workerScript });
   const frames = Math.max(6, Math.round(seconds * fps)), delay = Math.round(1000 / fps);
   for (let i = 0; i < frames; i++) {
     const c = await shotCanvas(el, mapRef, 1);
@@ -1555,18 +1564,23 @@ async function exportGIF(el, name, { seconds = 2.5, fps = 8, onProgress, mapRef 
     onProgress && onProgress(((i + 1) / frames) * 0.7);
     await new Promise((r) => setTimeout(r, delay));
   }
-  await new Promise((res) => { gif.on("progress", (p) => onProgress && onProgress(0.7 + p * 0.3)); gif.on("finished", (b) => { triggerDownload(b, name + ".gif"); res(); }); gif.render(); });
+  await new Promise((res, rej) => {
+    gif.on("progress", (p) => onProgress && onProgress(0.7 + p * 0.3));
+    gif.on("finished", (b) => { triggerDownload(b, name + ".gif"); res(); });
+    gif.on("abort", () => rej(new Error("gif abort")));
+    gif.render();
+  });
 }
 
 function DownloadMenu({ stageRef, name, animated = false, mapRef = null, beforeGif, afterGif, gifSeconds = 2.5 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState("");
   const [prog, setProg] = useState(0);
-  const doPNG = async () => { if (!stageRef.current) return; setBusy("png"); setOpen(false); try { await exportPNG(stageRef.current, name, mapRef); } catch { alert("Falha ao gerar PNG."); } setBusy(""); };
+  const doPNG = async () => { if (!stageRef.current) return; setBusy("png"); setOpen(false); try { await exportPNG(stageRef.current, name, mapRef); } catch (e) { console.error("PNG export:", e); alert("Falha ao gerar PNG."); } setBusy(""); };
   const doGIF = async () => {
     if (!stageRef.current) return; setBusy("gif"); setProg(0); setOpen(false);
     try { await beforeGif?.(); await new Promise((r) => setTimeout(r, 350)); await exportGIF(stageRef.current, name, { seconds: gifSeconds, fps: 8, onProgress: setProg, mapRef }); }
-    catch { alert("Falha ao gerar GIF."); }
+    catch (e) { console.error("GIF export:", e); alert("Falha ao gerar GIF. Detalhe no console (F12)."); }
     finally { await afterGif?.(); setBusy(""); }
   };
   const btn = { background: T.teal, border: "none", color: "#fff", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 700, cursor: busy ? "default" : "pointer", display: "flex", alignItems: "center", gap: 7, fontFamily: "inherit", opacity: busy ? 0.8 : 1 };
@@ -1597,12 +1611,12 @@ const MOCKUPS = [
 function Home({ onOpen }) {
   return (
     <div style={{ fontFamily: "Urbanist, system-ui, sans-serif" }}>
-      <style>{`.mkgc{transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease}.mkgc:hover{transform:translateY(-6px);box-shadow:0 18px 40px rgba(0,0,0,.30);border-color:${T.teal}}`}</style>
+      <style>{`.mkgc{transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease}.mkgc:hover{transform:translateY(-5px);box-shadow:var(--sh-lg, 0 10px 26px rgba(0,0,0,.12));border-color:var(--teal)}`}</style>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 18 }}>
         {MOCKUPS.map((m) => (
           <button key={m.id} className="mkgc" onClick={() => onOpen(m.id)}
-            style={{ textAlign: "left", cursor: "pointer", background: T.panel, border: `1px solid ${T.line}`, borderRadius: 16, padding: 22, color: T.t1, fontFamily: "inherit" }}>
-            <div style={{ width: 52, height: 52, borderRadius: 14, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
+            style={{ textAlign: "left", cursor: "pointer", background: "transparent", border: `1px solid ${T.line}`, borderRadius: 16, padding: 22, color: T.t1, fontFamily: "inherit" }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: "var(--bg3)", border: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
               <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke={m.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: m.glyph }} />
             </div>
             <div style={{ fontSize: 19, fontWeight: 800, marginBottom: 6 }}>{m.title}</div>
