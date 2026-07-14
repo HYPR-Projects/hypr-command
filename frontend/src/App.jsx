@@ -5077,7 +5077,7 @@ export default function App() {
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
             {NAV.filter(n => {
               if (n.key === 'admin')     return isAdminFromTeam(teamMembers, user?.email);
-              if (n.key === 'mockups')   return ['admin','sales','cp','cs'].includes(teamRoleOf(teamMembers, user?.email));
+              if (n.key === 'mockups')   return isAdminFromTeam(teamMembers, user?.email) || ['sales','cp','cs'].includes(teamRoleOf(teamMembers, user?.email));
               return true;
             }).map(n=>(
               <button key={n.key} className={`ni${page===n.key?" act":""}`}
@@ -5172,7 +5172,7 @@ export default function App() {
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} onRefetch={fetchTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
             {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} onRefetch={fetchChecklists} />}
-            {page==="mockups"&&['admin','sales','cp','cs'].includes(teamRoleOf(teamMembers,user?.email))&&<MockupGenerator />}
+            {page==="mockups"&&(isAdminFromTeam(teamMembers,user?.email)||['sales','cp','cs'].includes(teamRoleOf(teamMembers,user?.email)))&&<MockupGenerator />}
             {page==="admin"&&isAdminFromTeam(teamMembers,user?.email)&&<AdminPanel />}
           </div>
         </div>
