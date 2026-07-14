@@ -1408,7 +1408,13 @@ function CalendarEditor() {
           {["No horário do evento", "10 minutos antes", "30 minutos antes", "1 hora antes", "1 dia antes"].map((o) => <option key={o}>{o}</option>)}
         </select>
       </div>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 28, minWidth: 0, gap: 22 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ minHeight: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, padding: "10px 18px", flexWrap: "wrap" }}>
+          <ImageMenu stageRef={bannerRef} name="click-to-calendar-banner" label="Baixar passo 1" />
+          <ImageMenu stageRef={bothRef} name="click-to-calendar" label="Baixar os dois" primary />
+          <ImageMenu stageRef={calRef} name="click-to-calendar-evento" label="Baixar passo 2" />
+        </div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 28, minWidth: 0 }}>
         <div ref={bothRef} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 30, flexWrap: "wrap" }}>
           <div ref={bannerRef}>
             <div style={{ width: 280, background: "#c9ced4", borderRadius: 36, padding: 10, boxShadow: "0 18px 44px rgba(0,0,0,.18)" }}>
@@ -1471,10 +1477,6 @@ function CalendarEditor() {
             </div>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-          <ImageMenu stageRef={bannerRef} name="click-to-calendar-banner" label="Baixar passo 1" />
-          <ImageMenu stageRef={bothRef} name="click-to-calendar" label="Baixar os dois" primary />
-          <ImageMenu stageRef={calRef} name="click-to-calendar-evento" label="Baixar passo 2" />
         </div>
       </div>
     </div>
