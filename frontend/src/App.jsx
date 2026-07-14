@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, createContext, useContext, useCallback, Fragment } from "react";
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import MockupGenerator from "./MockupGenerator.jsx";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 const CS_LIST = ["Beatriz Severine","Isaac Agiman","João Armelin","João Buzolin","Mariana Lewinski","Thiago Nascimento","Greenfield","Solutions Architect"];
@@ -4470,6 +4471,7 @@ const NAV=[
   {key:"tasks",icon:"check-square",label:"Task Center"},
   {key:"checklist",icon:"clipboard",label:"Checklist"},
   {key:"checklist-center",icon:"inbox",label:"Checklist Center"},
+  {key:"mockups",icon:"layout-grid",label:"Mockups"},
   {key:"admin",icon:"shield",label:"Admin"},
 ];
 
@@ -5075,6 +5077,7 @@ export default function App() {
           <nav className="sb-nav" style={{padding:collapsed?"8px":"8px 10px"}}>
             {NAV.filter(n => {
               if (n.key === 'admin')     return isAdminFromTeam(teamMembers, user?.email);
+              if (n.key === 'mockups')   return ['admin','sales','cp','cs'].includes(teamRoleOf(teamMembers, user?.email));
               return true;
             }).map(n=>(
               <button key={n.key} className={`ni${page===n.key?" act":""}`}
@@ -5169,6 +5172,7 @@ export default function App() {
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} onRefetch={fetchTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
             {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} onRefetch={fetchChecklists} />}
+            {page==="mockups"&&['admin','sales','cp','cs'].includes(teamRoleOf(teamMembers,user?.email))&&<MockupGenerator />}
             {page==="admin"&&isAdminFromTeam(teamMembers,user?.email)&&<AdminPanel />}
           </div>
         </div>
