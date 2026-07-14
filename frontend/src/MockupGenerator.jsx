@@ -1483,6 +1483,37 @@ function CalendarEditor() {
   );
 }
 
+/* ===== Molduras reais (device frames) — PNG com overlay na área da tela ===== */
+const IMAC = { src: "/mockups/imac.png", screen: { left: 18, top: 11.9, width: 64, height: 51.3 } };
+const IPHONE = { src: "/mockups/iphone.png", screen: { left: 30.7, top: 8.5, width: 38.9, height: 81.5 } };
+function DeviceMockup({ device, width, children }) {
+  return (
+    <div style={{ position: "relative", width }}>
+      <img src={device.src} alt="" style={{ width: "100%", display: "block", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", left: device.screen.left + "%", top: device.screen.top + "%", width: device.screen.width + "%", height: device.screen.height + "%", overflow: "hidden", background: "#fff" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+function ScreenPage({ variant, slot }) {
+  const desk = variant === "desktop";
+  const bar = (w) => <div style={{ height: desk ? 9 : 8, width: w || "100%", background: "#eceef1", borderRadius: 4, flexShrink: 0 }} />;
+  return (
+    <div style={{ width: "100%", height: "100%", background: "#fff", padding: desk ? "16px 22px" : "12px 14px", display: "flex", flexDirection: "column", gap: desk ? 12 : 9, overflow: "hidden", fontFamily: "inherit" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+        <div style={{ width: desk ? 78 : 46, height: desk ? 16 : 12, background: "#c7ccd2", borderRadius: 4 }} />
+        <div style={{ flex: 1 }} />
+        {(desk ? [0, 1, 2, 3] : [0]).map((i) => <div key={i} style={{ width: desk ? 34 : 18, height: 8, background: "#dde1e4", borderRadius: 3 }} />)}
+      </div>
+      <div style={{ height: desk ? "30%" : 92, background: "#e6e9ec", borderRadius: 8, flexShrink: 0 }} />
+      {bar()}{bar("82%")}
+      <div style={{ alignSelf: "center", width: desk ? "46%" : "80%", margin: "4px 0", flexShrink: 0 }}>{slot}</div>
+      {bar()}{bar("70%")}{bar("76%")}
+    </div>
+  );
+}
+
 /* ===== Mockup Simples (compacto) — criativo num portal wireframe ===== */
 function SimplesEditor() {
   const [media, setMedia] = useState(null);
@@ -1499,42 +1530,8 @@ function SimplesEditor() {
     : <span style={{ color: "#9aa4ad", fontSize: 11 }}>{size.key}</span>;
   const slot = <div style={{ width: "100%", aspectRatio: `${size.w}/${size.h}`, background: media ? "#000" : "#eef0f2", borderRadius: 6, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "1px solid #dfe3e6" }}>{mediaEl}</div>;
 
-  const desktop = (
-    <div style={{ width: 460, background: "#fff", borderRadius: 10, boxShadow: "0 10px 34px rgba(0,0,0,.28)", overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid #eef0f2" }}>
-        <div style={{ width: 70, height: 16, background: "#c7ccd2", borderRadius: 4 }} />
-        <div style={{ flex: 1 }} />
-        {[0, 1, 2].map((i) => <div key={i} style={{ width: 34, height: 8, background: "#dde1e4", borderRadius: 3 }} />)}
-      </div>
-      <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ background: "#e6e9ec", borderRadius: 8, height: 150 }} />
-        {block(10)}{block(10)}
-        <div style={{ maxWidth: 300, margin: "6px auto" }}>{slot}</div>
-        {block(10)}{block(10)}{block(10)}
-      </div>
-    </div>
-  );
-  const mobile = (
-    <div style={{ width: 280, background: "#c9ced4", borderRadius: 36, padding: 10, boxShadow: "0 18px 44px rgba(0,0,0,.18)" }}>
-      <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden" }}>
-        <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 74, height: 6, background: "#d7dbdf", borderRadius: 99 }} /></div>
-        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 11 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 22, height: 22, background: "#e7eaed", borderRadius: 6 }} />
-            <div style={{ flex: 1, height: 8, background: "#e7eaed", borderRadius: 4 }} />
-            <div style={{ width: 22, height: 8, background: "#eef0f2", borderRadius: 4 }} />
-          </div>
-          <div style={{ height: 60, background: "#eceef1", borderRadius: 8 }} />
-          <div style={{ height: 8, background: "#eceef1", borderRadius: 4 }} />
-          <div style={{ height: 8, background: "#eceef1", borderRadius: 4, width: "80%" }} />
-          <div style={{ width: "100%" }}>{slot}</div>
-          <div style={{ height: 8, background: "#eceef1", borderRadius: 4 }} />
-          <div style={{ height: 8, background: "#eceef1", borderRadius: 4 }} />
-        </div>
-        <div style={{ height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 110, height: 5, background: "#d7dbdf", borderRadius: 99 }} /></div>
-      </div>
-    </div>
-  );
+  const desktop = <DeviceMockup device={IMAC} width={640}><ScreenPage variant="desktop" slot={slot} /></DeviceMockup>;
+  const mobile = <DeviceMockup device={IPHONE} width={300}><ScreenPage variant="mobile" slot={slot} /></DeviceMockup>;
 
   return (
     <div style={{ display: "flex", minHeight: 560 }}>
@@ -1543,7 +1540,7 @@ function SimplesEditor() {
         <label style={{ ...field, display: "block", textAlign: "center", cursor: "pointer", color: T.teal, borderStyle: "dashed" }}>{media ? "Trocar criativo" : "Subir imagem ou vídeo"}<input type="file" accept="image/*,video/*" onChange={upload} style={{ display: "none" }} /></label>
         <label style={lbl}>Formato</label>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>{SIZES.map((s) => <button key={s.key} onClick={() => setSize(s)} style={chipStyle(s.key === size.key)}>{s.key}</button>)}</div>
-        <div style={{ fontSize: 11, color: T.t3, marginTop: 14, lineHeight: 1.5 }}>Portal genérico em wireframe; o anúncio entra na página no formato escolhido. Alterne entre desktop e mobile na prévia.</div>
+        <div style={{ fontSize: 11, color: T.t3, marginTop: 14, lineHeight: 1.5 }}>O anúncio entra numa página dentro de um iMac (desktop) ou iPhone (mobile). Alterne na prévia.</div>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         <div style={{ height: 52, borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 18px" }}>
@@ -1553,7 +1550,7 @@ function SimplesEditor() {
           </div>
           <DownloadMenu stageRef={shotRef} name="mockup-simples" animated={mediaKind === "video"} />
         </div>
-        <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 24, background: "transparent", overflow: "visible" }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "transparent", overflow: "visible" }}>
           <div ref={shotRef}>{device === "desktop" ? desktop : mobile}</div>
         </div>
       </div>
