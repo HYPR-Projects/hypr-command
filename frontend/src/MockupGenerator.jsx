@@ -1411,9 +1411,9 @@ function CalendarEditor() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           <div ref={bannerRef}>
             <div style={{ width: 280, background: "#c9ced4", borderRadius: 36, padding: 10, boxShadow: "0 18px 44px rgba(0,0,0,.18)" }}>
-              <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden" }}>
+              <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden", height: 540, display: "flex", flexDirection: "column" }}>
                 <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 74, height: 6, background: "#d7dbdf", borderRadius: 99 }} /></div>
-                <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 11 }}>
+                <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 11, flex: 1 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <div style={{ width: 22, height: 22, background: "#e7eaed", borderRadius: 6 }} />
                     <div style={{ flex: 1, height: 8, background: "#e7eaed", borderRadius: 4 }} />
@@ -1447,9 +1447,9 @@ function CalendarEditor() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           <div ref={calRef}>
             <div style={{ width: 280, background: "#c9ced4", borderRadius: 36, padding: 10, boxShadow: "0 18px 44px rgba(0,0,0,.18)" }}>
-              <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden" }}>
+              <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden", height: 540, display: "flex", flexDirection: "column" }}>
                 <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 74, height: 6, background: "#d7dbdf", borderRadius: 99 }} /></div>
-                <div style={{ padding: "8px 16px 16px", color: "#202124", fontFamily: "Roboto, Urbanist, sans-serif" }}>
+                <div style={{ padding: "8px 16px 16px", color: "#202124", fontFamily: "Roboto, Urbanist, sans-serif", flex: 1 }}>
                   <div style={{ border: "1px solid #e6e9ec", borderRadius: 14, padding: "18px 18px 20px", boxShadow: "0 2px 8px rgba(0,0,0,.05)" }}>
                     <div style={{ fontSize: 20, fontWeight: 800 }}>{v.title || "Título do evento"}</div>
                     <div style={{ display: "flex", gap: 10, marginTop: 16, fontSize: 13.5, color: "#3c4043" }}>
