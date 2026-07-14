@@ -1515,20 +1515,23 @@ function SimplesEditor() {
     </div>
   );
   const mobile = (
-    <div style={{ width: 300, background: "#0e0e12", borderRadius: 34, padding: 10, boxShadow: "0 16px 40px rgba(0,0,0,.4)" }}>
-      <div style={{ background: "#fff", borderRadius: 26, overflow: "hidden" }}>
-        <div style={{ height: 26, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 70, height: 6, background: "#d3d7db", borderRadius: 99 }} /></div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderBottom: "1px solid #eef0f2" }}>
-          <div style={{ width: 50, height: 12, background: "#c7ccd2", borderRadius: 4 }} />
-          <div style={{ flex: 1 }} />
-          <div style={{ width: 18, height: 12, background: "#dde1e4", borderRadius: 3 }} />
+    <div style={{ width: 280, background: "#c9ced4", borderRadius: 36, padding: 10, boxShadow: "0 18px 44px rgba(0,0,0,.18)" }}>
+      <div style={{ background: "#fff", borderRadius: 28, overflow: "hidden" }}>
+        <div style={{ height: 28, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 74, height: 6, background: "#d7dbdf", borderRadius: 99 }} /></div>
+        <div style={{ padding: 16, display: "flex", flexDirection: "column", gap: 11 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 22, height: 22, background: "#e7eaed", borderRadius: 6 }} />
+            <div style={{ flex: 1, height: 8, background: "#e7eaed", borderRadius: 4 }} />
+            <div style={{ width: 22, height: 8, background: "#eef0f2", borderRadius: 4 }} />
+          </div>
+          <div style={{ height: 60, background: "#eceef1", borderRadius: 8 }} />
+          <div style={{ height: 8, background: "#eceef1", borderRadius: 4 }} />
+          <div style={{ height: 8, background: "#eceef1", borderRadius: 4, width: "80%" }} />
+          <div style={{ width: "100%" }}>{slot}</div>
+          <div style={{ height: 8, background: "#eceef1", borderRadius: 4 }} />
+          <div style={{ height: 8, background: "#eceef1", borderRadius: 4 }} />
         </div>
-        <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ background: "#e6e9ec", borderRadius: 8, height: 110 }} />
-          {block(9)}{block(9)}
-          <div style={{ margin: "4px auto", width: "100%" }}>{slot}</div>
-          {block(9)}{block(9)}{block(9)}{block(9)}
-        </div>
+        <div style={{ height: 22, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: 110, height: 5, background: "#d7dbdf", borderRadius: 99 }} /></div>
       </div>
     </div>
   );
