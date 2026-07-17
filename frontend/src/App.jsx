@@ -220,6 +220,54 @@ const isTaskCompleted  = t => { const s=(t?.status||"").toLowerCase(); return s=
 const isTaskInProgress = t => { const s=(t?.status||"").toLowerCase(); return s==="iniciada" || s==="in_progress"; };
 const isTaskOpen       = t => !isTaskCompleted(t) && !isTaskInProgress(t);
 
+// ──────────── Avaliação da entrega (1–5) ────────────
+// Escala definida com o time: 1 desapontou, 3 em linha, 5 excedeu muito.
+const RATING_SCALE = [
+  { v:1, label:"Desapontou e precisou ser refeito" },
+  { v:2, label:"Abaixo das expectativas" },
+  { v:3, label:"Em linha com as expectativas" },
+  { v:4, label:"Acima das expectativas" },
+  { v:5, label:"Excedeu muito as expectativas" },
+];
+const ratingLabel = v => (RATING_SCALE.find(r=>r.v===Number(v))||{}).label || "";
+const taskRating  = t => { const v=Number(t?.rating); return v>=1&&v<=5 ? v : null; };
+// Quem avalia: o solicitante (CP que abriu a task) ou um admin — e só depois de concluída.
+const canRateTask = (t, email, isAdmin) => {
+  if (!t || !email || !isTaskCompleted(t)) return false;
+  if (isAdmin) return true;
+  return (t.requesterEmail||t.requester_email||"").toLowerCase() === String(email).toLowerCase();
+};
+// Task concluída, sem nota e eu sou quem avalia → pendente de avaliação
+const needsRating = (t, email, isAdmin) => canRateTask(t,email,isAdmin) && taskRating(t)===null;
+
+const Star = ({filled, s=16}) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill={filled?"var(--yellow-s)":"none"} stroke={filled?"var(--yellow-s)":"var(--bdr)"} strokeWidth="1.6" strokeLinejoin="round" style={{display:"block",flexShrink:0}}>
+    <polygon points="12 2 15.09 8.63 22 9.24 16.5 13.97 18.18 21 12 17.27 5.82 21 7.5 13.97 2 9.24 8.91 8.63 12 2"/>
+  </svg>
+);
+// readOnly = só exibe a nota; interativo = permite escolher 1–5
+function StarRating({value=0,onChange,size=16,readOnly=false}){
+  const [hover,setHover]=useState(0);
+  const shown = hover || value || 0;
+  if(readOnly) return (
+    <span style={{display:"inline-flex",alignItems:"center",gap:2}}>
+      {[1,2,3,4,5].map(v=><Star key={v} filled={v<=shown} s={size}/>)}
+    </span>
+  );
+  return (
+    <span style={{display:"inline-flex",alignItems:"center",gap:2}} onMouseLeave={()=>setHover(0)}>
+      {[1,2,3,4,5].map(v=>(
+        <button key={v} type="button" title={`${v} — ${ratingLabel(v)}`} aria-label={`${v} — ${ratingLabel(v)}`}
+          onClick={e=>{e.stopPropagation();onChange&&onChange(v)}}
+          onMouseEnter={()=>setHover(v)}
+          style={{background:"none",border:"none",padding:2,margin:0,cursor:"pointer",lineHeight:0,borderRadius:4}}>
+          <Star filled={v<=shown} s={size}/>
+        </button>
+      ))}
+    </span>
+  );
+}
+
 // ─── CSS ─────────────────────────────────────────────────────────────────────
 const CSS = `
 @import url('https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,300..900;1,300..900&display=swap');
@@ -1555,6 +1603,49 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
     }
   };
 
+  // ── Avaliação da entrega ──
+  // Só o solicitante (CP) ou admin avaliam, e só depois de concluída.
+  const canRate=(t)=>canRateTask(t,user?.email,isAdmin);
+  const handleSaveRating=async(id,rating,comment)=>{
+    const task=tasks.find(t=>t.id===id);
+    if(!task) return;
+    const previous={rating:task.rating,ratingComment:task.ratingComment,ratedBy:task.ratedBy,ratedByEmail:task.ratedByEmail,ratedAt:task.ratedAt};
+    const now=new Date().toISOString();
+    const patch={rating:Number(rating),ratingComment:comment||"",ratedBy:user?.name||null,ratedByEmail:user?.email||null,ratedAt:now};
+    setTasks(ts=>ts.map(t=>t.id===id?{...t,...patch}:t));
+    setSelectedTask(sel=>sel&&sel.id===id?{...sel,...patch}:sel);
+    toast("Avaliação salva!");
+    try{
+      const res=await fetch(`${BACKEND_URL}/tasks/${id}`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          rating:Number(rating),
+          rating_comment:comment||"",
+          rated_by:user?.name||null,
+          rated_by_email:user?.email||null,
+          rated_at:now,
+          task:{...task,...patch},
+        })
+      });
+      if(!res.ok){
+        let msg=`Erro ${res.status}`;
+        try{ const body=await res.json(); if(body?.error) msg=body.error; }catch(_){}
+        setTasks(ts=>ts.map(t=>t.id===id?{...t,...previous}:t));
+        setSelectedTask(sel=>sel&&sel.id===id?{...sel,...previous}:sel);
+        toast(msg);
+        console.error("Backend rating PUT failed:",res.status,msg);
+      } else if(onRefetch){
+        setTimeout(onRefetch,500);
+      }
+    }catch(err){
+      setTasks(ts=>ts.map(t=>t.id===id?{...t,...previous}:t));
+      setSelectedTask(sel=>sel&&sel.id===id?{...sel,...previous}:sel);
+      toast("Erro ao salvar — avaliação revertida");
+      console.error("Backend rating PUT error:",err);
+    }
+  };
+
   // Drag & drop handlers para o kanban
   const onDragStart=(e,id)=>{ setDraggingId(id); try{e.dataTransfer.effectAllowed="move"}catch(_){} };
   const onDragOver=(e)=>{ e.preventDefault(); try{e.dataTransfer.dropEffect="move"}catch(_){} };
@@ -1660,7 +1751,7 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
           {filtered.map(t=><TaskCard key={t.id} task={t} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} />)}
         </div>
       ):viewMode==="list"?(
-        <TaskListView tasks={filtered} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask}/>
+        <TaskListView tasks={filtered} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} canRate={canRate} onRate={setSelectedTask}/>
       ):(
         /* KANBAN */
         <div className="mob-stack-1" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:16,alignItems:"flex-start"}}>
@@ -1696,27 +1787,28 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
-      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}} canEdit={canEditTask(selectedTask)} onSaveEdit={handleEditTask} csList={csList}/>}
+      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}} canEdit={canEditTask(selectedTask)} onSaveEdit={handleEditTask} csList={csList} canRate={canRate(selectedTask)} onSaveRating={handleSaveRating}/>}
     </div>
   );
 }
 
 // ──────────── Visão de Lista (tabela) ────────────
-function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen}){
+function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen,canRate,onRate}){
   return (
     <div className="card" style={{padding:0,overflow:"hidden"}}>
       <div style={{overflowX:"auto"}}>
         <table className="task-table" style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead>
             <tr style={{borderBottom:"1px solid var(--bdr)",background:"var(--bg3)"}}>
-              {["Cliente","Tipo","CS","Solicitante","Prazo","Aberta em","Status","Doc","Ação"].map(h=>(
-                <th key={h} style={{textAlign:h==="Ação"||h==="Status"||h==="Doc"?"center":"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>{h}</th>
+              {["Cliente","Tipo","CS","Solicitante","Prazo","Aberta em","Status","Avaliação","Doc","Ação"].map(h=>(
+                <th key={h} style={{textAlign:h==="Ação"||h==="Status"||h==="Doc"||h==="Avaliação"?"center":"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {tasks.map(t=>{
               const st=getTaskStatus(t);
+              const rt=taskRating(t);
               const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
               const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
               return (
@@ -1736,6 +1828,19 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen}){
                   <td data-cell-label="aberta em" style={{padding:"12px 14px",fontSize:12,color:"var(--t2)",whiteSpace:"nowrap"}}>{fmtDate(t.createdAt)}</td>
                   <td data-cell-label="status" style={{padding:"12px 14px",textAlign:"center"}}>
                     <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:stBg,color:stColor}}>{st}</span>
+                  </td>
+                  <td data-cell-label="avaliação" style={{padding:"12px 14px",textAlign:"center",whiteSpace:"nowrap"}}>
+                    {rt!==null?(
+                      <span title={`${rt} — ${ratingLabel(rt)}`} style={{display:"inline-flex",alignItems:"center",gap:5}}>
+                        <StarRating value={rt} size={12} readOnly/>
+                        <b style={{fontSize:11,color:"var(--t2)"}}>{rt}</b>
+                      </span>
+                    ):isTaskCompleted(t)&&canRate&&canRate(t)?(
+                      <button className="btn bs" style={{fontSize:10,padding:"3px 8px",borderColor:"var(--yellow-s)",color:"var(--yellow-s)"}}
+                        onClick={e=>{e.stopPropagation();onRate&&onRate(t)}}>Avaliar</button>
+                    ):(
+                      <span style={{fontSize:11,color:"var(--t3)"}}>—</span>
+                    )}
                   </td>
                   <td data-cell-label="doc" style={{padding:"12px 14px",textAlign:"center"}}>
                     {t.docLink?(
@@ -1854,12 +1959,24 @@ function TaskCard({task,onStart,onComplete,onReopen,onAddLink,onOpen}) {
 }
 
 // ──────────── Modal de detalhes da Task ────────────
-function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,canEdit,onSaveEdit,csList=[]}){
+function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,canEdit,onSaveEdit,csList=[],canRate=false,onSaveRating}){
   const st=getTaskStatus(task);
   const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
   const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
   const [isEditing,setIsEditing]=useState(false);
   const [editForm,setEditForm]=useState(null);
+  // ── Avaliação da entrega ──
+  const rt = taskRating(task);
+  const [ratingEdit,setRatingEdit]=useState(false);     // CP editando uma nota já dada
+  const [rVal,setRVal]=useState(rt||0);
+  const [rComment,setRComment]=useState(task.ratingComment||"");
+  useEffect(()=>{ setRVal(taskRating(task)||0); setRComment(task.ratingComment||""); setRatingEdit(false); },[task.id]);
+  const ratingOpen = rt===null || ratingEdit;           // formulário aberto?
+  const submitRating=()=>{
+    if(!rVal){ return; }
+    onSaveRating && onSaveRating(task.id, rVal, rComment.trim());
+    setRatingEdit(false);
+  };
   const startEdit=()=>{
     // Se a task tem cs (nome) mas não tem csEmail (legado/BQ NULL),
     // tenta achar o email pelo nome dentro da csList
@@ -2068,6 +2185,62 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
                 </a>
               ):(
                 <div style={{fontSize:12,color:"var(--t3)",fontStyle:"italic"}}>Nenhum link anexado ainda</div>
+              )}
+            </div>
+          )}
+
+          {/* Avaliação da entrega — só depois de concluída */}
+          {!isEditing&&isTaskCompleted(task)&&(
+            <div style={{marginBottom:18,padding:14,borderRadius:"var(--r)",background:"var(--bg3)",border:`1px solid ${(canRate&&rt===null)?"var(--yellow-s)":"var(--bdr)"}`}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)"}}>Avaliação da Entrega</div>
+                {rt!==null&&canRate&&!ratingEdit&&(
+                  <button className="btn bs" style={{fontSize:10,padding:"3px 8px"}} onClick={()=>setRatingEdit(true)}><I n="edit" s={11}/>Editar</button>
+                )}
+              </div>
+
+              {ratingOpen&&canRate?(
+                <>
+                  <div style={{fontSize:12,color:"var(--t2)",marginBottom:8}}>Como foi a entrega? Sua nota ajuda o time de CS a calibrar.</div>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
+                    <StarRating value={rVal} size={26} onChange={setRVal}/>
+                    <span style={{fontSize:12,fontWeight:700,color:rVal?"var(--t1)":"var(--t3)"}}>
+                      {rVal?`${rVal} — ${ratingLabel(rVal)}`:"Selecione de 1 a 5"}
+                    </span>
+                  </div>
+                  <div style={{fontSize:10,color:"var(--t3)",marginBottom:12}}>1 desapontou e precisou ser refeito · 3 em linha com as expectativas · 5 excedeu muito as expectativas</div>
+                  <label style={{display:"block",fontSize:11,fontWeight:700,color:"var(--t3)",marginBottom:5}}>Sugestão de melhoria {rVal>0&&rVal<3?"":"(opcional)"}</label>
+                  <textarea value={rComment} onChange={e=>setRComment(e.target.value)} rows={3}
+                    placeholder="O que poderia ter sido melhor? O que funcionou bem?"
+                    style={{width:"100%",resize:"vertical",padding:"9px 11px",borderRadius:"var(--r)",border:"1px solid var(--bdr)",background:"var(--bg-input)",color:"var(--t1)",fontSize:12,fontFamily:"var(--ff)",boxSizing:"border-box"}}/>
+                  <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:10}}>
+                    {ratingEdit&&<button className="btn bs" style={{fontSize:12}} onClick={()=>{setRatingEdit(false);setRVal(rt||0);setRComment(task.ratingComment||"")}}>Cancelar</button>}
+                    <button className="btn bp" style={{fontSize:12,opacity:rVal?1:.5,cursor:rVal?"pointer":"not-allowed"}} disabled={!rVal} onClick={submitRating}>
+                      <I n="check" s={13}/>Salvar Avaliação
+                    </button>
+                  </div>
+                </>
+              ):rt!==null?(
+                <>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <StarRating value={rt} size={20} readOnly/>
+                    <span style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{rt} — {ratingLabel(rt)}</span>
+                  </div>
+                  {task.ratingComment&&(
+                    <div style={{marginTop:10,padding:"10px 12px",background:"var(--bg-card)",border:"1px solid var(--bdr-card)",borderRadius:"var(--r)",fontSize:12,color:"var(--t2)",lineHeight:1.5,whiteSpace:"pre-wrap"}}>
+                      {task.ratingComment}
+                    </div>
+                  )}
+                  {(task.ratedBy||task.ratedAt)&&(
+                    <div style={{fontSize:10,color:"var(--t3)",marginTop:8}}>
+                      Avaliada{task.ratedBy?` por ${task.ratedBy}`:""}{task.ratedAt?` em ${fmtDate(task.ratedAt)}`:""}
+                    </div>
+                  )}
+                </>
+              ):(
+                <div style={{fontSize:12,color:"var(--t3)",fontStyle:"italic"}}>
+                  Aguardando avaliação de {shortName(task.requestedBy)||"o solicitante"}.
+                </div>
               )}
             </div>
           )}
@@ -4963,6 +5136,11 @@ export default function App() {
             originalCs: r.original_cs||null,
             originalCsEmail: r.original_cs_email||null,
             createdAt:r.created_at?.value||r.created_at,
+            rating: (r.rating===null||r.rating===undefined||r.rating==="") ? null : Number(r.rating),
+            ratingComment: r.rating_comment||"",
+            ratedBy: r.rated_by||null,
+            ratedByEmail: r.rated_by_email||null,
+            ratedAt: r.rated_at?.value||r.rated_at||null,
           })));
         }
       })

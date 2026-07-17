@@ -559,6 +559,24 @@ app.put('/tasks/:id', async (req, res) => {
     const campaignName = updates.campaign_name ?? updates.campaignName
     if (campaignName !== undefined) add('campaign_name', campaignName || null, 'STRING')
 
+    // ── Avaliação da entrega (1–5) — preenchida pelo solicitante/CP ──
+    const rating = updates.rating ?? updates.taskRating
+    if (rating !== undefined) {
+      const r = rating === null || rating === '' ? null : parseInt(rating, 10)
+      if (r !== null && (isNaN(r) || r < 1 || r > 5)) {
+        return res.status(400).json({ error: 'rating deve ser um inteiro de 1 a 5' })
+      }
+      add('rating', r, 'INT64')
+    }
+    const ratingComment = updates.rating_comment ?? updates.ratingComment
+    if (ratingComment !== undefined) add('rating_comment', ratingComment || null, 'STRING')
+    const ratedBy = updates.rated_by ?? updates.ratedBy
+    if (ratedBy !== undefined) add('rated_by', ratedBy || null, 'STRING')
+    const ratedByEmail = updates.rated_by_email ?? updates.ratedByEmail
+    if (ratedByEmail !== undefined) add('rated_by_email', ratedByEmail || null, 'STRING')
+    const ratedAt = updates.rated_at ?? updates.ratedAt
+    if (ratedAt !== undefined) add('rated_at', ratedAt || null, 'STRING')
+
     sets.push(`updated_at = @p_updated_at`)
     params.p_updated_at = now
     types.p_updated_at = 'STRING'
@@ -579,6 +597,32 @@ app.put('/tasks/:id', async (req, res) => {
           `[HYPR Command] ✅ Task Concluída — ${t.type} | ${t.client}`,
           emailTaskCompleted({ ...t, id })
         )
+      }
+    }
+
+    // Se foi avaliada, notifica o CS responsável
+    if (rating !== undefined && rating !== null && updates.task) {
+      const t = updates.task
+      const csTo = t.csEmail || t.cs_email
+      if (csTo) {
+        const LABELS = {
+          1: 'Desapontou e precisou ser refeito',
+          2: 'Abaixo das expectativas',
+          3: 'Em linha com as expectativas',
+          4: 'Acima das expectativas',
+          5: 'Excedeu muito as expectativas',
+        }
+        const r = parseInt(rating, 10)
+        const comment = updates.rating_comment ?? updates.ratingComment
+        try {
+          await sendEmail(
+            csTo,
+            `[HYPR Command] ⭐ Task avaliada (${r}/5) — ${t.type || ''} | ${t.client || ''}`,
+            `<p>Olá,</p><p>A task <b>${t.type || ''} — ${t.client || ''}</b> recebeu a nota <b>${r}/5 — ${LABELS[r] || ''}</b>${updates.rated_by ? ` de ${updates.rated_by}` : ''}.</p>` +
+            (comment ? `<p><b>Sugestão de melhoria:</b><br>${String(comment).replace(/\n/g, '<br>')}</p>` : '') +
+            `<p>Acesse o HYPR Command para ver os detalhes.</p>`
+          )
+        } catch (e) { console.error('Email avaliação falhou:', e.message) }
       }
     }
 
