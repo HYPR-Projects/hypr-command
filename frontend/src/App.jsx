@@ -239,6 +239,13 @@ const canRateTask = (t, email, isAdmin) => {
 };
 // Task concluída, sem nota e eu sou quem avalia → pendente de avaliação
 const needsRating = (t, email, isAdmin) => canRateTask(t,email,isAdmin) && taskRating(t)===null;
+// Quem ENXERGA a avaliação: autor (solicitante), CS responsável e admins.
+// taskOwnedBy já cobre solicitante + CS + CS original (tasks de SA).
+const canSeeRating = (t, email, isAdmin) => {
+  if (!t || !email) return false;
+  if (isAdmin) return true;
+  return taskOwnedBy(t, email);
+};
 
 const Star = ({filled, s=16}) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill={filled?"var(--yellow-s)":"none"} stroke={filled?"var(--yellow-s)":"var(--bdr)"} strokeWidth="1.6" strokeLinejoin="round" style={{display:"block",flexShrink:0}}>
@@ -1606,6 +1613,7 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
   // ── Avaliação da entrega ──
   // Só o solicitante (CP) ou admin avaliam, e só depois de concluída.
   const canRate=(t)=>canRateTask(t,user?.email,isAdmin);
+  const canSee=(t)=>canSeeRating(t,user?.email,isAdmin);
   const handleSaveRating=async(id,rating,comment)=>{
     const task=tasks.find(t=>t.id===id);
     if(!task) return;
@@ -1751,7 +1759,7 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
           {filtered.map(t=><TaskCard key={t.id} task={t} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} />)}
         </div>
       ):viewMode==="list"?(
-        <TaskListView tasks={filtered} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} canRate={canRate} onRate={setSelectedTask}/>
+        <TaskListView tasks={filtered} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} canRate={canRate} canSee={canSee} onRate={setSelectedTask}/>
       ):(
         /* KANBAN */
         <div className="mob-stack-1" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:16,alignItems:"flex-start"}}>
@@ -1787,13 +1795,13 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
-      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}} canEdit={canEditTask(selectedTask)} onSaveEdit={handleEditTask} csList={csList} canRate={canRate(selectedTask)} onSaveRating={handleSaveRating}/>}
+      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}} canEdit={canEditTask(selectedTask)} onSaveEdit={handleEditTask} csList={csList} canRate={canRate(selectedTask)} canSee={canSee(selectedTask)} onSaveRating={handleSaveRating}/>}
     </div>
   );
 }
 
 // ──────────── Visão de Lista (tabela) ────────────
-function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen,canRate,onRate}){
+function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen,canRate,canSee,onRate}){
   return (
     <div className="card" style={{padding:0,overflow:"hidden"}}>
       <div style={{overflowX:"auto"}}>
@@ -1830,7 +1838,9 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen,canRat
                     <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:stBg,color:stColor}}>{st}</span>
                   </td>
                   <td data-cell-label="avaliação" style={{padding:"12px 14px",textAlign:"center",whiteSpace:"nowrap"}}>
-                    {rt!==null?(
+                    {!(canSee&&canSee(t))?(
+                      <span style={{fontSize:11,color:"var(--t3)"}}>—</span>
+                    ):rt!==null?(
                       <span title={`${rt} — ${ratingLabel(rt)}`} style={{display:"inline-flex",alignItems:"center",gap:5}}>
                         <StarRating value={rt} size={12} readOnly/>
                         <b style={{fontSize:11,color:"var(--t2)"}}>{rt}</b>
@@ -1959,7 +1969,7 @@ function TaskCard({task,onStart,onComplete,onReopen,onAddLink,onOpen}) {
 }
 
 // ──────────── Modal de detalhes da Task ────────────
-function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,canEdit,onSaveEdit,csList=[],canRate=false,onSaveRating}){
+function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,canEdit,onSaveEdit,csList=[],canRate=false,canSee=false,onSaveRating}){
   const st=getTaskStatus(task);
   const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
   const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
@@ -2189,8 +2199,8 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
             </div>
           )}
 
-          {/* Avaliação da entrega — só depois de concluída */}
-          {!isEditing&&isTaskCompleted(task)&&(
+          {/* Avaliação da entrega — concluída + visível só p/ autor, CS responsável e admins */}
+          {!isEditing&&isTaskCompleted(task)&&canSee&&(
             <div style={{marginBottom:18,padding:14,borderRadius:"var(--r)",background:"var(--bg3)",border:`1px solid ${(canRate&&rt===null)?"var(--yellow-s)":"var(--bdr)"}`}}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:10,flexWrap:"wrap"}}>
                 <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)"}}>Avaliação da Entrega</div>
