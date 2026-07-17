@@ -80,6 +80,15 @@ const mailer = nodemailer.createTransport({
 
 const EMAIL_FROM = process.env.EMAIL_FROM || '"HYPR Command" <noreply@hypr.mobi>'
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://hypr-command.netlify.app'
+// ── Resumo diário de avaliações ──
+// Destinatários: lista separada por vírgula, definida no env (sem hardcode).
+const DIGEST_RECIPIENTS = (process.env.DIGEST_RECIPIENTS || '')
+  .split(',').map(e => e.trim()).filter(Boolean)
+// Chave compartilhada com o Cloud Scheduler (o serviço é público).
+const CRON_KEY = process.env.CRON_KEY || ''
+// Enviar o e-mail mesmo em dias sem nenhuma avaliação? (default: não)
+const DIGEST_SEND_IF_EMPTY = String(process.env.DIGEST_SEND_IF_EMPTY || '').toLowerCase() === 'true'
+const TZ = 'America/Sao_Paulo'
 
 function fmtDate(d) {
   if (!d) return '—'
@@ -127,6 +136,79 @@ function emailRow(label, value) {
 function ctaButton(text, url, bg = '#3397B9') {
   return `<div style="text-align:center;margin-top:24px;">
     <a href="${url}" style="display:inline-block;background:${bg};color:#fff;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px;font-family:'Helvetica Neue',Arial,sans-serif;">${text}</a>
+  </div>`
+}
+
+// ── Resumo diário de avaliações ─────────────────────────────────────────────
+const RATING_LABELS = {
+  1: 'Desapontou e precisou ser refeito',
+  2: 'Abaixo das expectativas',
+  3: 'Em linha com as expectativas',
+  4: 'Acima das expectativas',
+  5: 'Excedeu muito as expectativas',
+}
+// Escapa texto digitado pelo usuário (comentários) antes de ir pro HTML
+function esc(v) {
+  return String(v == null ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+function stars(n) {
+  const r = Math.max(0, Math.min(5, parseInt(n, 10) || 0))
+  return '★'.repeat(r) + '☆'.repeat(5 - r)
+}
+function ratingColor(n) {
+  const r = parseInt(n, 10)
+  if (r <= 2) return '#EF4444'
+  if (r === 3) return '#F59E0B'
+  return '#22C55E'
+}
+function emailRatingsDigest(rows, dayLabel) {
+  const total = rows.length
+  const avg = total ? (rows.reduce((s, r) => s + Number(r.rating || 0), 0) / total) : 0
+  const lows = rows.filter(r => Number(r.rating) <= 2).length
+  const cards = rows.map(r => `
+    <tr>
+      <td style="padding:14px 0;border-bottom:1px solid #EEF1F4;vertical-align:top;">
+        <div style="font-size:13px;font-weight:700;color:#1C262F;">${esc(r.client)} <span style="font-weight:400;color:#8DA0AE;">· ${esc(r.type)}</span></div>
+        <div style="font-size:11px;color:#8DA0AE;margin-top:3px;">CS ${esc(r.cs)} · avaliada por ${esc(r.rated_by || r.requested_by)}${r.rated_hour ? ` às ${esc(r.rated_hour)}` : ''}</div>
+        ${r.rating_comment ? `<div style="margin-top:8px;padding:10px 12px;background:#F4F6F8;border-radius:8px;font-size:12px;color:#4A6070;line-height:1.5;">${esc(r.rating_comment).replace(/\n/g, '<br>')}</div>` : ''}
+      </td>
+      <td style="padding:14px 0 14px 16px;border-bottom:1px solid #EEF1F4;text-align:right;white-space:nowrap;vertical-align:top;width:150px;">
+        <div style="color:${ratingColor(r.rating)};font-size:15px;letter-spacing:1px;">${stars(r.rating)}</div>
+        <div style="font-size:10px;color:#8DA0AE;margin-top:3px;">${esc(RATING_LABELS[r.rating] || '')}</div>
+      </td>
+    </tr>`).join('')
+  return `<div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:0 auto;background:#f4f6f8;">
+    ${emailHeader()}
+    <div style="background:#3397B9;padding:14px 32px;">
+      <div style="color:#fff;font-size:13px;font-weight:600;letter-spacing:0.04em;">⭐ AVALIAÇÕES DO DIA — ${dayLabel}</div>
+    </div>
+    <div style="padding:28px 32px;background:#fff;">
+      ${total ? `
+        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+          <tr>
+            <td style="text-align:center;padding:12px;background:#F4F6F8;border-radius:10px;">
+              <div style="font-size:26px;font-weight:800;color:#1C262F;">${total}</div>
+              <div style="font-size:10px;color:#8DA0AE;text-transform:uppercase;letter-spacing:0.06em;">avaliadas</div>
+            </td>
+            <td style="width:10px;"></td>
+            <td style="text-align:center;padding:12px;background:#F4F6F8;border-radius:10px;">
+              <div style="font-size:26px;font-weight:800;color:${ratingColor(Math.round(avg))};">${avg.toFixed(1)}</div>
+              <div style="font-size:10px;color:#8DA0AE;text-transform:uppercase;letter-spacing:0.06em;">nota média</div>
+            </td>
+            <td style="width:10px;"></td>
+            <td style="text-align:center;padding:12px;background:${lows ? '#FEECEC' : '#F4F6F8'};border-radius:10px;">
+              <div style="font-size:26px;font-weight:800;color:${lows ? '#EF4444' : '#1C262F'};">${lows}</div>
+              <div style="font-size:10px;color:#8DA0AE;text-transform:uppercase;letter-spacing:0.06em;">nota ≤ 2</div>
+            </td>
+          </tr>
+        </table>
+        <table style="width:100%;border-collapse:collapse;">${cards}</table>
+      ` : `<p style="color:#4A6070;font-size:14px;line-height:1.6;margin:0;">Nenhuma task foi avaliada hoje.</p>`}
+      ${ctaButton('Ver no HYPR Command', FRONTEND_URL + '/#tasks')}
+    </div>
+    ${emailFooter()}
   </div>`
 }
 
@@ -653,6 +735,54 @@ app.put('/tasks/:id', async (req, res) => {
     res.json({ ok: true })
   } catch (err) {
     console.error('PUT /tasks/:id error:', err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── JOB: resumo diário de avaliações ─────────────────────────────────────────
+// Busca as tasks avaliadas no dia (fuso de SP) e manda o resumo pros destinatários.
+// `date` opcional (YYYY-MM-DD) permite reenviar o resumo de um dia específico.
+async function runRatingsDigest(dateStr) {
+  const day = dateStr && /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? dateStr : null
+  const dayExpr = day ? `DATE '${day}'` : `CURRENT_DATE('${TZ}')`
+  const sql = `
+    SELECT client, type, cs, requested_by, rating, rating_comment, rated_by,
+           FORMAT_TIMESTAMP('%H:%M', SAFE_CAST(rated_at AS TIMESTAMP), '${TZ}') AS rated_hour
+    FROM \`${PROJECT}.${DATASET}.tasks\`
+    WHERE rating IS NOT NULL
+      AND SAFE_CAST(rated_at AS TIMESTAMP) IS NOT NULL
+      AND DATE(SAFE_CAST(rated_at AS TIMESTAMP), '${TZ}') = ${dayExpr}
+    ORDER BY rating ASC, client`
+  const rows = await query(sql)
+
+  if (!DIGEST_RECIPIENTS.length) {
+    console.warn('DIGEST_RECIPIENTS vazio — resumo não enviado')
+    return { ok: false, reason: 'no_recipients', count: rows.length }
+  }
+  if (!rows.length && !DIGEST_SEND_IF_EMPTY) {
+    console.log('Nenhuma avaliação hoje — resumo não enviado')
+    return { ok: true, skipped: 'no_ratings', count: 0 }
+  }
+
+  const label = day
+    ? day.split('-').reverse().join('/')
+    : new Date().toLocaleDateString('pt-BR', { timeZone: TZ })
+  await sendEmail(
+    DIGEST_RECIPIENTS.join(','),
+    `[HYPR Command] ⭐ Avaliações do dia — ${label} (${rows.length})`,
+    emailRatingsDigest(rows, label)
+  )
+  return { ok: true, count: rows.length, recipients: DIGEST_RECIPIENTS }
+}
+
+app.post('/jobs/daily-ratings-digest', async (req, res) => {
+  try {
+    if (!CRON_KEY || req.get('x-cron-key') !== CRON_KEY) {
+      return res.status(401).json({ error: 'unauthorized' })
+    }
+    res.json(await runRatingsDigest(req.query.date))
+  } catch (err) {
+    console.error('daily-ratings-digest error:', err)
     res.status(500).json({ error: err.message })
   }
 })
