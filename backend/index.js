@@ -659,6 +659,24 @@ app.put('/tasks/:id', async (req, res) => {
     const ratedAt = updates.rated_at ?? updates.ratedAt
     if (ratedAt !== undefined) add('rated_at', ratedAt || null, 'STRING')
 
+    // ── Avaliação do briefing (1–5) — preenchida pelo CS responsável ──
+    const briefRating = updates.brief_rating ?? updates.briefRating
+    if (briefRating !== undefined) {
+      const b = briefRating === null || briefRating === '' ? null : parseInt(briefRating, 10)
+      if (b !== null && (isNaN(b) || b < 1 || b > 5)) {
+        return res.status(400).json({ error: 'brief_rating deve ser um inteiro de 1 a 5' })
+      }
+      add('brief_rating', b, 'INT64')
+    }
+    const briefComment = updates.brief_comment ?? updates.briefComment
+    if (briefComment !== undefined) add('brief_comment', briefComment || null, 'STRING')
+    const briefRatedBy = updates.brief_rated_by ?? updates.briefRatedBy
+    if (briefRatedBy !== undefined) add('brief_rated_by', briefRatedBy || null, 'STRING')
+    const briefRatedByEmail = updates.brief_rated_by_email ?? updates.briefRatedByEmail
+    if (briefRatedByEmail !== undefined) add('brief_rated_by_email', briefRatedByEmail || null, 'STRING')
+    const briefRatedAt = updates.brief_rated_at ?? updates.briefRatedAt
+    if (briefRatedAt !== undefined) add('brief_rated_at', briefRatedAt || null, 'STRING')
+
     sets.push(`updated_at = @p_updated_at`)
     params.p_updated_at = now
     types.p_updated_at = 'STRING'
@@ -705,6 +723,32 @@ app.put('/tasks/:id', async (req, res) => {
             `<p>Acesse o HYPR Command para ver os detalhes.</p>`
           )
         } catch (e) { console.error('Email avaliação falhou:', e.message) }
+      }
+    }
+
+    // Se o briefing foi avaliado, notifica o solicitante (CP)
+    if (briefRating !== undefined && briefRating !== null && updates.task) {
+      const t = updates.task
+      const cpTo = t.requesterEmail || t.requester_email
+      if (cpTo) {
+        const BRIEF_LABELS = {
+          1: 'Briefing insuficiente, precisei voltar ao CP',
+          2: 'Abaixo do esperado',
+          3: 'Em linha com o esperado',
+          4: 'Acima do esperado',
+          5: 'Briefing excelente, muito acima do esperado',
+        }
+        const b = parseInt(briefRating, 10)
+        const comment = updates.brief_comment ?? updates.briefComment
+        try {
+          await sendEmail(
+            cpTo,
+            `[HYPR Command] 📋 Briefing avaliado (${b}/5) — ${t.type || ''} | ${t.client || ''}`,
+            `<p>Olá,</p><p>O briefing da task <b>${t.type || ''} — ${t.client || ''}</b> recebeu a nota <b>${b}/5 — ${BRIEF_LABELS[b] || ''}</b>${updates.brief_rated_by ? ` de ${updates.brief_rated_by}` : ''}.</p>` +
+            (comment ? `<p><b>Sugestão de melhoria:</b><br>${String(comment).replace(/\n/g, '<br>')}</p>` : '') +
+            `<p>Acesse o HYPR Command para ver os detalhes.</p>`
+          )
+        } catch (e) { console.error('Email briefing falhou:', e.message) }
       }
     }
 

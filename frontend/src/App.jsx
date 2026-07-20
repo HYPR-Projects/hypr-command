@@ -247,6 +247,32 @@ const canSeeRating = (t, email, isAdmin) => {
   return taskOwnedBy(t, email);
 };
 
+// ──────────── Avaliação do BRIEFING (1–5) — quem avalia é o CS responsável ────────────
+// Escala adaptada ao briefing: 1 insuficiente, 3 em linha, 5 excelente.
+const BRIEF_SCALE = [
+  { v:1, label:"Briefing insuficiente, precisei voltar ao CP" },
+  { v:2, label:"Abaixo do esperado" },
+  { v:3, label:"Em linha com o esperado" },
+  { v:4, label:"Acima do esperado" },
+  { v:5, label:"Briefing excelente, muito acima do esperado" },
+];
+const briefLabel = v => (BRIEF_SCALE.find(r=>r.v===Number(v))||{}).label || "";
+const taskBrief  = t => { const v=Number(t?.briefRating); return v>=1&&v<=5 ? v : null; };
+// CS responsável (ou admin) avalia o briefing — a partir do "Iniciado".
+const isCsOf = (t, email) => {
+  const e = String(email||"").toLowerCase();
+  return [t?.csEmail, t?.cs_email, t?.originalCsEmail, t?.original_cs_email]
+    .filter(Boolean).some(x => String(x).toLowerCase() === e);
+};
+const canRateBrief = (t, email, isAdmin) => {
+  if (!t || !email) return false;
+  if (isTaskOpen(t)) return false;           // só a partir de iniciada (inclui concluída)
+  if (isAdmin) return true;
+  return isCsOf(t, email);
+};
+// Mesma regra de visibilidade da entrega: autor, CS responsável e admins.
+const canSeeBrief = canSeeRating;
+
 const Star = ({filled, s=16}) => (
   <svg width={s} height={s} viewBox="0 0 24 24" fill={filled?"var(--yellow-s)":"none"} stroke={filled?"var(--yellow-s)":"var(--bdr)"} strokeWidth="1.6" strokeLinejoin="round" style={{display:"block",flexShrink:0}}>
     <polygon points="12 2 15.09 8.63 22 9.24 16.5 13.97 18.18 21 12 17.27 5.82 21 7.5 13.97 2 9.24 8.91 8.63 12 2"/>
@@ -1654,6 +1680,48 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
     }
   };
 
+  // ── Avaliação do briefing (CS responsável) ──
+  const canRateBriefing=(t)=>canRateBrief(t,user?.email,isAdmin);
+  const handleSaveBrief=async(id,rating,comment)=>{
+    const task=tasks.find(t=>t.id===id);
+    if(!task) return;
+    const previous={briefRating:task.briefRating,briefComment:task.briefComment,briefRatedBy:task.briefRatedBy,briefRatedByEmail:task.briefRatedByEmail,briefRatedAt:task.briefRatedAt};
+    const now=new Date().toISOString();
+    const patch={briefRating:Number(rating),briefComment:comment||"",briefRatedBy:user?.name||null,briefRatedByEmail:user?.email||null,briefRatedAt:now};
+    setTasks(ts=>ts.map(t=>t.id===id?{...t,...patch}:t));
+    setSelectedTask(sel=>sel&&sel.id===id?{...sel,...patch}:sel);
+    toast("Avaliação do briefing salva!");
+    try{
+      const res=await fetch(`${BACKEND_URL}/tasks/${id}`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          brief_rating:Number(rating),
+          brief_comment:comment||"",
+          brief_rated_by:user?.name||null,
+          brief_rated_by_email:user?.email||null,
+          brief_rated_at:now,
+          task:{...task,...patch},
+        })
+      });
+      if(!res.ok){
+        let msg=`Erro ${res.status}`;
+        try{ const body=await res.json(); if(body?.error) msg=body.error; }catch(_){}
+        setTasks(ts=>ts.map(t=>t.id===id?{...t,...previous}:t));
+        setSelectedTask(sel=>sel&&sel.id===id?{...sel,...previous}:sel);
+        toast(msg);
+        console.error("Backend brief PUT failed:",res.status,msg);
+      } else if(onRefetch){
+        setTimeout(onRefetch,500);
+      }
+    }catch(err){
+      setTasks(ts=>ts.map(t=>t.id===id?{...t,...previous}:t));
+      setSelectedTask(sel=>sel&&sel.id===id?{...sel,...previous}:sel);
+      toast("Erro ao salvar — avaliação revertida");
+      console.error("Backend brief PUT error:",err);
+    }
+  };
+
   // Drag & drop handlers para o kanban
   const onDragStart=(e,id)=>{ setDraggingId(id); try{e.dataTransfer.effectAllowed="move"}catch(_){} };
   const onDragOver=(e)=>{ e.preventDefault(); try{e.dataTransfer.dropEffect="move"}catch(_){} };
@@ -1759,7 +1827,7 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
           {filtered.map(t=><TaskCard key={t.id} task={t} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} />)}
         </div>
       ):viewMode==="list"?(
-        <TaskListView tasks={filtered} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} canRate={canRate} canSee={canSee} onRate={setSelectedTask}/>
+        <TaskListView tasks={filtered} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={setLinkModal} onOpen={setSelectedTask} canRate={canRate} canSee={canSee} canRateBrief={canRateBriefing} onRate={setSelectedTask}/>
       ):(
         /* KANBAN */
         <div className="mob-stack-1" style={{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:16,alignItems:"flex-start"}}>
@@ -1795,21 +1863,21 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
 
       {showNew && <NewTaskModal onClose={()=>setShowNew(false)} onSubmit={handleSubmit} gfIdx={gfIdx} />}
       {linkModal && <DocLinkModal task={linkModal} onClose={()=>setLinkModal(null)} onSave={handleSaveLink} />}
-      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}} canEdit={canEditTask(selectedTask)} onSaveEdit={handleEditTask} csList={csList} canRate={canRate(selectedTask)} canSee={canSee(selectedTask)} onSaveRating={handleSaveRating}/>}
+      {selectedTask && <TaskDetailModal task={selectedTask} onClose={()=>setSelectedTask(null)} onStart={handleStart} onComplete={handleComplete} onReopen={handleReopen} onAddLink={(t)=>{setSelectedTask(null);setLinkModal(t)}} canEdit={canEditTask(selectedTask)} onSaveEdit={handleEditTask} csList={csList} canRate={canRate(selectedTask)} canSee={canSee(selectedTask)} onSaveRating={handleSaveRating} canRateBrief={canRateBriefing(selectedTask)} onSaveBrief={handleSaveBrief}/>}
     </div>
   );
 }
 
 // ──────────── Visão de Lista (tabela) ────────────
-function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen,canRate,canSee,onRate}){
+function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen,canRate,canSee,canRateBrief,onRate}){
   return (
     <div className="card" style={{padding:0,overflow:"hidden"}}>
       <div style={{overflowX:"auto"}}>
         <table className="task-table" style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead>
             <tr style={{borderBottom:"1px solid var(--bdr)",background:"var(--bg3)"}}>
-              {["Cliente","Tipo","CS","Solicitante","Prazo","Aberta em","Status","Avaliação","Doc","Ação"].map(h=>(
-                <th key={h} style={{textAlign:h==="Ação"||h==="Status"||h==="Doc"||h==="Avaliação"?"center":"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>{h}</th>
+              {["Cliente","Tipo","CS","Solicitante","Prazo","Aberta em","Status","Entrega","Briefing","Doc","Ação"].map(h=>(
+                <th key={h} style={{textAlign:h==="Ação"||h==="Status"||h==="Doc"||h==="Entrega"||h==="Briefing"?"center":"left",padding:"10px 14px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".06em"}}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -1817,6 +1885,7 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen,canRat
             {tasks.map(t=>{
               const st=getTaskStatus(t);
               const rt=taskRating(t);
+              const bt=taskBrief(t);
               const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
               const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
               return (
@@ -1837,7 +1906,7 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen,canRat
                   <td data-cell-label="status" style={{padding:"12px 14px",textAlign:"center"}}>
                     <span className="badge" style={{fontSize:10,whiteSpace:"nowrap",background:stBg,color:stColor}}>{st}</span>
                   </td>
-                  <td data-cell-label="avaliação" style={{padding:"12px 14px",textAlign:"center",whiteSpace:"nowrap"}}>
+                  <td data-cell-label="entrega" style={{padding:"12px 14px",textAlign:"center",whiteSpace:"nowrap"}}>
                     {!(canSee&&canSee(t))?(
                       <span style={{fontSize:11,color:"var(--t3)"}}>—</span>
                     ):rt!==null?(
@@ -1846,6 +1915,21 @@ function TaskListView({tasks,onStart,onComplete,onReopen,onAddLink,onOpen,canRat
                         <b style={{fontSize:11,color:"var(--t2)"}}>{rt}</b>
                       </span>
                     ):isTaskCompleted(t)&&canRate&&canRate(t)?(
+                      <button className="btn bs" style={{fontSize:10,padding:"3px 8px",borderColor:"var(--yellow-s)",color:"var(--yellow-s)"}}
+                        onClick={e=>{e.stopPropagation();onRate&&onRate(t)}}>Avaliar</button>
+                    ):(
+                      <span style={{fontSize:11,color:"var(--t3)"}}>—</span>
+                    )}
+                  </td>
+                  <td data-cell-label="briefing" style={{padding:"12px 14px",textAlign:"center",whiteSpace:"nowrap"}}>
+                    {!(canSee&&canSee(t))?(
+                      <span style={{fontSize:11,color:"var(--t3)"}}>—</span>
+                    ):bt!==null?(
+                      <span title={`${bt} — ${briefLabel(bt)}`} style={{display:"inline-flex",alignItems:"center",gap:5}}>
+                        <StarRating value={bt} size={12} readOnly/>
+                        <b style={{fontSize:11,color:"var(--t2)"}}>{bt}</b>
+                      </span>
+                    ):!isTaskOpen(t)&&canRateBrief&&canRateBrief(t)?(
                       <button className="btn bs" style={{fontSize:10,padding:"3px 8px",borderColor:"var(--yellow-s)",color:"var(--yellow-s)"}}
                         onClick={e=>{e.stopPropagation();onRate&&onRate(t)}}>Avaliar</button>
                     ):(
@@ -1969,7 +2053,7 @@ function TaskCard({task,onStart,onComplete,onReopen,onAddLink,onOpen}) {
 }
 
 // ──────────── Modal de detalhes da Task ────────────
-function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,canEdit,onSaveEdit,csList=[],canRate=false,canSee=false,onSaveRating}){
+function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,canEdit,onSaveEdit,csList=[],canRate=false,canSee=false,onSaveRating,canRateBrief=false,onSaveBrief}){
   const st=getTaskStatus(task);
   const stBg = st==="Concluída"?"var(--teal-dim)":st==="Iniciado"?"var(--teal-dim)":st==="Atrasada"?"var(--red-bg)":"var(--green-bg)";
   const stColor = st==="Concluída"?"var(--teal-l)":st==="Iniciado"?"var(--teal)":st==="Atrasada"?"var(--red)":"var(--green)";
@@ -1986,6 +2070,18 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
     if(!rVal){ return; }
     onSaveRating && onSaveRating(task.id, rVal, rComment.trim());
     setRatingEdit(false);
+  };
+  // ── Avaliação do briefing (CS) ──
+  const bt = taskBrief(task);
+  const [briefEdit,setBriefEdit]=useState(false);
+  const [bVal,setBVal]=useState(bt||0);
+  const [bComment,setBComment]=useState(task.briefComment||"");
+  useEffect(()=>{ setBVal(taskBrief(task)||0); setBComment(task.briefComment||""); setBriefEdit(false); },[task.id]);
+  const briefOpen = bt===null || briefEdit;
+  const submitBrief=()=>{
+    if(!bVal){ return; }
+    onSaveBrief && onSaveBrief(task.id, bVal, bComment.trim());
+    setBriefEdit(false);
   };
   const startEdit=()=>{
     // Se a task tem cs (nome) mas não tem csEmail (legado/BQ NULL),
@@ -2250,6 +2346,62 @@ function TaskDetailModal({task,onClose,onStart,onComplete,onReopen,onAddLink,can
               ):(
                 <div style={{fontSize:12,color:"var(--t3)",fontStyle:"italic"}}>
                   Aguardando avaliação de {shortName(task.requestedBy)||"o solicitante"}.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Avaliação do briefing — a partir de iniciada + visível só p/ autor, CS responsável e admins */}
+          {!isEditing&&!isTaskOpen(task)&&canSee&&(
+            <div style={{marginBottom:18,padding:14,borderRadius:"var(--r)",background:"var(--bg3)",border:`1px solid ${(canRateBrief&&bt===null)?"var(--yellow-s)":"var(--bdr)"}`}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:10,flexWrap:"wrap"}}>
+                <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".06em",color:"var(--t3)"}}>Avaliação do Briefing</div>
+                {bt!==null&&canRateBrief&&!briefEdit&&(
+                  <button className="btn bs" style={{fontSize:10,padding:"3px 8px"}} onClick={()=>setBriefEdit(true)}><I n="edit" s={11}/>Editar</button>
+                )}
+              </div>
+
+              {briefOpen&&canRateBrief?(
+                <>
+                  <div style={{fontSize:12,color:"var(--t2)",marginBottom:8}}>Como foi o briefing do CP? Sua nota ajuda a calibrar a qualidade das solicitações.</div>
+                  <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:4,flexWrap:"wrap"}}>
+                    <StarRating value={bVal} size={26} onChange={setBVal}/>
+                    <span style={{fontSize:12,fontWeight:700,color:bVal?"var(--t1)":"var(--t3)"}}>
+                      {bVal?`${bVal} — ${briefLabel(bVal)}`:"Selecione de 1 a 5"}
+                    </span>
+                  </div>
+                  <div style={{fontSize:10,color:"var(--t3)",marginBottom:12}}>1 briefing insuficiente, precisei voltar ao CP · 3 em linha com o esperado · 5 briefing excelente</div>
+                  <label style={{display:"block",fontSize:11,fontWeight:700,color:"var(--t3)",marginBottom:5}}>Sugestão de melhoria {bVal>0&&bVal<3?"":"(opcional)"}</label>
+                  <textarea value={bComment} onChange={e=>setBComment(e.target.value)} rows={3}
+                    placeholder="O que faltou no briefing? O que veio bem detalhado?"
+                    style={{width:"100%",resize:"vertical",padding:"9px 11px",borderRadius:"var(--r)",border:"1px solid var(--bdr)",background:"var(--bg-input)",color:"var(--t1)",fontSize:12,fontFamily:"var(--ff)",boxSizing:"border-box"}}/>
+                  <div style={{display:"flex",justifyContent:"flex-end",gap:8,marginTop:10}}>
+                    {briefEdit&&<button className="btn bs" style={{fontSize:12}} onClick={()=>{setBriefEdit(false);setBVal(bt||0);setBComment(task.briefComment||"")}}>Cancelar</button>}
+                    <button className="btn bp" style={{fontSize:12,opacity:bVal?1:.5,cursor:bVal?"pointer":"not-allowed"}} disabled={!bVal} onClick={submitBrief}>
+                      <I n="check" s={13}/>Salvar Avaliação
+                    </button>
+                  </div>
+                </>
+              ):bt!==null?(
+                <>
+                  <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                    <StarRating value={bt} size={20} readOnly/>
+                    <span style={{fontSize:13,fontWeight:700,color:"var(--t1)"}}>{bt} — {briefLabel(bt)}</span>
+                  </div>
+                  {task.briefComment&&(
+                    <div style={{marginTop:10,padding:"10px 12px",background:"var(--bg-card)",border:"1px solid var(--bdr-card)",borderRadius:"var(--r)",fontSize:12,color:"var(--t2)",lineHeight:1.5,whiteSpace:"pre-wrap"}}>
+                      {task.briefComment}
+                    </div>
+                  )}
+                  {(task.briefRatedBy||task.briefRatedAt)&&(
+                    <div style={{fontSize:10,color:"var(--t3)",marginTop:8}}>
+                      Avaliado{task.briefRatedBy?` por ${task.briefRatedBy}`:""}{task.briefRatedAt?` em ${fmtDate(task.briefRatedAt)}`:""}
+                    </div>
+                  )}
+                </>
+              ):(
+                <div style={{fontSize:12,color:"var(--t3)",fontStyle:"italic"}}>
+                  Aguardando avaliação do CS responsável.
                 </div>
               )}
             </div>
@@ -5151,6 +5303,11 @@ export default function App() {
             ratedBy: r.rated_by||null,
             ratedByEmail: r.rated_by_email||null,
             ratedAt: r.rated_at?.value||r.rated_at||null,
+            briefRating: (r.brief_rating===null||r.brief_rating===undefined||r.brief_rating==="") ? null : Number(r.brief_rating),
+            briefComment: r.brief_comment||"",
+            briefRatedBy: r.brief_rated_by||null,
+            briefRatedByEmail: r.brief_rated_by_email||null,
+            briefRatedAt: r.brief_rated_at?.value||r.brief_rated_at||null,
           })));
         }
       })
