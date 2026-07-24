@@ -1441,6 +1441,17 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
   const [draggingId,setDraggingId]=useState(null);
   const toast = useToast();
   const gfIdx = useRef(0);
+  // Fila greenfield — quem é o próximo a receber cliente sem CS.
+  // Vem do servidor pra todo mundo enxergar a mesma vez.
+  const [csQueue,setCsQueue]=useState(null);
+  useEffect(()=>{
+    let vivo=true;
+    fetch(`${BACKEND_URL}/cs-queue`)
+      .then(r=>r.json())
+      .then(d=>{ if(vivo&&d?.ok) setCsQueue(d); })
+      .catch(()=>{});
+    return ()=>{ vivo=false; };
+  },[tasks.length]);
   // Lista de CS para o dropdown de edição de task.
   // Fonte primária: o CS_LIST hardcoded (sem Greenfield/SA, que não são CS reais).
   // Email: extraído das próprias tasks (mais confiável) ou montado pelo padrão nome.sobrenome@hypr.mobi
@@ -1811,6 +1822,33 @@ function TaskCenter({tasks,setTasks,onRefetch}) {
           <div style={{fontSize:34,fontWeight:700,lineHeight:1,fontFamily:"var(--fd)"}}>{monthlyStats.yearCount}</div>
           <div style={{fontSize:12,color:"var(--t3)",marginTop:6}}>desde janeiro</div>
         </div>
+        {csQueue?.next&&(
+          <div style={{background:"var(--bg-card)",border:"1px solid var(--teal)",borderRadius:"var(--r-lg)",padding:"16px 20px"}}>
+            <div style={{fontSize:13,color:"var(--t3)",marginBottom:6,display:"flex",alignItems:"center",gap:6}}>
+              <I n="users" s={13} c="var(--teal)"/>Fila greenfield
+            </div>
+            <div style={{fontSize:22,fontWeight:700,lineHeight:1.15,fontFamily:"var(--fd)",color:"var(--teal-l)"}}>
+              {csQueue.next.name}
+            </div>
+            <div style={{fontSize:12,color:"var(--t3)",marginTop:6}}>próximo a receber cliente novo</div>
+            {csQueue.queue?.length>1&&(
+              <div style={{display:"flex",flexWrap:"wrap",gap:4,marginTop:10}}>
+                {csQueue.queue.map(cs=>{
+                  const eh = cs.email===csQueue.next.email;
+                  return (
+                    <span key={cs.email} title={cs.name}
+                      style={{fontSize:10,fontWeight:eh?700:500,padding:"2px 7px",borderRadius:99,
+                        background:eh?"var(--teal-dim)":"transparent",
+                        border:`1px solid ${eh?"var(--teal)":"var(--bdr)"}`,
+                        color:eh?"var(--teal-l)":"var(--t3)"}}>
+                      {shortName(cs.name)}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24,flexWrap:"wrap",gap:12}}>
         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
