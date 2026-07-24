@@ -5025,11 +5025,193 @@ function taskOwnedBy(task, email) {
 // ══════════════════════════════════════════════════════════════════════════════
 // MAIN APP
 // ══════════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════════
+// CARTEIRA DE CS
+// ══════════════════════════════════════════════════════════════════════════════
+function Carteira() {
+  const user = useAuth();
+  const team = useTeam();
+  const isAdmin = isAdminFromTeam(team.members, user?.email);
+  const [dados,setDados]=useState(null);
+  const [erro,setErro]=useState(null);
+  const [busca,setBusca]=useState("");
+  const [filtroCs,setFiltroCs]=useState("todos");
+  const [editando,setEditando]=useState(null);   // cliente sendo reatribuído
+  const [novoCs,setNovoCs]=useState("");
+  const [salvando,setSalvando]=useState(false);
+  const toast = useToast();
+
+  const carregar=useCallback(()=>{
+    fetch(`${BACKEND_URL}/carteira`)
+      .then(r=>r.json())
+      .then(d=>{ if(d?.ok){setDados(d);setErro(null);} else setErro(d?.error||"Falha ao carregar"); })
+      .catch(e=>setErro(e.message));
+  },[]);
+  useEffect(()=>{ carregar(); },[carregar]);
+
+  const norm = v => (v||"").toString().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const linhas = useMemo(()=>{
+    const todas = dados?.carteira || [];
+    const q = norm(busca);
+    return todas.filter(l=>{
+      if(filtroCs==="greenfield" && l.cs) return false;
+      if(filtroCs!=="todos" && filtroCs!=="greenfield" && l.cs!==filtroCs) return false;
+      if(!q) return true;
+      return norm(l.cliente).includes(q) || norm(l.cs).includes(q);
+    });
+  },[dados,busca,filtroCs]);
+
+  const csDisponiveis = useMemo(()=>{
+    const set = new Set((dados?.carteira||[]).map(l=>l.cs).filter(Boolean));
+    return [...set].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  },[dados]);
+
+  const contagem = useMemo(()=>{
+    const m = new Map();
+    for(const l of (dados?.carteira||[])){
+      const k = l.cs || "__gf__";
+      m.set(k,(m.get(k)||0)+1);
+    }
+    return m;
+  },[dados]);
+
+  const salvar=async()=>{
+    if(!editando||!novoCs) return;
+    setSalvando(true);
+    try{
+      const res=await fetch(`${BACKEND_URL}/carteira`,{
+        method:"PUT",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({cliente:editando.cliente,cs:novoCs,requesterEmail:user?.email,requesterName:user?.name})
+      });
+      const body=await res.json().catch(()=>({}));
+      if(!res.ok){ toast(body?.error||`Erro ${res.status}`); }
+      else { toast("Carteira atualizada!"); setEditando(null); setNovoCs(""); carregar(); }
+    }catch(e){ toast("Erro ao salvar"); }
+    setSalvando(false);
+  };
+
+  const selo = (origem) => {
+    if(!origem) return <span className="badge" style={{fontSize:10,background:"var(--yellow-s-bg)",color:"var(--yellow-s)"}}>Greenfield</span>;
+    if(origem==="manual") return <span className="badge b-teal" style={{fontSize:10}}>Manual</span>;
+    if(origem==="auto") return <span className="badge b-grn" style={{fontSize:10}}>Via Command</span>;
+    return <span className="badge" style={{fontSize:10,background:"var(--bg3)",color:"var(--t3)"}}>Carteira</span>;
+  };
+
+  return (
+    <div className="page-enter">
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12,marginBottom:20}}>
+        <div style={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r-lg)",padding:"16px 20px"}}>
+          <div style={{fontSize:13,color:"var(--t3)",marginBottom:6}}>Clientes na carteira</div>
+          <div style={{fontSize:34,fontWeight:700,lineHeight:1,fontFamily:"var(--fd)"}}>{dados?.count ?? "—"}</div>
+        </div>
+        <div style={{background:"var(--bg-card)",border:"1px solid var(--yellow-s)",borderRadius:"var(--r-lg)",padding:"16px 20px"}}>
+          <div style={{fontSize:13,color:"var(--t3)",marginBottom:6}}>Sem CS (greenfield)</div>
+          <div style={{fontSize:34,fontWeight:700,lineHeight:1,fontFamily:"var(--fd)",color:"var(--yellow-s)"}}>{dados?.greenfield ?? "—"}</div>
+          <div style={{fontSize:12,color:"var(--t3)",marginTop:6}}>entram na fila ao abrir task</div>
+        </div>
+        {csDisponiveis.slice(0,3).map(cs=>(
+          <div key={cs} style={{background:"var(--bg-card)",border:"1px solid var(--bdr)",borderRadius:"var(--r-lg)",padding:"16px 20px"}}>
+            <div style={{fontSize:13,color:"var(--t3)",marginBottom:6}}>{shortName(cs)}</div>
+            <div style={{fontSize:26,fontWeight:700,lineHeight:1,fontFamily:"var(--fd)"}}>{contagem.get(cs)||0}</div>
+            <div style={{fontSize:12,color:"var(--t3)",marginTop:6}}>clientes</div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{display:"flex",gap:10,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
+        <input className="fi" style={{maxWidth:280}} placeholder="Buscar cliente ou CS..." value={busca} onChange={e=>setBusca(e.target.value)}/>
+        <select className="fs" style={{maxWidth:220}} value={filtroCs} onChange={e=>setFiltroCs(e.target.value)}>
+          <option value="todos">Todos os CS</option>
+          <option value="greenfield">Somente greenfield</option>
+          {csDisponiveis.map(cs=><option key={cs} value={cs}>{cs}</option>)}
+        </select>
+        <div style={{fontSize:12,color:"var(--t3)"}}>{linhas.length} {linhas.length===1?"cliente":"clientes"}</div>
+        <div style={{flex:1}}/>
+        <button className="btn bs" style={{fontSize:12}} onClick={carregar}><I n="refresh" s={13}/>Atualizar</button>
+      </div>
+
+      {erro&&<div className="disc" style={{marginBottom:12}}><I n="alert-triangle" s={14} c="var(--red)"/><span>{erro}</span></div>}
+      {!dados&&!erro&&<div style={{fontSize:13,color:"var(--t3)"}}>Carregando carteira...</div>}
+
+      {dados&&(
+        <div className="card" style={{overflow:"hidden"}}>
+          <div style={{overflowX:"auto"}}>
+            <table className="task-table" style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              <thead>
+                <tr style={{borderBottom:"1px solid var(--bdr)"}}>
+                  {["Cliente","CS Responsável","Origem",...(isAdmin?["Ação"]:[])].map(h=>(
+                    <th key={h} style={{textAlign:h==="Origem"||h==="Ação"?"center":"left",padding:"12px 14px",fontSize:11,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".05em",whiteSpace:"nowrap"}}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {linhas.slice(0,400).map(l=>(
+                  <tr key={l.cliente_key} style={{borderBottom:"1px solid var(--bdr)"}}>
+                    <td data-cell-label="cliente" style={{padding:"11px 14px",fontWeight:600,color:"var(--t1)"}}>{l.cliente}</td>
+                    <td data-cell-label="cs" style={{padding:"11px 14px",color:l.cs?"var(--t1)":"var(--t3)"}}>
+                      {l.cs || "—"}
+                      {l.desde&&<div style={{fontSize:10,color:"var(--t3)",marginTop:2}}>desde {fmtDate(l.desde)}{l.atribuido_por?` · ${shortName(l.atribuido_por)}`:""}</div>}
+                    </td>
+                    <td data-cell-label="origem" style={{padding:"11px 14px",textAlign:"center",whiteSpace:"nowrap"}}>{selo(l.origem)}</td>
+                    {isAdmin&&(
+                      <td data-cell-label="ação" style={{padding:"11px 14px",textAlign:"center"}}>
+                        <button className="btn bs" style={{fontSize:11,padding:"3px 9px"}} onClick={()=>{setEditando(l);setNovoCs(l.cs||"")}}>
+                          <I n="edit" s={11}/>Reatribuir
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {linhas.length>400&&(
+            <div style={{padding:"10px 14px",fontSize:11,color:"var(--t3)",borderTop:"1px solid var(--bdr)"}}>
+              Mostrando 400 de {linhas.length}. Use a busca para refinar.
+            </div>
+          )}
+        </div>
+      )}
+
+      {editando&&(
+        <div className="mo" onClick={e=>e.target===e.currentTarget&&setEditando(null)}>
+          <div className="ml" style={{maxWidth:420}}>
+            <div className="mh">
+              <div><div className="mt">Reatribuir cliente</div><div style={{fontSize:12,color:"var(--t3)",marginTop:4}}>{editando.cliente}</div></div>
+              <button className="btn bg" onClick={()=>setEditando(null)}><I n="x" s={18}/></button>
+            </div>
+            <div className="mb">
+              <div className="fg">
+                <label className="fl">CS Responsável</label>
+                <select className="fs" value={novoCs} onChange={e=>setNovoCs(e.target.value)}>
+                  <option value="">Selecione...</option>
+                  {CS_LIST.filter(c=>c!=="Greenfield").map(cs=><option key={cs}>{cs}</option>)}
+                </select>
+              </div>
+              <div style={{fontSize:11,color:"var(--t3)",lineHeight:1.5,marginTop:8}}>
+                A reatribuição manual tem prioridade sobre a carteira oficial e sobre o que a fila definiu automaticamente.
+              </div>
+              <div style={{display:"flex",gap:8,justifyContent:"flex-end",marginTop:16}}>
+                <button className="btn bs" onClick={()=>setEditando(null)}>Cancelar</button>
+                <button className="btn bp" disabled={!novoCs||salvando} onClick={salvar}>
+                  <I n="check" s={14}/>{salvando?"Salvando...":"Salvar"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const NAV=[
   {key:"home",icon:"home",label:"Dashboard"},
   {key:"tasks",icon:"check-square",label:"Task Center"},
   {key:"checklist",icon:"clipboard",label:"Checklist"},
   {key:"checklist-center",icon:"inbox",label:"Checklist Center"},
+  {key:"carteira",icon:"users",label:"Carteira"},
   {key:"admin",icon:"shield",label:"Admin"},
 ];
 
@@ -5739,6 +5921,7 @@ export default function App() {
             {page==="tasks"&&<TaskCenter tasks={tasks} setTasks={setTasks} onRefetch={fetchTasks} />}
             {page==="checklist"&&<CampaignChecklist initialData={duplicateData} onChecklistSubmit={(data)=>{setSubmittedChecklists(prev=>[{...data,id:Date.now(),created_at:new Date().toISOString()},...prev]);setDuplicateData(null)}} />}
             {page==="checklist-center"&&<ChecklistCenter checklists={submittedChecklists} setChecklists={setSubmittedChecklists} onDuplicate={(c)=>{setDuplicateData(c);navigate("checklist")}} onRefetch={fetchChecklists} />}
+            {page==="carteira"&&<Carteira />}
             {page==="admin"&&isAdminFromTeam(teamMembers,user?.email)&&<AdminPanel />}
           </div>
         </div>

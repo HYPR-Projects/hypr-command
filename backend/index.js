@@ -207,6 +207,69 @@ async function getCarteira() {
   return map
 }
 
+// Atribuições feitas dentro do Command. Ficam em tabela NOSSA (hypr_sales_center),
+// não na carteira_cs — que é materializada de uma planilha e seria sobrescrita.
+// Append-only: a linha mais recente por cliente vence, e o histórico fica de graça.
+let atribCache = { data: null, ts: 0 }
+async function getAtribuicoes() {
+  const now = Date.now()
+  if (atribCache.data && (now - atribCache.ts) < CACHE_TTL) return atribCache.data
+  let rows = []
+  try {
+    rows = await query(
+      `SELECT cliente, cliente_key, cs_nome, cs_email, origem, atribuido_em, atribuido_por, task_id
+         FROM (
+           SELECT *, ROW_NUMBER() OVER (PARTITION BY cliente_key ORDER BY atribuido_em DESC) AS rn
+             FROM \`${PROJECT}.${DATASET}.carteira_atribuicoes\`
+         ) WHERE rn = 1`
+    )
+  } catch (e) {
+    console.error('carteira_atribuicoes indisponível:', e.message)
+  }
+  const map = new Map()
+  for (const r of rows) map.set(r.cliente_key, r)
+  atribCache = { data: map, ts: now }
+  return map
+}
+function invalidateAtrib() { atribCache = { data: null, ts: 0 } }
+
+async function registrarAtribuicao({ cliente, csNome, csEmail, origem, porNome, porEmail, taskId }) {
+  if (!cliente || !csNome) return false
+  const sql = `INSERT INTO \`${PROJECT}.${DATASET}.carteira_atribuicoes\`
+    (cliente, cliente_key, cs_nome, cs_email, origem, atribuido_em, atribuido_por, atribuido_por_email, task_id)
+    VALUES (@cliente, @key, @nome, @email, @origem, @em, @por, @poremail, @task)`
+  await bq.query({
+    query: sql,
+    params: {
+      cliente: String(cliente), key: normClient(cliente),
+      nome: csNome, email: csEmail || null, origem: origem || 'auto',
+      em: new Date().toISOString(), por: porNome || null, poremail: porEmail || null,
+      task: taskId || null,
+    },
+    types: {
+      cliente: 'STRING', key: 'STRING', nome: 'STRING', email: 'STRING', origem: 'STRING',
+      em: 'STRING', por: 'STRING', poremail: 'STRING', task: 'STRING',
+    },
+    useLegacySql: false,
+  })
+  invalidateAtrib()
+  return true
+}
+
+// Carteira efetiva de um cliente, com a prioridade acordada:
+//   1. atribuição MANUAL feita no Command (decisão deliberada)
+//   2. carteira oficial, quando tem CS de verdade
+//   3. atribuição AUTOMÁTICA do Command (só preenche buraco de Green Field)
+async function carteiraDe(clienteKey) {
+  const [carteira, atrib] = await Promise.all([getCarteira(), getAtribuicoes()])
+  const base = carteira.get(clienteKey)
+  const a = atrib.get(clienteKey)
+  if (a && a.origem === 'manual') return { cs: a.cs_nome, csEmail: a.cs_email, origem: 'manual' }
+  if (base && base.cs) return { cs: base.cs, csEmail: null, origem: 'carteira' }
+  if (a && a.cs_nome) return { cs: a.cs_nome, csEmail: a.cs_email, origem: 'auto' }
+  return { cs: null, csEmail: null, origem: null }
+}
+
 let teamCache = { data: null, ts: 0 }
 async function getTeam() {
   const now = Date.now()
@@ -282,10 +345,14 @@ async function resolveAssignment(t) {
     return { cs: t.cs, csEmail: t.csEmail || SA_EMAIL_FALLBACK, greenfield: false, source: 'sa' }
   }
 
-  const carteira = await getCarteira()
-  const hit = carteira.get(normClient(t.client))
-  if (hit && hit.cs) {
-    return { cs: hit.cs, csEmail: emailOf(hit.cs), greenfield: false, source: 'carteira' }
+  const efetiva = await carteiraDe(normClient(t.client))
+  if (efetiva.cs) {
+    return {
+      cs: efetiva.cs,
+      csEmail: efetiva.csEmail || emailOf(efetiva.cs),
+      greenfield: false,
+      source: efetiva.origem === 'carteira' ? 'carteira' : 'carteira_command',
+    }
   }
 
   const prior = await priorCsForClient(t.client)
@@ -726,6 +793,72 @@ app.get('/clients', async (req, res) => {
   }
 })
 
+// ── Carteira de CS (oficial + atribuições do Command) ───────────────────────
+app.get('/carteira', async (req, res) => {
+  try {
+    const [carteira, atrib, emails] = await Promise.all([getCarteira(), getAtribuicoes(), csEmailMap()])
+    const chaves = new Set([...carteira.keys(), ...atrib.keys()])
+    const linhas = []
+    for (const key of chaves) {
+      const base = carteira.get(key)
+      const a = atrib.get(key)
+      const nome = base?.cliente || a?.cliente || key
+      let cs = null, origem = null, desde = null, por = null
+      if (a && a.origem === 'manual') {
+        cs = a.cs_nome; origem = 'manual'; desde = a.atribuido_em; por = a.atribuido_por
+      } else if (base && base.cs) {
+        cs = base.cs; origem = 'carteira'
+      } else if (a && a.cs_nome) {
+        cs = a.cs_nome; origem = 'auto'; desde = a.atribuido_em; por = a.atribuido_por
+      }
+      linhas.push({
+        cliente: nome,
+        cliente_key: key,
+        cs,
+        cs_email: cs ? (emails.get(normName(cs)) || a?.cs_email || null) : null,
+        origem,          // 'carteira' | 'auto' | 'manual' | null (greenfield)
+        desde: desde || null,
+        atribuido_por: por || null,
+      })
+    }
+    linhas.sort((x, y) => x.cliente.localeCompare(y.cliente, 'pt-BR'))
+    const semCs = linhas.filter(l => !l.cs).length
+    res.json({ ok: true, carteira: linhas, count: linhas.length, greenfield: semCs })
+  } catch (err) {
+    console.error('GET /carteira:', err)
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
+// Reatribuição manual — vence sobre a carteira oficial e sobre a automática
+app.put('/carteira', async (req, res) => {
+  try {
+    const { cliente, cs, requesterEmail, requesterName } = req.body || {}
+    if (!cliente) return res.status(400).json({ error: 'cliente é obrigatório' })
+    if (!requesterEmail) return res.status(400).json({ error: 'requesterEmail é obrigatório' })
+
+    // Só admin reatribui
+    const team = await getTeam()
+    const eu = team.find(m => String(m.email).toLowerCase() === String(requesterEmail).toLowerCase())
+    if (!eu || eu.role !== 'admin') {
+      return res.status(403).json({ error: 'apenas admins podem reatribuir a carteira' })
+    }
+
+    const emails = await csEmailMap()
+    const csNome = cs ? (canonicalCS(cs) || cs) : null
+    if (!csNome) return res.status(400).json({ error: 'cs é obrigatório' })
+
+    await registrarAtribuicao({
+      cliente, csNome, csEmail: emails.get(normName(csNome)) || null,
+      origem: 'manual', porNome: requesterName || eu.name, porEmail: requesterEmail, taskId: null,
+    })
+    res.json({ ok: true, cliente, cs: csNome })
+  } catch (err) {
+    console.error('PUT /carteira:', err)
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
 // ── Fila greenfield + consulta de atribuição ────────────────────────────────
 app.get('/cs-queue', async (req, res) => {
   try {
@@ -864,6 +997,20 @@ app.post('/tasks', async (req, res) => {
       )
     `
     await bq.query({ query: tSql, params: tParams, types: tTypes, useLegacySql: false })
+
+    // Cliente greenfield que acabou de ganhar dono → encarteira na hora.
+    // É isso que faz a carteira parar de envelhecer.
+    if (assign.greenfield && assign.cs && t.client) {
+      try {
+        await registrarAtribuicao({
+          cliente: t.client, csNome: assign.cs, csEmail: assign.csEmail,
+          origem: 'auto', porNome: t.requestedBy, porEmail: t.requesterEmail, taskId: id,
+        })
+        console.log(`[carteira] ${t.client} encarteirado em ${assign.cs} (${assign.source})`)
+      } catch (e) {
+        console.error('[carteira] falha ao encarteirar:', e.message)
+      }
+    }
 
     // taskData reflete a atribuição final — é o que vai nos e-mails e na resposta
     const taskData = { ...t, id, sla: slaLabel, cs: tParams.cs, csEmail: tParams.cs_email, greenfield: tParams.greenfield, assignedBy: assign.source }
