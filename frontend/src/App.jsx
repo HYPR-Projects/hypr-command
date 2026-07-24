@@ -3510,6 +3510,93 @@ function FeatSearch({value,onChange}) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// ── Histórico de alterações do checklist ────────────────────────────────────
+// Carrega sob demanda (só quando o usuário abre) pra não pesar o modal.
+function ChecklistAuditLog({ checklistId }) {
+  const [open, setOpen] = useState(false);
+  const [entries, setEntries] = useState(null);
+  const [erro, setErro] = useState(false);
+
+  useEffect(() => {
+    if (!open || entries !== null) return;
+    let vivo = true;
+    fetch(`${BACKEND_URL}/checklists/${checklistId}/audit`)
+      .then(r => r.json())
+      .then(d => { if (vivo) setEntries(d?.entries || []); })
+      .catch(() => { if (vivo) { setEntries([]); setErro(true); } });
+    return () => { vivo = false; };
+  }, [open, checklistId, entries]);
+
+  // Uma edição = várias linhas com o mesmo instante; agrupa pra virar um bloco só
+  const grupos = useMemo(() => {
+    if (!entries) return [];
+    const m = new Map();
+    for (const e of entries) {
+      const at = e.changed_at?.value || e.changed_at || "";
+      const k = `${at}|${e.changed_by_email || ""}`;
+      if (!m.has(k)) m.set(k, { at, by: e.changed_by, email: e.changed_by_email, itens: [] });
+      m.get(k).itens.push(e);
+    }
+    return [...m.values()];
+  }, [entries]);
+
+  const quando = (iso) => {
+    if (!iso) return "";
+    const d = new Date(iso);
+    return isNaN(d) ? String(iso) : d.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  };
+  const vazio = (v) => (v === null || v === undefined || v === "" ? "—" : String(v));
+
+  return (
+    <div style={{ paddingTop: 12, borderTop: "1px solid var(--bdr)" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{ background: "transparent", border: "none", padding: 0, cursor: "pointer", display: "flex", alignItems: "center", gap: 7, color: "var(--t2)", fontSize: 12, fontWeight: 700, fontFamily: "inherit" }}>
+        <I n="clock" s={13} />
+        Histórico de alterações
+        {entries && entries.length > 0 && (
+          <span className="badge b-teal" style={{ fontSize: 10 }}>{grupos.length}</span>
+        )}
+        <span style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform .15s", display: "inline-flex" }}>
+          <I n="chevron-down" s={13} />
+        </span>
+      </button>
+
+      {open && (
+        <div style={{ marginTop: 12 }}>
+          {entries === null && <div style={{ fontSize: 12, color: "var(--t3)" }}>Carregando...</div>}
+          {entries !== null && entries.length === 0 && (
+            <div style={{ fontSize: 12, color: "var(--t3)", fontStyle: "italic" }}>
+              {erro ? "Não foi possível carregar o histórico." : "Nenhuma alteração registrada desde que o log foi ativado."}
+            </div>
+          )}
+          {grupos.map((g, i) => (
+            <div key={i} style={{ marginBottom: 12, padding: 12, background: "var(--bg3)", border: "1px solid var(--bdr)", borderRadius: "var(--r)" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "var(--t1)" }}>
+                  {g.by || g.email || "Alguém"}
+                  <span style={{ fontWeight: 400, color: "var(--t3)" }}> alterou {g.itens.length} {g.itens.length === 1 ? "campo" : "campos"}</span>
+                </div>
+                <div style={{ fontSize: 11, color: "var(--t3)" }}>{quando(g.at)}</div>
+              </div>
+              {g.itens.map((e, j) => (
+                <div key={j} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "6px 0", borderTop: j ? "1px solid var(--bdr)" : "none", fontSize: 12 }}>
+                  <div style={{ minWidth: 130, color: "var(--t2)", fontWeight: 600 }}>{e.label || e.field}</div>
+                  <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ color: "var(--t3)", textDecoration: "line-through", wordBreak: "break-word" }}>{vazio(e.old_value)}</span>
+                    <I n="chevron-down" s={11} c="var(--t3)" style={{ transform: "rotate(-90deg)" }} />
+                    <span style={{ color: "var(--t1)", fontWeight: 600, wordBreak: "break-word" }}>{vazio(e.new_value)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // CHECKLIST CENTER (view/edit submitted checklists)
 // ══════════════════════════════════════════════════════════════════════════════
 function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
@@ -4794,6 +4881,8 @@ function ChecklistCenter({checklists,setChecklists,onDuplicate,onRefetch}) {
                       </div>
                     )}
                   </>)}
+
+                  <ChecklistAuditLog checklistId={selected.id} />
 
                   {/* Submitted by */}
                   <div style={{paddingTop:12,borderTop:"1px solid var(--bdr)",fontSize:12,color:"var(--t3)"}}>

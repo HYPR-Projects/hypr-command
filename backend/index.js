@@ -66,6 +66,94 @@ async function getClientsFromSheet() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// AUDITORIA DE CHECKLISTS
+// ══════════════════════════════════════════════════════════════════════════════
+// Rótulos amigáveis — o log é lido por gente, não por dev
+const AUDIT_LABELS = {
+  cp_name:'CP', cp_email:'E-mail do CP', agency:'Agência', industry:'Indústria',
+  campaign_type:'Tipo de campanha', client:'Cliente', campaign_name:'Campanha',
+  start_date:'Data de início', end_date:'Data de fim', investment:'Investimento',
+  deal_dv360:'Deal DV360', formats:'Formatos', cpm:'CPM', cpcv:'CPCV', products:'Produtos',
+  o2o_impressoes:'O2O impressões', o2o_views:'O2O views', has_bonus:'Tem bonificação',
+  bonus_o2o_impressoes:'Bonificação O2O impressões', bonus_o2o_views:'Bonificação O2O views',
+  bonus_only:'Somente bonificação',
+  ooh_link:'Link OOH', audiences:'Audiências', pracas_type:'Tipo de praça',
+  pracas_detail:'Detalhe da praça', had_cs_meeting:'Teve reunião com CS',
+  marketplaces:'Marketplaces', features:'Features', feature_volumes:'Volumetria de features',
+  pecas_link:'Link das peças', redirect_urls:'URLs de redirect', pi_link:'Link do PI',
+  proposta_link:'Link da proposta', cs_name:'CS responsável', cs_email:'E-mail do CS',
+  observations:'Observações', marketing_action:'Ação de marketing',
+  studies_used:'Estudos', groundflow_types:'Tipos de Groundflow', extras:'Campos extras',
+  Groundflow_split_lift_imp:'Groundflow Split+Lift impressões',
+  Groundflow_split_lift_views:'Groundflow Split+Lift views',
+  Groundflow_signals_imp:'Groundflow Signals impressões',
+  Groundflow_signals_views:'Groundflow Signals views',
+  Groundflow_plan_imp:'Groundflow Plan impressões',
+  Groundflow_plan_views:'Groundflow Plan views',
+  Groundflow_patterns_imp:'Groundflow Patterns impressões',
+  Groundflow_patterns_views:'Groundflow Patterns views',
+}
+const auditLabel = f => AUDIT_LABELS[f] || f
+
+// Valor pra EXIBIR (mantém a ordem original)
+function auditShow(v) {
+  if (v === null || v === undefined || v === '') return null
+  if (Array.isArray(v)) {
+    const out = v.map(x => (x && typeof x === 'object' ? JSON.stringify(x) : String(x))).filter(x => x !== '')
+    return out.length ? out.join(', ') : null
+  }
+  if (typeof v === 'object') {
+    if (v.value !== undefined) return String(v.value)
+    const j = JSON.stringify(v)
+    return j === '{}' ? null : j
+  }
+  if (typeof v === 'boolean') return v ? 'Sim' : 'Não'
+  const s = String(v)
+  return s === '' ? null : s
+}
+// Valor pra COMPARAR (ordena listas — evita "mudança" fantasma por reordenação)
+function auditCmp(v) {
+  if (Array.isArray(v)) {
+    return v.map(x => (x && typeof x === 'object' ? JSON.stringify(x) : String(x))).sort().join('|')
+  }
+  const s = auditShow(v)
+  return s === null ? '' : s
+}
+const auditTrim = v => (v == null ? null : (String(v).length > 900 ? String(v).slice(0, 900) + '…' : String(v)))
+
+// Grava as diferenças. Nunca derruba a edição: se o log falhar, o UPDATE já aconteceu.
+async function logChecklistChanges(checklistId, before, touched, who) {
+  const diffs = []
+  for (const { col, val } of touched) {
+    if (!(col in before)) continue
+    const oldV = before[col]
+    if (auditCmp(oldV) === auditCmp(val)) continue
+    diffs.push({ field: col, old_value: auditTrim(auditShow(oldV)), new_value: auditTrim(auditShow(val)) })
+  }
+  if (!diffs.length) return 0
+
+  const now = new Date().toISOString()
+  const params = {}
+  const types = {}
+  const values = diffs.map((d, i) => {
+    params[`id${i}`] = crypto.randomUUID();      types[`id${i}`] = 'STRING'
+    params[`cid${i}`] = checklistId;             types[`cid${i}`] = 'STRING'
+    params[`at${i}`] = now;                      types[`at${i}`] = 'STRING'
+    params[`by${i}`] = who.name || null;         types[`by${i}`] = 'STRING'
+    params[`em${i}`] = who.email || null;        types[`em${i}`] = 'STRING'
+    params[`f${i}`] = d.field;                   types[`f${i}`] = 'STRING'
+    params[`ov${i}`] = d.old_value;              types[`ov${i}`] = 'STRING'
+    params[`nv${i}`] = d.new_value;              types[`nv${i}`] = 'STRING'
+    return `(@id${i}, @cid${i}, @at${i}, @by${i}, @em${i}, @f${i}, @ov${i}, @nv${i})`
+  })
+  const sql = `INSERT INTO \`${PROJECT}.${DATASET}.checklist_audit\`
+    (id, checklist_id, changed_at, changed_by, changed_by_email, field, old_value, new_value)
+    VALUES ${values.join(', ')}`
+  await bq.query({ query: sql, params, types, useLegacySql: false })
+  return diffs.length
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // CARTEIRA DE CS + FILA GREENFIELD
 // ══════════════════════════════════════════════════════════════════════════════
 // Carteira oficial (cliente → CS responsável). Tabela nativa, em outra região (US),
@@ -1329,11 +1417,13 @@ app.put('/checklists/:id', async (req, res) => {
     const sets = []
     const params = { id }
     const types = { id: 'STRING' }
+    const touched = []   // pra auditoria: o que este PUT tentou alterar
     const add = (col, val, type) => {
       const key = `p_${col}`
       sets.push(`${col} = @${key}`)
       params[key] = val
       types[key] = type
+      touched.push({ col, val })
     }
     // Normaliza datas: aceita string ISO, "YYYY-MM-DD", ou objeto {value: "YYYY-MM-DD"} (BQ DATE retornado pelo GET)
     const normDate = v => {
@@ -1370,11 +1460,11 @@ app.put('/checklists/:id', async (req, res) => {
     // parameter binding pra DATE no SDK Node às vezes não aplica o UPDATE
     if (f.start_date !== undefined) {
       const nd = normDate(f.start_date)
-      if (nd) sets.push(`start_date = DATE '${nd}'`)
+      if (nd) { sets.push(`start_date = DATE '${nd}'`); touched.push({ col: 'start_date', val: nd }) }
     }
     if (f.end_date !== undefined) {
       const nd = normDate(f.end_date)
-      if (nd) sets.push(`end_date = DATE '${nd}'`)
+      if (nd) { sets.push(`end_date = DATE '${nd}'`); touched.push({ col: 'end_date', val: nd }) }
     }
     if (f.investment !== undefined) add('investment', toNum(f.investment), 'FLOAT64')
     if (f.deal_dv360 !== undefined) add('deal_dv360', toBool(f.deal_dv360), 'BOOL')
@@ -1461,15 +1551,62 @@ app.put('/checklists/:id', async (req, res) => {
     delete types.id
     console.log('[PUT /checklists] SQL:', sql)
     console.log('[PUT /checklists] PARAMS:', JSON.stringify(params))
+
+    // Estado ANTES do update — só das colunas que este PUT toca
+    let before = {}
+    try {
+      const cols = [...new Set(touched.map(t => t.col))]
+      if (cols.length) {
+        const [rows] = await bq.query({
+          query: `SELECT ${cols.join(', ')} FROM \`${PROJECT}.${DATASET}.checklists\` WHERE id = '${safeId}' LIMIT 1`,
+          useLegacySql: false,
+        })
+        before = rows?.[0] || {}
+      }
+    } catch (e) {
+      console.error('[auditoria] falha ao ler estado anterior:', e.message)
+    }
+
     const [job] = await bq.createQueryJob({ query: sql, params, types, useLegacySql: false })
     await job.getQueryResults()
     const [meta] = await job.getMetadata()
     console.log('[PUT /checklists] numDmlAffectedRows:', meta.statistics?.query?.numDmlAffectedRows)
 
-    res.json({ ok: true })
+    // Log de auditoria — nunca derruba a edição, que já foi aplicada
+    let logged = 0
+    try {
+      logged = await logChecklistChanges(id, before, touched, {
+        name: f.editedBy || f.submitted_by || null,
+        email: f.editedByEmail || f.submitted_by_email || null,
+      })
+      if (logged) console.log(`[auditoria] ${logged} campo(s) registrados no checklist ${id}`)
+    } catch (e) {
+      console.error('[auditoria] falha ao gravar log:', e.message)
+    }
+
+    res.json({ ok: true, changes: logged })
   } catch (err) {
     console.error('PUT /checklists/:id error:', err)
     res.status(500).json({ error: err.message })
+  }
+})
+
+// ── Histórico de alterações de um checklist ─────────────────────────────────
+app.get('/checklists/:id/audit', async (req, res) => {
+  try {
+    const { id } = req.params
+    if (!/^[a-zA-Z0-9-]+$/.test(id)) return res.status(400).json({ error: 'id inválido' })
+    const rows = await query(
+      `SELECT id, checklist_id, changed_at, changed_by, changed_by_email, field, old_value, new_value
+         FROM \`${PROJECT}.${DATASET}.checklist_audit\`
+        WHERE checklist_id = '${id}'
+        ORDER BY changed_at DESC`
+    )
+    res.json({ ok: true, entries: rows.map(r => ({ ...r, label: auditLabel(r.field) })), count: rows.length })
+  } catch (err) {
+    // Tabela ainda não criada não deve quebrar a tela
+    console.error('GET /checklists/:id/audit:', err.message)
+    res.json({ ok: true, entries: [], count: 0, warning: err.message })
   }
 })
 
