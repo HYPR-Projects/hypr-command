@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, createContext, useContext, useCal
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
-const CS_LIST = ["Beatriz Severine","Isaac Agiman","João Armelin","João Buzolin","Mariana Lewinski","Thiago Nascimento","Greenfield","Solutions Architect"];
+const CS_LIST = ["Beatriz Severine","Isaac Lobo","João Armelin","João Buzolin","Mariana Lewinski","Thiago Nascimento","Greenfield","Solutions Architect"];
 const GREENFIELD_QUEUE = CS_LIST.filter(c => c !== "Greenfield" && c !== "Solutions Architect");
 const SA_NAME = "Solutions Architect";
 const SA_EMAIL = "solutions@hypr.mobi";
@@ -18,6 +18,48 @@ const GROUNDFLOW_TYPES = [
   {key:"patterns", label:"Patterns"},
 ];
 const FEATURES = ["P-DOOH","Brand Query","Carbon Neutral","Click to Calendar","Design Studio","Downloaded Apps","Tap To Scratch","Tap to Go","Topics","Seat","Tap To Carousel","Tap To Chat","Tap To Max","Weather","Purchase Context","Survey","Video Survey"];
+
+// ─── NÚMEROS ─────────────────────────────────────────────────────────────────
+// Aceita o que o vendedor digitar: 150.000 · 150,000 · 150000 · R$ 150 mil · 1.500,50
+// e devolve string numérica limpa ("150000"). Evita o clássico "150.000 virou 150".
+const normalizeNumber = (raw) => {
+  if (raw == null) return "";
+  let s = String(raw).trim().toLowerCase();
+  if (!s) return "";
+  // "150 mil" / "1,5 mi" — multiplicadores escritos por extenso
+  let mult = 1;
+  if (/\b(mil|k)\b/.test(s)) mult = 1e3;
+  else if (/\b(mi|mm|milh(ao|ão|oes|ões))\b/.test(s)) mult = 1e6;
+  s = s.replace(/[^\d.,]/g, "");
+  if (!s) return "";
+  const lastDot = s.lastIndexOf("."), lastComma = s.lastIndexOf(",");
+  let decimalSep = null;
+  if (lastDot >= 0 && lastComma >= 0) {
+    decimalSep = lastDot > lastComma ? "." : ",";
+  } else if (lastComma >= 0) {
+    const after = s.length - lastComma - 1;
+    decimalSep = (after >= 1 && after <= 2) ? "," : null;
+  } else if (lastDot >= 0) {
+    const after = s.length - lastDot - 1;
+    const dots = (s.match(/\./g) || []).length;
+    decimalSep = (dots === 1 && after >= 1 && after <= 2) ? "." : null;
+  }
+  let intPart, decPart = "";
+  if (decimalSep) {
+    const idx = s.lastIndexOf(decimalSep);
+    intPart = s.slice(0, idx).replace(/[.,]/g, "");
+    decPart = s.slice(idx + 1).replace(/[.,]/g, "");
+  } else {
+    intPart = s.replace(/[.,]/g, "");
+  }
+  if (!intPart && !decPart) return "";
+  const num = parseFloat(intPart + (decPart ? ("." + decPart) : "")) * mult;
+  return Number.isFinite(num) ? String(num) : "";
+};
+const fmtMoneyBR = (v) => {
+  const n = parseFloat(normalizeNumber(v));
+  return Number.isFinite(n) ? "R$ " + n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "";
+};
 const FEATURES_WITH_VOLUMETRIA = ["P-DOOH","Tap to Go","Tap To Scratch","Weather","Topics","Click to Calendar","Downloaded Apps"];
 const MARKETPLACES = ["VTEX","Amazon"];
 const MARKETING_ACTIONS = ["SXSW","Festa Aniversário HYPR","Festa São João","Festa Carnaval","Festa Halloween","Gift Card","Taste"];
@@ -2456,10 +2498,26 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
   useEffect(()=>{if(f.type&&SLA_DAYS[f.type]){const d=addBusinessDays(new Date(),SLA_DAYS[f.type]);set("slaDate",d.toISOString().split("T")[0]);set("customDeadline",null);}},[f.type]);
   useEffect(()=>{const h=e=>{if(e.key==="Escape")onClose()};window.addEventListener("keydown",h);return()=>window.removeEventListener("keydown",h);},[onClose]);
 
+  // Quem atende é decidido pelo servidor (carteira > histórico > fila).
+  // Aqui só consultamos pra mostrar ao CP antes de ele abrir a task.
+  const [assign,setAssign]=useState(null);
+  const [assignLoading,setAssignLoading]=useState(false);
+  const lookupCS=useCallback((clientName)=>{
+    if(!clientName){setAssign(null);return;}
+    setAssignLoading(true);
+    fetch(`${BACKEND_URL}/cs-for-client?client=${encodeURIComponent(clientName)}`)
+      .then(r=>r.json())
+      .then(d=>{
+        if(!d?.ok){setAssign(null);return;}
+        setAssign(d);
+        sF(p=>({...p,cs:d.cs||"",csEmail:d.csEmail||"",autoCS:!!d.cs,saMode:"none",originalCs:null,originalCsEmail:null}));
+      })
+      .catch(()=>setAssign(null))
+      .finally(()=>setAssignLoading(false));
+  },[]);
   const handleClientSelect=(entry)=>{
-    if(!entry){sF(p=>({...p,cs:"",csEmail:"",autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null}));return;}
-    if(entry.cs&&entry.csEmail){sF(p=>({...p,cs:entry.cs,csEmail:entry.csEmail,autoCS:true,saMode:"none",originalCs:null,originalCsEmail:null}));}
-    else{sF(p=>({...p,cs:"",csEmail:"",autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null}));}
+    if(!entry){setAssign(null);sF(p=>({...p,cs:"",csEmail:"",autoCS:false,saMode:"none",originalCs:null,originalCsEmail:null}));return;}
+    lookupCS(entry.client);
   };
   const handleCS=cs=>{
     if(cs==="Solutions Architect"){
@@ -2485,6 +2543,10 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
   };
   const sla=f.customDeadline||f.slaDate;
   const valid=f.type&&f.client&&f.cs&&f.briefing;
+  // Confirmação do investimento — o vendedor vê em reais o que o sistema entendeu
+  const budgetNum=parseFloat(normalizeNumber(f.budget));
+  const budgetPreview=fmtMoneyBR(f.budget);
+  const budgetLow=Number.isFinite(budgetNum)&&budgetNum>0&&budgetNum<1000;
 
   return (
     <div className="mo" onMouseDown={e=>{downRef.current=(e.target===e.currentTarget)}} onClick={e=>{if(e.target===e.currentTarget&&downRef.current)onClose();downRef.current=false;}}>
@@ -2498,27 +2560,48 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
           <div className="fg"><label className="fl">Cliente *</label><ClientSearch value={f.client} onChange={v=>set("client",v)} onSelect={handleClientSelect} /></div>
           <div className="fg"><label className="fl">Nome da Campanha</label><input className="fi" type="text" placeholder="Ex: Black Friday 2026, Lançamento Produto X..." value={f.campaign_name} onChange={e=>set("campaign_name",e.target.value)}/></div>
 
-          {/* Auto-filled CS info card */}
-          {f.autoCS&&f.cs&&(
-            <div style={{padding:"12px 16px",borderRadius:"var(--r)",background:"var(--green-bg)",border:"1px solid var(--green)",display:"flex",alignItems:"center",gap:10}}>
-              <I n="check-circle" s={16} c="var(--green)"/>
-              <div style={{flex:1}}>
-                <div style={{fontSize:12,fontWeight:700,color:"var(--green)"}}>CS identificado automaticamente</div>
-                <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,marginTop:2}}>{f.cs} <span style={{fontWeight:400,color:"var(--t3)"}}>({f.csEmail})</span></div>
-              </div>
-              <button className="btn bg" style={{fontSize:11,padding:"4px 8px"}} onClick={()=>sF(p=>({...p,autoCS:false}))}>Alterar</button>
+          {/* Atribuição do CS — decidida pelo servidor, exibida aqui */}
+          {assignLoading&&(
+            <div style={{padding:"12px 16px",borderRadius:"var(--r)",background:"var(--bg3)",border:"1px solid var(--bdr)",fontSize:12,color:"var(--t3)"}}>
+              Verificando quem atende este cliente...
             </div>
           )}
-
-          {/* Manual CS selection — shown when no auto-fill or user clicked "Alterar" */}
-          {!f.autoCS&&(
+          {!assignLoading&&assign&&assign.cs&&(()=>{
+            const src=assign.source;
+            const isLock=src==="historico";
+            const isQueue=src==="fila";
+            const cor=isLock?"var(--yellow-s)":isQueue?"var(--teal)":"var(--green)";
+            const fundo=isLock?"var(--yellow-s-bg)":isQueue?"var(--teal-dim)":"var(--green-bg)";
+            const titulo=isLock?"Cliente já atendido — travado neste CS"
+              :isQueue?"Cliente greenfield — próximo da fila"
+              :"CS encarteirado";
+            return (
+              <div style={{padding:"12px 16px",borderRadius:"var(--r)",background:fundo,border:`1px solid ${cor}`,display:"flex",alignItems:"flex-start",gap:10}}>
+                <I n={isLock?"shield":isQueue?"users":"check-circle"} s={16} c={cor}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:12,fontWeight:700,color:cor}}>{titulo}</div>
+                  <div style={{fontSize:13,color:"var(--t1)",fontWeight:600,marginTop:2}}>
+                    {assign.cs}{assign.csEmail&&<span style={{fontWeight:400,color:"var(--t3)"}}> ({assign.csEmail})</span>}
+                  </div>
+                  {isLock&&(
+                    <div style={{fontSize:11,color:"var(--t2)",marginTop:4,lineHeight:1.45}}>
+                      Este cliente já teve task com {assign.cs}{assign.since?` desde ${fmtDate(assign.since)}`:""}. Para não dividir o mesmo cliente entre dois CS, a task vai para ele.
+                    </div>
+                  )}
+                  {isQueue&&(
+                    <div style={{fontSize:11,color:"var(--t2)",marginTop:4,lineHeight:1.45}}>
+                      Cliente sem CS na carteira. A fila é compartilhada por todos os CPs — o próximo da vez recebe.
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+          {!assignLoading&&f.client&&!assign?.cs&&(
             <div className="fg">
               <label className="fl">CS Responsável *</label>
-              {f.client&&!f.autoCS&&CLIENT_DB.find(c=>c.client===f.client)&&!CLIENT_DB.find(c=>c.client===f.client)?.cs&&(
-                <div className="disc" style={{marginBottom:8}}><I n="alert-triangle" s={14} c="var(--yellow-s)"/><span>Cliente ainda sem CS encarteirado. Selecione manualmente.</span></div>
-              )}
-              <select className="fs" value={f.cs} onChange={e=>handleCS(e.target.value)}><option value="">Selecione...</option>{CS_LIST.map(cs=><option key={cs}>{cs}</option>)}</select>
-              {f.cs&&<div style={{fontSize:11,color:"var(--teal)",marginTop:4,display:"flex",alignItems:"center",gap:4}}><I n="user" s={10}/>Atribuído: <strong>{f.cs}</strong></div>}
+              <div className="disc" style={{marginBottom:8}}><I n="alert-triangle" s={14} c="var(--yellow-s)"/><span>Não consegui definir o CS automaticamente. Selecione manualmente.</span></div>
+              <select className="fs" value={f.cs} onChange={e=>handleCS(e.target.value)}><option value="">Selecione...</option>{CS_LIST.filter(c=>c!=="Greenfield").map(cs=><option key={cs}>{cs}</option>)}</select>
             </div>
           )}
 
@@ -2547,7 +2630,21 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
 
           <div className="fg"><label className="fl">Produto Core</label><div style={{display:"flex",flexWrap:"wrap",gap:8}}>{CORE_PRODUCTS.map(p=><span key={p} className={`chip${f.products.includes(p)?" sel":""}`} onClick={()=>tog("products",p)}>{p}</span>)}</div></div>
           <div className="fg"><label className="fl">Features</label><div style={{display:"flex",flexWrap:"wrap",gap:6}}>{FEATURES.map(x=><span key={x} className={`chip${f.features.includes(x)?" sel":""}`} style={{fontSize:11}} onClick={()=>tog("features",x)}>{x}</span>)}</div></div>
-          <div className="fg"><label className="fl">Investimento previsto</label><input className="fi" type="number" placeholder="R$ 150.000" value={f.budget} onChange={e=>set("budget",e.target.value)}/></div>
+          <div className="fg">
+            <label className="fl">Investimento previsto</label>
+            <input className="fi" type="text" inputMode="decimal" placeholder="Ex: 150.000 · 150000 · 150 mil"
+              value={f.budget}
+              onChange={e=>set("budget",e.target.value)}
+              onBlur={()=>set("budget",normalizeNumber(f.budget))}/>
+            {budgetPreview
+              ? <div style={{fontSize:12,marginTop:6,display:"flex",alignItems:"center",gap:6,color:budgetLow?"var(--yellow-s)":"var(--green)",fontWeight:600}}>
+                  <I n={budgetLow?"alert-triangle":"check-circle"} s={13}/>
+                  {budgetPreview}{budgetLow&&<span style={{fontWeight:400,color:"var(--t3)"}}>— confira, valor parece baixo</span>}
+                </div>
+              : f.budget
+                ? <div style={{fontSize:12,marginTop:6,color:"var(--t3)"}}>Digite apenas números (ex: 150000)</div>
+                : null}
+          </div>
           <div className="fg"><label className="fl">Briefing *</label><textarea className="ft" rows={4} placeholder="Descreva objetivos, contexto e necessidades..." value={f.briefing} onChange={e=>set("briefing",e.target.value)}/></div>
           {/* Logged-in user info */}
           <div style={{padding:"10px 14px",borderRadius:"var(--r)",background:"var(--bg3)",border:"1px solid var(--bdr)",display:"flex",alignItems:"center",gap:10}}>
@@ -2563,6 +2660,7 @@ function NewTaskModal({onClose,onSubmit,gfIdx}) {
             <button className="btn bp" disabled={!valid} onClick={()=>{
               onSubmit({
                 ...f,
+                budget: normalizeNumber(f.budget),
                 requesterEmail: user?.email,
                 requestedBy: user?.name,
                 deadline: sla,

@@ -66,6 +66,155 @@ async function getClientsFromSheet() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// CARTEIRA DE CS + FILA GREENFIELD
+// ══════════════════════════════════════════════════════════════════════════════
+// Carteira oficial (cliente → CS responsável). Tabela nativa, em outra região (US),
+// por isso a query passa location explícito — cross-region JOIN não é possível.
+const CARTEIRA_TABLE = process.env.CARTEIRA_TABLE || 'site-hypr.hypr_navi_us.carteira_cs'
+
+// Marcadores de "sem CS" usados na carteira/planilha
+const NO_CS_MARKERS = new Set(['', 'green field', 'greenfield', '#n/a', 'n/a', '-', 'null'])
+// Nomes que divergem entre carteira e team_members (a carteira pode ser regenerada,
+// então corrigimos aqui em vez de editar a origem)
+const CS_ALIASES = { 'isaac agiman': 'Isaac Lobo' }
+
+// Normaliza nome de cliente pra comparação: sem acento, sem caixa, sem pontuação
+// e sem sufixo societário. "Athena Saúde" e "athena saude" viram a mesma chave.
+function normClient(v) {
+  return String(v == null ? '' : v)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+(s\s?a|ltda|eireli|inc|corp|me)$/g, '')
+    .trim()
+}
+function normName(v) {
+  return String(v == null ? '' : v)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/\s+/g, ' ').trim()
+}
+// Aplica alias e devolve o nome canônico do CS (ou null se for greenfield/vazio)
+function canonicalCS(raw) {
+  const n = normName(raw)
+  if (NO_CS_MARKERS.has(n)) return null
+  return CS_ALIASES[n] || String(raw).trim()
+}
+
+let carteiraCache = { data: null, ts: 0 }
+async function getCarteira() {
+  const now = Date.now()
+  if (carteiraCache.data && (now - carteiraCache.ts) < CACHE_TTL) return carteiraCache.data
+  const [rows] = await bq.query({
+    query: `SELECT cliente, cs_responsavel FROM \`${CARTEIRA_TABLE}\``,
+    useLegacySql: false,
+    location: 'US',
+  })
+  const map = new Map()
+  for (const r of rows) {
+    if (!r.cliente) continue
+    map.set(normClient(r.cliente), { cliente: r.cliente, cs: canonicalCS(r.cs_responsavel) })
+  }
+  carteiraCache = { data: map, ts: now }
+  return map
+}
+
+let teamCache = { data: null, ts: 0 }
+async function getTeam() {
+  const now = Date.now()
+  if (teamCache.data && (now - teamCache.ts) < CACHE_TTL) return teamCache.data
+  const rows = await query(
+    `SELECT email, name, role, active, greenfield_order
+       FROM \`${PROJECT}.${DATASET}.team_members\`
+      WHERE active IS NOT FALSE`
+  )
+  teamCache = { data: rows, ts: now }
+  return rows
+}
+// nome do CS → e-mail real (fim da adivinhação nome.sobrenome@)
+async function csEmailMap() {
+  const team = await getTeam()
+  const m = new Map()
+  for (const t of team) {
+    if (t.name && t.email) m.set(normName(t.name), t.email)
+  }
+  // aliases apontam pro mesmo e-mail do nome canônico
+  for (const [alias, canon] of Object.entries(CS_ALIASES)) {
+    const e = m.get(normName(canon))
+    if (e) m.set(alias, e)
+  }
+  return m
+}
+// Fila greenfield: CS ativos com greenfield_order definido, na ordem
+async function greenfieldQueue() {
+  const team = await getTeam()
+  return team
+    .filter(t => t.role === 'cs' && t.greenfield_order !== null && t.greenfield_order !== undefined)
+    .sort((a, b) => Number(a.greenfield_order) - Number(b.greenfield_order))
+    .map(t => ({ name: t.name, email: t.email, order: Number(t.greenfield_order) }))
+}
+// Próximo da fila = o seguinte ao CS da última task greenfield criada.
+// Derivado dos dados, então é compartilhado por todos os CPs e sobrevive a refresh.
+async function nextInQueue() {
+  const q = await greenfieldQueue()
+  if (!q.length) return null
+  const rows = await query(
+    `SELECT cs FROM \`${PROJECT}.${DATASET}.tasks\`
+      WHERE greenfield = TRUE AND cs IS NOT NULL
+      ORDER BY created_at DESC, updated_at DESC LIMIT 1`
+  )
+  const last = rows[0]?.cs
+  if (!last) return q[0]
+  const i = q.findIndex(x => normName(x.name) === normName(canonicalCS(last) || last))
+  return i < 0 ? q[0] : q[(i + 1) % q.length]
+}
+// Tasks anteriores do mesmo cliente → trava no CS que já atendeu
+async function priorCsForClient(client) {
+  const key = normClient(client)
+  if (!key) return null
+  const rows = await query(
+    `SELECT client, cs, cs_email, created_at FROM \`${PROJECT}.${DATASET}.tasks\`
+      WHERE cs IS NOT NULL AND client IS NOT NULL
+      ORDER BY created_at ASC`
+  )
+  const hit = rows.find(r => normClient(r.client || '') === key)
+  return hit ? { cs: canonicalCS(hit.cs) || hit.cs, csEmail: hit.cs_email || null, since: hit.created_at } : null
+}
+
+// Decide o CS de uma nova task. Prioridade:
+//   1. Solutions Architect escolhido de propósito → respeita
+//   2. Carteira oficial (encarteirado)
+//   3. Histórico: cliente já atendido por alguém → trava nesse CS
+//   4. Fila greenfield
+async function resolveAssignment(t) {
+  const emails = await csEmailMap()
+  const emailOf = (name) => emails.get(normName(name)) || null
+
+  if (t.cs && normName(t.cs) === normName('Solutions Architect')) {
+    return { cs: t.cs, csEmail: t.csEmail || SA_EMAIL_FALLBACK, greenfield: false, source: 'sa' }
+  }
+
+  const carteira = await getCarteira()
+  const hit = carteira.get(normClient(t.client))
+  if (hit && hit.cs) {
+    return { cs: hit.cs, csEmail: emailOf(hit.cs), greenfield: false, source: 'carteira' }
+  }
+
+  const prior = await priorCsForClient(t.client)
+  if (prior && prior.cs) {
+    return { cs: prior.cs, csEmail: prior.csEmail || emailOf(prior.cs), greenfield: true, source: 'historico', since: prior.since }
+  }
+
+  const next = await nextInQueue()
+  if (next) {
+    return { cs: next.name, csEmail: next.email, greenfield: true, source: 'fila' }
+  }
+  // Sem fila configurada: mantém o que o CP escolheu, só resolvendo o e-mail
+  return { cs: t.cs || null, csEmail: t.csEmail || emailOf(t.cs), greenfield: false, source: 'manual' }
+}
+const SA_EMAIL_FALLBACK = process.env.SA_EMAIL || 'solutions@hypr.mobi'
+
+// ══════════════════════════════════════════════════════════════════════════════
 // EMAIL — Nodemailer
 // ══════════════════════════════════════════════════════════════════════════════
 const mailer = nodemailer.createTransport({
@@ -448,10 +597,67 @@ app.post('/setup', async (req, res) => {
 // ── Clients from Google Sheet ───────────────────────────────────────────────
 app.get('/clients', async (req, res) => {
   try {
+    // A planilha segue dando a lista e a agência; a carteira do BQ manda no CS.
+    // Se o BQ falhar, a planilha continua servindo sozinha (reserva).
     const data = await getClientsFromSheet()
-    res.json({ ok: true, clients: data, count: data.length })
+    let carteira = null
+    try {
+      carteira = await getCarteira()
+    } catch (e) {
+      console.error('Carteira BQ indisponível, usando só a planilha:', e.message)
+    }
+    if (!carteira) {
+      return res.json({ ok: true, clients: data, count: data.length, source: 'sheet' })
+    }
+    const emails = await csEmailMap()
+    const seen = new Set()
+    const merged = data.map(c => {
+      const key = normClient(c.client)
+      seen.add(key)
+      const hit = carteira.get(key)
+      if (!hit) return c
+      return {
+        ...c,
+        cs: hit.cs || null,
+        csEmail: hit.cs ? (emails.get(normName(hit.cs)) || c.csEmail || null) : null,
+      }
+    })
+    // Clientes que existem só na carteira entram na lista também
+    for (const [key, v] of carteira) {
+      if (seen.has(key)) continue
+      merged.push({
+        agency: '', client: v.cliente, cp: '', cpEmail: '',
+        cs: v.cs || null,
+        csEmail: v.cs ? (emails.get(normName(v.cs)) || null) : null,
+      })
+    }
+    res.json({ ok: true, clients: merged, count: merged.length, source: 'sheet+carteira' })
   } catch (err) {
     console.error(err)
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
+// ── Fila greenfield + consulta de atribuição ────────────────────────────────
+app.get('/cs-queue', async (req, res) => {
+  try {
+    const [queue, next] = await Promise.all([greenfieldQueue(), nextInQueue()])
+    res.json({ ok: true, queue, next })
+  } catch (err) {
+    console.error('cs-queue:', err)
+    res.status(500).json({ ok: false, error: err.message })
+  }
+})
+
+// Diz ao frontend quem vai atender determinado cliente e por quê — antes de criar.
+app.get('/cs-for-client', async (req, res) => {
+  try {
+    const client = req.query.client || ''
+    if (!client) return res.status(400).json({ ok: false, error: 'client obrigatório' })
+    const r = await resolveAssignment({ client })
+    res.json({ ok: true, ...r })
+  } catch (err) {
+    console.error('cs-for-client:', err)
     res.status(500).json({ ok: false, error: err.message })
   }
 })
@@ -522,12 +728,26 @@ app.post('/tasks', async (req, res) => {
       const s = String(v).slice(0, 10)
       return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null
     }
+    // Quem atende é decidido AQUI (não no navegador): carteira > histórico > fila.
+    // Assim dois CPs simultâneos não conseguem furar a trava nem duplicar a fila.
+    let assign
+    try {
+      assign = await resolveAssignment(t)
+      console.log(`[atribuição] ${t.client} → ${assign.cs} (${assign.source})`)
+    } catch (e) {
+      console.error('resolveAssignment falhou, mantendo escolha do CP:', e.message)
+      assign = { cs: t.cs || null, csEmail: t.csEmail || null, greenfield: false, source: 'fallback' }
+    }
+
     const tParams = {
       id, type: t.type || null, client: t.client || null, agency: t.agency || null,
       campaign_name: t.campaign_name || t.campaignName || null,
       products: t.products || [], features: t.features || [],
       budget: t.budget ? parseFloat(t.budget) : null,
-      briefing: t.briefing || null, cs: t.cs || null, cs_email: t.csEmail || null,
+      briefing: t.briefing || null,
+      cs: assign.cs || t.cs || null,
+      cs_email: assign.csEmail || t.csEmail || null,
+      greenfield: !!assign.greenfield,
       status: 'open', doc_link: null,
       requested_by: t.requestedBy || null,
       requester_email: t.requesterEmail || null,
@@ -538,6 +758,7 @@ app.post('/tasks', async (req, res) => {
       campaign_name: 'STRING',
       products: ['STRING'], features: ['STRING'],
       budget: 'FLOAT64', briefing: 'STRING', cs: 'STRING', cs_email: 'STRING',
+      greenfield: 'BOOL',
       status: 'STRING', doc_link: 'STRING',
       requested_by: 'STRING', requester_email: 'STRING',
       sla: 'STRING', created_at: 'STRING', updated_at: 'STRING',
@@ -548,20 +769,22 @@ app.post('/tasks', async (req, res) => {
     const tSql = `
       INSERT INTO \`${PROJECT}.${DATASET}.tasks\` (
         id, type, client, agency, campaign_name, products, features, budget, briefing, cs, cs_email,
-        status, deadline, doc_link, requested_by, requester_email, sla, created_at, updated_at
+        greenfield, status, deadline, doc_link, requested_by, requester_email, sla, created_at, updated_at
       ) VALUES (
         @id, @type, @client, @agency, @campaign_name, @products, @features, @budget, @briefing, @cs, @cs_email,
-        @status, ${deadlineLiteral}, @doc_link, @requested_by, @requester_email, @sla, @created_at, @updated_at
+        @greenfield, @status, ${deadlineLiteral}, @doc_link, @requested_by, @requester_email, @sla, @created_at, @updated_at
       )
     `
     await bq.query({ query: tSql, params: tParams, types: tTypes, useLegacySql: false })
 
-    const taskData = { ...t, id, sla: slaLabel }
+    // taskData reflete a atribuição final — é o que vai nos e-mails e na resposta
+    const taskData = { ...t, id, sla: slaLabel, cs: tParams.cs, csEmail: tParams.cs_email, greenfield: tParams.greenfield, assignedBy: assign.source }
 
-    // Email → CS (responsável)
-    if (t.csEmail) {
+    // Email → CS (responsável). Agora o e-mail é resolvido no servidor, então
+    // CS escolhido manualmente / pela fila também é notificado.
+    if (tParams.cs_email) {
       await sendEmail(
-        t.csEmail,
+        tParams.cs_email,
         `[HYPR Command] 📋 Nova Task — ${t.type} | ${t.client}`,
         emailTaskCreatedCS(taskData)
       )
@@ -576,7 +799,8 @@ app.post('/tasks', async (req, res) => {
       )
     }
 
-    res.json({ ok: true, id })
+    // Devolve a atribuição final pro frontend poder avisar o CP se mudou
+    res.json({ ok: true, id, cs: tParams.cs, csEmail: tParams.cs_email, greenfield: tParams.greenfield, assignedBy: assign.source })
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: err.message })
