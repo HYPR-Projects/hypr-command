@@ -958,6 +958,7 @@ function Dashboard({checklists, tasks, onNav}) {
   const ticketByCampaign = active.length ? activeInvestment / active.length : 0;
   const ticketByClient   = uniqueActiveClients ? activeInvestment / uniqueActiveClients : 0;
 
+  const [openYears,setOpenYears] = useState(null);   // null = abre só o ano corrente
   // Agrupamento mensal por start_date — usado no gráfico e na seção mensal abaixo
   const monthlyGroups = useMemo(() => {
     const map = {}; // key: YYYY-MM
@@ -1085,52 +1086,105 @@ function Dashboard({checklists, tasks, onNav}) {
         ))}
       </div>
 
-      {/* Resumo Mensal — agrupado por data de início da campanha */}
-      {monthlyGroups.length>0 && (
-        <div className="card" style={{padding:"18px 20px",marginBottom:24}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
-            <div>
-              <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",fontFamily:"var(--fd)"}}>Resumo Mensal</div>
-              <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Agrupado pela data de início da campanha</div>
+      {/* Resumo Mensal — tabela compacta, agrupada por ano */}
+      {monthlyGroups.length>0 && (()=>{
+        // Agrupa os meses por ano e soma o subtotal de cada um
+        const porAno = [];
+        const idx = {};
+        monthlyGroups.forEach(g=>{
+          if(idx[g.year]===undefined){ idx[g.year]=porAno.length; porAno.push({year:g.year,meses:[],campaigns:0,investment:0,clients:new Set()}); }
+          const a = porAno[idx[g.year]];
+          a.meses.push(g);
+          a.campaigns += g.campaigns;
+          a.investment += g.investment;
+          g.checklists.forEach(c=>{ if(c.client) a.clients.add(String(c.client).trim()); });
+        });
+        const maxInv = Math.max(1,...monthlyGroups.map(g=>g.investment));
+        const anoAtual = new Date().getFullYear();
+        const aberto = (y)=> openYears===null ? y===anoAtual : openYears.includes(y);
+        const alternar = (y)=> setOpenYears(prev=>{
+          const base = prev===null ? [anoAtual] : prev;
+          return base.includes(y) ? base.filter(x=>x!==y) : [...base,y];
+        });
+        const th = {textAlign:"right",padding:"6px 4px",fontSize:10,fontWeight:700,color:"var(--t3)",textTransform:"uppercase",letterSpacing:".04em",borderBottom:"1px solid var(--bdr)"};
+        const td = {textAlign:"right",padding:"8px 4px",borderBottom:"1px solid var(--bdr)",fontSize:12,color:"var(--t2)"};
+
+        return (
+          <div className="card" style={{padding:"18px 20px",marginBottom:24}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14,flexWrap:"wrap",gap:8}}>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:"var(--t1)",fontFamily:"var(--fd)"}}>Resumo Mensal</div>
+                <div style={{fontSize:11,color:"var(--t3)",marginTop:2}}>Agrupado pela data de início da campanha</div>
+              </div>
+              <span style={{fontSize:11,color:"var(--t3)"}}>
+                {porAno.length>1 && `${porAno.length} anos · `}{monthlyGroups.length} {monthlyGroups.length===1?"mês":"meses"}
+              </span>
             </div>
-            <span style={{fontSize:11,color:"var(--t3)"}}>{monthlyGroups.length} {monthlyGroups.length===1?"mês":"meses"}</span>
-          </div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:12}}>
-            {monthlyGroups.map(g => (
-              <div key={g.key} style={{padding:14,background:"var(--bg3)",borderRadius:"var(--r)",border:"1px solid var(--bdr)"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                  <span style={{fontSize:13,fontWeight:700,color:"var(--t1)",fontFamily:"var(--fd)",textTransform:"capitalize"}}>{g.label}</span>
-                  {g.activeCount>0 && (
-                    <span className="badge b-grn" style={{fontSize:10}}>{g.activeCount} ativa{g.activeCount>1?"s":""}</span>
+
+            {porAno.map(a=>{
+              const on = aberto(a.year);
+              return (
+                <div key={a.year} style={{marginBottom:8}}>
+                  <button onClick={()=>alternar(a.year)}
+                    style={{width:"100%",display:"flex",alignItems:"center",gap:9,padding:"8px 4px",background:"transparent",border:"none",borderBottom:`1px solid ${on?"var(--bdr)":"transparent"}`,cursor:"pointer",fontFamily:"inherit",textAlign:"left"}}>
+                    <span style={{display:"inline-flex",transform:on?"none":"rotate(-90deg)",transition:"transform .15s",color:"var(--t3)"}}>
+                      <I n="chevron-down" s={15}/>
+                    </span>
+                    <span style={{fontSize:14,fontWeight:700,color:on?"var(--t1)":"var(--t2)",fontFamily:"var(--fd)"}}>{a.year}</span>
+                    <span style={{fontSize:10,color:"var(--t3)",background:"var(--bg3)",padding:"1px 8px",borderRadius:99}}>
+                      {a.meses.length} {a.meses.length===1?"mês":"meses"}
+                    </span>
+                    <span style={{flex:1}}/>
+                    <span style={{fontSize:11,color:"var(--t3)"}}>{a.campaigns} camp. · {a.clients.size} cli.</span>
+                    <span style={{fontSize:13,fontWeight:700,color:"var(--teal)",fontFamily:"var(--fd)",minWidth:80,textAlign:"right"}}>
+                      R$ {fmtCompact(a.investment)}
+                    </span>
+                  </button>
+
+                  {on && (
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed",minWidth:520}}>
+                        <thead>
+                          <tr>
+                            <th style={{...th,textAlign:"left",width:"22%"}}>Mês</th>
+                            <th style={{...th,width:"10%"}}>Camp.</th>
+                            <th style={{...th,width:"10%"}}>Clien.</th>
+                            <th style={{...th,width:"15%"}}>Tkt/anun.</th>
+                            <th style={{...th,width:"15%"}}>Tkt/camp.</th>
+                            <th style={{...th,width:"28%"}}>Investimento</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {a.meses.map(g=>(
+                            <tr key={g.key}>
+                              <td style={{...td,textAlign:"left",color:"var(--t1)",fontWeight:600,whiteSpace:"nowrap"}}>
+                                {MONTHS_PT[g.month]}
+                                {g.activeCount>0 && <span style={{fontSize:10,color:"var(--green)",fontWeight:600,marginLeft:6}}>{g.activeCount} ativa{g.activeCount>1?"s":""}</span>}
+                              </td>
+                              <td style={{...td,color:"var(--t1)",fontWeight:700}}>{g.campaigns}</td>
+                              <td style={td}>{g.uniqueClients}</td>
+                              <td style={td}>R$ {fmtCompact(g.ticketByClient)}</td>
+                              <td style={td}>R$ {fmtCompact(g.ticketByCampaign)}</td>
+                              <td style={{...td,padding:"8px 4px"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:8,justifyContent:"flex-end"}}>
+                                  <div style={{flex:1,maxWidth:90,height:5,background:"var(--bg3)",borderRadius:3,overflow:"hidden"}}>
+                                    <div style={{width:`${Math.round((g.investment/maxInv)*100)}%`,height:"100%",background:"var(--teal)",borderRadius:3}}/>
+                                  </div>
+                                  <span style={{fontWeight:700,color:"var(--t1)",minWidth:62,textAlign:"right",fontFamily:"var(--fd)"}}>R$ {fmtCompact(g.investment)}</span>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
-                  <div>
-                    <div style={{fontSize:10,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,letterSpacing:".04em"}}>Campanhas</div>
-                    <div style={{fontSize:18,fontWeight:800,color:"var(--t1)",fontFamily:"var(--fd)"}}>{g.campaigns}</div>
-                  </div>
-                  <div>
-                    <div style={{fontSize:10,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,letterSpacing:".04em"}}>Clientes</div>
-                    <div style={{fontSize:18,fontWeight:800,color:"var(--t1)",fontFamily:"var(--fd)"}}>{g.uniqueClients}</div>
-                  </div>
-                  <div>
-                    <div style={{fontSize:10,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,letterSpacing:".04em"}}>Tkt / Anunciante</div>
-                    <div style={{fontSize:13,fontWeight:700,color:"var(--teal)"}}>{fmtCurrency(g.ticketByClient)}</div>
-                  </div>
-                  <div>
-                    <div style={{fontSize:10,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,letterSpacing:".04em"}}>Tkt / Campanha</div>
-                    <div style={{fontSize:13,fontWeight:700,color:"var(--teal)"}}>{fmtCurrency(g.ticketByCampaign)}</div>
-                  </div>
-                </div>
-                <div style={{paddingTop:10,borderTop:"1px solid var(--bdr)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{fontSize:10,color:"var(--t3)",textTransform:"uppercase",fontWeight:700,letterSpacing:".04em"}}>Investimento</span>
-                  <span style={{fontSize:14,fontWeight:800,color:"var(--teal)",fontFamily:"var(--fd)"}}>{fmtCurrency(g.investment)}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Charts row */}
       <div className="g2" style={{marginBottom:24}}>
