@@ -8,7 +8,7 @@ const SA_NAME = "Solutions Architect";
 const SA_EMAIL = "solutions@hypr.mobi";
 const TASK_TYPES = ["Audience Discovery","Estudo de Mercado","Case de Sucesso","Pós-Venda","Dados Groundflow","Mapa Personalizado"];
 const SLA_DAYS = { "Audience Discovery": 3, "Estudo de Mercado": 5, "Case de Sucesso": 7, "Pós-Venda": 2, "Dados Groundflow": 3, "Mapa Personalizado": 3 };
-const CORE_PRODUCTS = ["O2O","OOH","RMN Digital","RMN Físico"];
+const CORE_PRODUCTS = ["O2O","OOH","RMN Digital","Groundflow"];
 const CHECKLIST_CORE_PRODUCTS = ["O2O","OOH","Groundflow","RMND"];
 // Tipos de Groundflow. Chave interna (pra coluna BQ) + label exibido.
 const GROUNDFLOW_TYPES = [
@@ -186,7 +186,7 @@ const MOCK_CAMPAIGNS = [
 const INITIAL_TASKS = [
   { id:1, type:"Audience Discovery", client:"Ambev", products:["O2O","RMN Digital"], features:["Brand Query"], budget:150000, briefing:"Campanha de verão para Brahma, precisamos de discovery de audiência focado em consumidores de cerveja premium 25-45 anos.", cs:"João Armelin", status:"open", createdAt:"2026-04-01", deadline:"2026-04-04", docLink:"https://docs.google.com/presentation/d/exemplo1", requestedBy:"Vendedor 1" },
   { id:2, type:"Estudo de Mercado", client:"Samsung", products:["RMN Digital"], features:["Tap To Chat"], budget:200000, briefing:"Lançamento do Galaxy S26, precisamos de estudo de mercado sobre categoria de smartphones premium no Brasil.", cs:"Beatriz Severine", status:"completed", createdAt:"2026-03-20", deadline:"2026-03-25", docLink:"https://docs.google.com/presentation/d/exemplo2", requestedBy:"Vendedor 2" },
-  { id:3, type:"Dados RMNF", client:"Nestlé", products:["RMN Físico"], features:[], budget:80000, briefing:"Precisamos dos dados de RMNF para proposta de KitKat no segundo semestre.", cs:"Mariana Lewinski", status:"open", createdAt:"2026-04-13", deadline:"2026-04-16", docLink:null, requestedBy:"Vendedor 3" },
+  { id:3, type:"Dados Groundflow", client:"Nestlé", products:["Groundflow"], features:[], budget:80000, briefing:"Precisamos dos dados de RMNF para proposta de KitKat no segundo semestre.", cs:"Mariana Lewinski", status:"open", createdAt:"2026-04-13", deadline:"2026-04-16", docLink:null, requestedBy:"Vendedor 3" },
   { id:4, type:"Case de Sucesso", client:"Electrolux", products:["O2O"], features:["Click to Calendar"], budget:120000, briefing:"Case de campanha anterior de Dia dos Namorados para apresentar em reunião com prospect similar.", cs:"Isaac Agiman", status:"open", createdAt:"2026-04-08", deadline:"2026-04-17", docLink:null, requestedBy:"Vendedor 1" },
   { id:5, type:"Pós-Venda", client:"Coca-Cola", products:["O2O","OOH"], features:["P-DOOH"], budget:350000, briefing:"Relatório pós-campanha de Carnaval 2026, incluindo lift study e métricas de footfall attribution.", cs:"Thiago Nascimento", status:"open", createdAt:"2026-04-10", deadline:"2026-04-14", docLink:null, requestedBy:"Vendedor 2" },
 ];
